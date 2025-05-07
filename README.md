@@ -31,6 +31,18 @@ The system is composed of three main components:
 *   WebSocket communication for live updates to the frontend.
 *   Display of tracker movement trails on the map (toggleable).
 
+## Quick Demonstration
+
+Here's a glimpse of the system in action:
+
+**1. Configuring Beacons with the Miniprogram Tool:**
+This shows a brief example of how the Weixin Miniprogram tool is used to set up beacon locations and parameters.
+![Demonstration of Miniprogram beacon configuration](assets/miniprogram_example.gif)
+
+**2. Live Tracking on the Web Interface:**
+This demonstrates the web application displaying live tracker movements on the configured map.
+![Demonstration of live tracking on the web interface](assets/web_example.gif)
+
 ## Architecture & Data Flow
 
 ```
@@ -241,27 +253,4 @@ The backend relies on two main JSON configuration files located in the `server/`
 *   **Configuration Management:** `server/config_manager.py` loads and saves the two primary JSON configuration files.
 *   **State Management & WebSockets:** `server/main.py` (class `ConnectionManager` and `tracker_states` dictionary) manages tracker states and broadcasts updates via WebSockets.
 *   **Frontend UI Components:**
-    *   `web/src/App.vue`: Main application shell, WebSocket handling, MQTT controls, overall layout, and state management for UI sections.
-    *   `web/src/components/MapView.vue`: Renders the map, beacons, trackers, and trails using HTML Canvas.
-    *   `web/src/components/ServerSettings.vue`: UI for managing `server_runtime_config.json`.
-
-## Troubleshooting
-
-*   **WebSocket Disconnects / MQTT Status Not Updating:** This is often caused by running the Uvicorn backend server with the `--reload` flag. Run it without `--reload` for stability.
-*   **`NameError` or `AttributeError` in Backend:** Ensure all Python modules and their helper functions are correctly defined and imported. Check that constants (like `PASSWORD_PLACEHOLDER` in `config_manager.py`) are accessible.
-*   **Frontend Not Loading Data / API Errors (404, CORS):**
-    *   Verify the backend server is running.
-    *   Check the browser\'s developer console (Network and Console tabs) for JavaScript errors or failed HTTP requests.
-    *   Ensure the Vite proxy in `web/vite.config.js` is correctly forwarding `/api` and `/ws` requests to your backend server\'s host and port.
-*   **MQTT Connection Issues:**
-    *   Double-check all MQTT settings in `server_runtime_config.json` (broker host, port, credentials, client ID, topic, ApplicationID).
-    *   Verify general network connectivity to the MQTT broker using an external MQTT client tool (e.g., MQTT Explorer).
-*   **No Trackers Appearing on Map:**
-    *   Confirm "MQTT: Connected" status in the UI.
-    *   Ensure trackers are powered on and publishing data to the correct MQTT topic and `ApplicationID` as configured in `server_runtime_config.json`.
-    *   For SenseCAP devices, verify data is being sent with `MeasurementID == "5002"`.
-    *   Crucially, check that the MAC addresses of the beacons configured in your `miniprogram_config.json` (and loaded into the system) exactly match the MAC addresses being reported by the trackers in the MQTT messages.
-    *   Review backend server logs for errors during message parsing or position calculation.
-
----
-*This README provides guidance for v0.1 of the Multi-Tracker Beacon Positioning System.* 
+    *   `

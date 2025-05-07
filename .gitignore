@@ -8,3 +8,4 @@ wheels/
 
 # Virtual environments
 .venv
+server/server_runtime_config copy.json
