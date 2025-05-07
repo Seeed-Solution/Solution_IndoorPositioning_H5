@@ -1,64 +1,77 @@
 {
-    "map": {
-      "width": 16,
-      "height": 8,
-      "entities": [
-        {
-          "type": "polyline",
-          "points": [
-            [0, 0.06618531889289905],
-            [16, 0.06618531889289905],
-            [16, 8.066185318892899],
-            [0, 8.066185318892899],
-            [0, 0.06618531889289905]
+  "map": {
+    "width": 16.0,
+    "height": 8.0,
+    "entities": [
+      {
+        "type": "polyline",
+        "points": [
+          [
+            0.0,
+            0.06618531889289905
           ],
-          "closed": true
-        }
-      ]
-    },
-    "beacons": [
-      {
-        "uuid": "74278BDA-B644-4520-8F0C-720EAF059940",
-        "major": 10001,
-        "minor": 19641,
-        "x": 13.1,
-        "y": 5.01,
-        "txPower": -59,
-        "displayName": "MBeaco5",
-        "deviceId": "C3:00:00:3E:7D:DA" 
-      },
-      {
-        "uuid": "74278BDA-B644-4520-8F0C-720EAF059936",
-        "major": 10001,
-        "minor": 19641,
-        "x": 3.8,
-        "y": 5.74,
-        "txPower": -59,
-        "displayName": "MBeaco3",
-        "deviceId": "C3:00:00:3E:7D:FB"
-      },
-      {
-        "uuid": "74278BDA-B644-4520-8F0C-720EAF059937",
-        "major": 10001,
-        "minor": 19641,
-        "x": 8.59,
-        "y": 2.73,
-        "txPower": -59,
-        "displayName": "MBeaco2",
-        "deviceId": "C3:00:00:3E:7D:F9"
-      },
-      {
-        "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-        "major": 10001,
-        "minor": 19641,
-        "x": 4.11,
-        "y": 1.35,
-        "txPower": -59,
-        "displayName": "MBeaco4",
-        "deviceId": "C3:00:00:3E:7D:E0"
+          [
+            16.0,
+            0.06618531889289905
+          ],
+          [
+            16.0,
+            8.066185318892899
+          ],
+          [
+            0.0,
+            8.066185318892899
+          ],
+          [
+            0.0,
+            0.06618531889289905
+          ]
+        ],
+        "closed": true,
+        "color": null,
+        "lineWidth": null
       }
-    ],
-    "settings": {
-      "signalPropagationFactor": 2.5
+    ]
+  },
+  "beacons": [
+    {
+      "macAddress": "C3:00:00:3E:7D:DA",
+      "major": 10001,
+      "minor": 19641,
+      "name": "MBeaco5",
+      "txPower": -59,
+      "x": 13.1,
+      "y": 5.01
+    },
+    {
+      "macAddress": "C3:00:00:3E:7D:FB",
+      "major": 10001,
+      "minor": 19641,
+      "name": "MBeaco3",
+      "txPower": -59,
+      "x": 3.8,
+      "y": 5.74
+    },
+    {
+      "macAddress": "C3:00:00:3E:7D:F9",
+      "major": 10001,
+      "minor": 19641,
+      "name": "MBeaco2",
+      "txPower": -59,
+      "x": 8.59,
+      "y": 2.73
+    },
+    {
+      "macAddress": "C3:00:00:3E:7D:E0",
+      "major": 10001,
+      "minor": 19641,
+      "name": "MBeaco4",
+      "txPower": -59,
+      "x": 4.11,
+      "y": 1.35
     }
+  ],
+  "settings": {
+    "signalPropagationFactor": 2.5
   }
+}
