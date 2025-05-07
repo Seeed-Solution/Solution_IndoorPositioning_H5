@@ -5,7 +5,7 @@ from typing import Dict, Optional, Tuple, List
 
 from .models import ConfigData, TrackerReport, DetectedBeacon
 from .positioning import calculate_position, KalmanFilter2D
-from .websocket_manager import manager
+from .main import manager
 
 # --- Constants ---
 CONFIG_FILE = "config.json"

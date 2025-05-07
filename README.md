@@ -81,20 +81,20 @@ The system consists of three main components:
 **1. Backend Server Setup:**
 
 ```bash
-# Navigate to the server directory
-cd server
+# Navigate to the project root directory (e.g., beacon_posistion_r1000)
+# cd /path/to/your/beacon_posistion_r1000 
 
 # Create and activate a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-# or: venv\Scripts\activate # Windows
+python -m venv .venv  # Creates .venv in the project root
+source .venv/bin/activate  # Linux/macOS
+# or: .venv\Scripts\activate # Windows
 
-# Install Python dependencies
-pip install -r requirements.txt
+# Install Python dependencies (requirements.txt is in the server/ directory)
+pip install -r server/requirements.txt
 
 # Note: The server needs a valid `config.json`. Either place one manually
 # in the `server/` directory or upload it via the web frontend later.
-# An empty placeholder {} exists initially.
+# An empty placeholder {} exists initially in server/config.json.
 ```
 
 **2. Web Frontend Setup:**
@@ -118,10 +118,14 @@ npm install
 
 1.  **Start Backend Server:**
     ```bash
-    cd server
+    # Navigate to the project root directory if not already there
+    # cd /path/to/your/beacon_posistion_r1000
+    
     # Activate virtual env if not already active
-    # source venv/bin/activate
-    uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    # source .venv/bin/activate # Linux/macOS
+    # or: .venv\Scripts\activate # Windows
+    
+    uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
     ```
     The backend API will be available at `http://localhost:8000`.
 
