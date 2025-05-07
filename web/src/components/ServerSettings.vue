@@ -31,6 +31,7 @@ const formState = ref({
 
 const initialPasswordPlaceholder = '********'; // Placeholder for password if loaded
 const passwordField = ref(''); // Separate ref for password input to detect changes
+const isPasswordVisible = ref(false); // For password visibility toggle
 
 const loadingStatus = ref('idle'); // idle, loading, loaded, error
 const loadingError = ref('');
@@ -142,14 +143,13 @@ const fetchServerRuntimeConfig = async () => {
         },
       };
       
-      if (response.data.mqtt.password === initialPasswordPlaceholder) { 
-        passwordField.value = initialPasswordPlaceholder;
-      } else if (response.data.mqtt.password === null || response.data.mqtt.password === '') {
-        passwordField.value = '';
-      } else {
-        passwordField.value = initialPasswordPlaceholder; 
-      }
-      formState.value.mqtt.password = '';
+      // Directly use the password from the server response for passwordField.
+      // If it's null or undefined, default to an empty string.
+      passwordField.value = response.data.mqtt.password || '';
+      
+      // The main formState.mqtt.password is not directly used by UI input, clear it.
+      formState.value.mqtt.password = ''; 
+      isPasswordVisible.value = false; // Ensure password is not visible on load/fetch
       
       loadingStatus.value = 'loaded';
       console.log("[ServerSettings] Populated formState:", JSON.stringify(formState.value, null, 2));
@@ -171,6 +171,8 @@ const saveServerRuntimeConfig = async () => {
   saveStatus.value = 'saving';
   saveError.value = '';
 
+  const passwordValueBeforeSave = passwordField.value; // Capture current input value
+
   // Construct payload, including password only if it has been changed from placeholder or filled
   const payload = JSON.parse(JSON.stringify(formState.value)); // Deep copy
   if (passwordField.value && passwordField.value !== initialPasswordPlaceholder) {
@@ -185,18 +187,29 @@ const saveServerRuntimeConfig = async () => {
   try {
     await axios.post('/api/server-runtime-config', payload);
     saveStatus.value = 'success';
-    // Optionally re-fetch to confirm, or just assume success and clear password field again
-    // For simplicity, we can re-fetch to get the censored password back
-    fetchServerRuntimeConfig(); 
-    // Password field should be reset after save attempt
-    // If fetchServerRuntimeConfig() is called, it will reset it.
-    // passwordField.value = initialPasswordPlaceholder; // Or based on fetched data
+    
+    // Fetch the latest config for all fields. This will set passwordField to '********' or ''
+    await fetchServerRuntimeConfig(); 
+
+    // If user had entered a new password (not placeholder, not empty), restore that value to the field.
+    // Otherwise, the '********' or '' set by fetchServerRuntimeConfig is correct.
+    if (passwordValueBeforeSave !== initialPasswordPlaceholder && passwordValueBeforeSave !== '') {
+      passwordField.value = passwordValueBeforeSave;
+    }
+    
+    isPasswordVisible.value = false; // Ensure password is not visible after save
 
   } catch (error) {
     console.error("Failed to save server runtime config:", error);
     saveStatus.value = 'error';
     saveError.value = error.response?.data?.detail || error.message || 'Unknown error';
   }
+};
+
+const passwordInputType = computed(() => isPasswordVisible.value ? 'text' : 'password');
+
+const togglePasswordVisibility = () => {
+  isPasswordVisible.value = !isPasswordVisible.value;
 };
 
 onMounted(() => {
@@ -237,9 +250,13 @@ onMounted(() => {
           </div>
           <div class="form-group horizontal">
             <label for="mqttPassword">Password:</label>
-            <input type="password" id="mqttPassword" v-model="passwordField" :placeholder="initialPasswordPlaceholder" :disabled="!formState.mqtt.enabled" />
+            <div class="password-input-wrapper">
+              <input :type="passwordInputType" id="mqttPassword" v-model="passwordField" placeholder="" :disabled="!formState.mqtt.enabled" />
+              <button type="button" @click="togglePasswordVisibility" class="toggle-password-visibility" :disabled="!formState.mqtt.enabled">
+                <i :class="['fas', isPasswordVisible ? 'fa-eye-slash' : 'fa-eye']"></i>
+              </button>
+            </div>
           </div>
-          <small v-if="formState.mqtt.enabled" class="password-note">Leave as '{{initialPasswordPlaceholder}}' or empty to keep current. Enter new to change.</small>
           
           <div class="form-group horizontal">
             <label for="mqttApplicationID">Application ID (OrgID):</label>
@@ -565,6 +582,62 @@ div.form-group > input#mqttEnabled {
   padding-left: 160px; /* Align with inputs if labels are 150px + 10px gap/padding */
   display: block; /* Ensure it takes its own line if needed */
   margin-bottom: 10px; /* Space before next form group */
+}
+
+.password-input-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%; /* Ensure it takes the available width in the form group */
+}
+
+.password-input-wrapper input[type="password"],
+.password-input-wrapper input[type="text"] {
+  flex-grow: 1;
+  border-right: none; /* Optional: if you want button to look attached */
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.toggle-password-visibility {
+  padding: 0.5em 0.75em;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-left: none; 
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(2.25em + 2px); /* Match typical input height */
+  border-top-right-radius: var(--border-radius, 4px);
+  border-bottom-right-radius: var(--border-radius, 4px);
+  color: #333;
+}
+
+.toggle-password-visibility:hover {
+  background-color: #e0e0e0;
+}
+
+.toggle-password-visibility:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.password-note {
+  grid-column: 2 / -1; /* Span across the input area if in grid */
+  font-size: 0.8em;
+  color: #666;
+  margin-top: -0.5em; /* Adjust spacing if needed */
+  margin-bottom: 0.5em;
+  display: block;
+}
+
+/* Adjust label alignment if password-input-wrapper causes misalignment */
+.form-group.horizontal label {
+  align-self: center; /* Vertically center label with the input group */
+}
+
+.modal-overlay {
+  /* Add any necessary styles for the modal overlay */
 }
 
 </style> 

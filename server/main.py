@@ -577,19 +577,20 @@ async def get_api_server_runtime_config():
     # Ensure runtime_cfg is loaded or reloaded if necessary
     # For simplicity, assume it's loaded by startup or other means
     # Could add a reload here: runtime_cfg = config_manager.load_server_runtime_config()
+    global runtime_cfg # Ensure we're using the global
+    if runtime_cfg is None:
+        log.info("Runtime config not yet loaded, attempting to load from disk.")
+        runtime_cfg = config_manager.load_server_runtime_config() # Load if not already
+    
     if runtime_cfg:
-        # When sending password, replace with placeholder if it exists
-        # Create a copy to modify for response
-        cfg_copy = runtime_cfg.model_copy(deep=True)
-        if cfg_copy.mqtt and cfg_copy.mqtt.password: # Check if password is not None or empty
-            cfg_copy.mqtt.password = config_manager.PASSWORD_PLACEHOLDER
-        return cfg_copy
+        # ADDING LOG HERE to check the password value before sending
+        if runtime_cfg.mqtt:
+            log.info(f"[SERVER_DEBUG] Password value in runtime_cfg.mqtt before sending: '{runtime_cfg.mqtt.password}'")
+        else:
+            log.info("[SERVER_DEBUG] runtime_cfg.mqtt is None before sending")
+        return runtime_cfg 
     else:
-        # If no config, should we return empty, error, or default? For now, empty or error.
-        # Raising an error might be better to indicate to client that config is not set up.
-        log.warning("GET /api/server-runtime-config: runtime_cfg not loaded.")
-        # Return a default empty structure or allow Pydantic to handle Optional return.
-        # For now, let FastAPI handle Optional return if runtime_cfg is None.
+        log.warning("Runtime config is None even after attempting to load.")
         return None
 
 @app.post("/api/server-runtime-config", status_code=200)

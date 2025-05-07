@@ -27,9 +27,8 @@ const props = defineProps({
 });
 
 const mapCanvas = ref(null);
-const canvasWidth = ref(800); // Default or calculated width
-const canvasHeight = ref(600); // Default or calculated height
-const scale = ref(30); // Pixels per meter (adjust as needed)
+const canvasWidth = ref(750); // Default canvas width
+const canvasHeight = ref(600); // Default canvas height
 
 const drawMap = (ctx) => {
   if (!props.config || !props.config.map || !ctx) {
@@ -43,36 +42,60 @@ const drawMap = (ctx) => {
   const { width: mapWidthMeters, height: mapHeightMeters, entities } = props.config.map;
   const beacons = props.config.beacons || [];
 
-  // Calculate canvas size based on map dimensions and scale
-  canvasWidth.value = mapWidthMeters * scale.value;
-  canvasHeight.value = mapHeightMeters * scale.value;
-
-  // Wait for next tick for canvas dimensions to update before drawing
+  // Ensure canvas internal drawing buffer matches these dimensions.
   ctx.canvas.width = canvasWidth.value;
   ctx.canvas.height = canvasHeight.value;
 
+  // Calculate the dimensions for the 80% content area
+  const contentAreaWidth = canvasWidth.value * 0.9;
+  const contentAreaHeight = canvasHeight.value * 0.9;
+
+  // Calculate scale to fit map into the content area, maintaining aspect ratio
+  let currentScale;
+  if (mapWidthMeters <= 0 || mapHeightMeters <= 0) {
+    // Avoid division by zero or negative scales if map dimensions are invalid
+    currentScale = 1; 
+  } else {
+    const scaleX = contentAreaWidth / mapWidthMeters;
+    const scaleY = contentAreaHeight / mapHeightMeters;
+    currentScale = Math.min(scaleX, scaleY);
+  }
+  
+  // Prevent scale from being zero or negative if map dimensions are very large or contentArea is small
+  if (currentScale <= 0) {
+      currentScale = 1; // Fallback to a minimal positive scale
+  }
+
+
+  // Calculate the actual pixel dimensions of the scaled map content
+  const renderedMapWidth = mapWidthMeters * currentScale;
+  const renderedMapHeight = mapHeightMeters * currentScale;
+
+  // Calculate offsets to center the scaled map content within the canvas
+  const offsetX = (canvasWidth.value - renderedMapWidth) / 2;
+  const offsetY = (canvasHeight.value - renderedMapHeight) / 2;
 
   // Clear canvas
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
 
   // --- Draw Map Entities ---
   ctx.save();
-  // Flip Y-axis because canvas origin (0,0) is top-left, map origin is bottom-left
-  ctx.translate(0, canvasHeight.value);
+  // Translate to the bottom-left corner of the centered content box, then flip Y
+  ctx.translate(offsetX, canvasHeight.value - offsetY);
   ctx.scale(1, -1);
 
   entities.forEach(entity => {
     if (entity.type === 'polyline' && entity.points && entity.points.length > 0) {
       ctx.beginPath();
       ctx.strokeStyle = entity.color || '#333333';
-      ctx.lineWidth = (entity.lineWidth || 1) / scale.value; // Adjust line width based on scale? Or keep fixed pixel width? Let's try fixed for now.
-      ctx.lineWidth = entity.lineWidth || 1;
+      // ctx.lineWidth = (entity.lineWidth || 1) / currentScale; // If line width is in world units
+      ctx.lineWidth = entity.lineWidth || 1; // Assuming line width is in pixels
 
       const startPoint = entity.points[0];
-      ctx.moveTo(startPoint[0] * scale.value, startPoint[1] * scale.value);
+      ctx.moveTo(startPoint[0] * currentScale, startPoint[1] * currentScale);
 
       for (let i = 1; i < entity.points.length; i++) {
-        ctx.lineTo(entity.points[i][0] * scale.value, entity.points[i][1] * scale.value);
+        ctx.lineTo(entity.points[i][0] * currentScale, entity.points[i][1] * currentScale);
       }
 
       if (entity.closed) {
@@ -85,8 +108,8 @@ const drawMap = (ctx) => {
 
    // --- Draw Beacons ---
    beacons.forEach(beacon => {
-    const beaconX = beacon.x * scale.value;
-    const beaconY = beacon.y * scale.value;
+    const beaconX = beacon.x * currentScale;
+    const beaconY = beacon.y * currentScale;
     ctx.beginPath();
     ctx.arc(beaconX, beaconY, 5, 0, 2 * Math.PI); // Draw beacon as a small circle (radius 5px)
     ctx.fillStyle = 'orange';
@@ -104,8 +127,8 @@ const drawMap = (ctx) => {
    // --- Draw Trackers ---
    props.trackers.forEach(tracker => {
        if (tracker.x !== null && tracker.y !== null) {
-           const trackerX = tracker.x * scale.value;
-           const trackerY = tracker.y * scale.value;
+           const trackerX = tracker.x * currentScale;
+           const trackerY = tracker.y * currentScale;
            ctx.beginPath();
            ctx.arc(trackerX, trackerY, 7, 0, 2 * Math.PI); // Draw tracker as a slightly larger circle
            ctx.fillStyle = 'blue';
