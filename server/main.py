@@ -430,6 +430,9 @@ async def process_tracker_report(report: TrackerReport):
     last_known_pos = (last_state.x, last_state.y) if last_state and last_state.x is not None and last_state.y is not None else None
     dt = (current_time_ms - last_state.last_update_time) / 1000.0 if last_state else 0.1
 
+    # Prepare position history from last state
+    current_position_history = list(last_state.position_history) if last_state and last_state.position_history else []
+
     log.info(f"Processing report for {tracker_id} with {len(report.detectedBeacons)} beacons.")
 
     calculated_position = positioning.calculate_position(
@@ -457,10 +460,25 @@ async def process_tracker_report(report: TrackerReport):
 
         filtered_position = kf.get_position()
         log.info(f"Filtered position for {tracker_id}: {filtered_position}")
-    elif kf:
+        
+        # Add new position to history
+        if filtered_position:
+            current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
+
+    elif kf: # No new calculation, but KF might have predicted
         kf.predict(dt)
         filtered_position = kf.get_position()
         log.info(f"Position prediction (no new measurement) for {tracker_id}: {filtered_position}")
+        # Optionally, decide if predicted-only positions should go into history.
+        # For now, let's assume only measurement-updated or KF-initialized positions go to history via the block above.
+        # If you want to add predicted positions too, uncomment and adjust:
+        # if filtered_position:
+        #     current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
+
+    # Prune history to last 30 minutes (30 * 60 * 1000 ms)
+    history_time_window_ms = 30 * 60 * 1000
+    cutoff_time_ms = current_time_ms - history_time_window_ms
+    current_position_history = [p for p in current_position_history if p[2] >= cutoff_time_ms]
 
     new_state = TrackerState(
         trackerId=tracker_id,
@@ -468,7 +486,8 @@ async def process_tracker_report(report: TrackerReport):
         y=filtered_position[1] if filtered_position else (last_state.y if last_state else None),
         last_update_time=current_time_ms,
         last_known_measurement_time=report.timestamp,
-        last_detected_beacons=report.detectedBeacons
+        last_detected_beacons=report.detectedBeacons,
+        position_history=current_position_history
     )
     tracker_states[tracker_id] = new_state
 

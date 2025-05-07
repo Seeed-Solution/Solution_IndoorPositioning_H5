@@ -1,6 +1,11 @@
 <!-- web/src/components/MapView.vue -->
 <template>
   <div class="map-container">
+    <div class="map-controls">
+      <button @click="localShowTrails = !localShowTrails" class="button-secondary map-trail-toggle-btn">
+        <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? 'Hide' : 'Show' }} Trails
+      </button>
+    </div>
     <canvas ref="mapCanvas" :width="canvasWidth" :height="canvasHeight" style="border: 1px solid #ccc;"></canvas>
     <div v-if="config && config.map" class="map-info">
       Map Dimensions: {{ config.map.width.toFixed(1) }}m x {{ config.map.height.toFixed(1) }}m
@@ -27,8 +32,9 @@ const props = defineProps({
 });
 
 const mapCanvas = ref(null);
-const canvasWidth = ref(750); // Default canvas width
+const canvasWidth = ref(800); // Default canvas width
 const canvasHeight = ref(600); // Default canvas height
+const localShowTrails = ref(false); // Local state for showing trails
 
 const drawMap = (ctx) => {
   if (!props.config || !props.config.map || !ctx) {
@@ -147,6 +153,27 @@ const drawMap = (ctx) => {
        }
    });
 
+  // --- Draw Tracker Trails (if enabled) ---
+  if (localShowTrails.value) {
+    props.trackers.forEach(tracker => {
+      if (tracker.position_history && tracker.position_history.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)'; // Light blue, semi-transparent
+        ctx.lineWidth = 2; // Thinner than current tracker dot
+        
+        // Move to the oldest point in the history for this tracker
+        const firstPoint = tracker.position_history[0];
+        ctx.moveTo(firstPoint[0] * currentScale, firstPoint[1] * currentScale);
+        
+        // Draw lines to subsequent points
+        for (let i = 1; i < tracker.position_history.length; i++) {
+          const point = tracker.position_history[i];
+          ctx.lineTo(point[0] * currentScale, point[1] * currentScale);
+        }
+        ctx.stroke();
+      }
+    });
+  }
 
   ctx.restore(); // Restore original context state
 };
@@ -158,8 +185,8 @@ onMounted(() => {
   }
 });
 
-// Watch for changes in config or trackers and redraw
-watch([() => props.config, () => props.trackers], () => {
+// Watch for changes in config, trackers, or trail visibility and redraw
+watch([() => props.config, () => props.trackers, localShowTrails], () => {
    const ctx = mapCanvas.value?.getContext('2d');
    if (ctx) {
        drawMap(ctx);
@@ -173,6 +200,27 @@ watch([() => props.config, () => props.trackers], () => {
   position: relative;
   display: inline-block; /* Or use flex/grid for layout */
 }
+
+.map-controls {
+  position: absolute;
+  top: 5px; /* Adjust as needed */
+  right: 5px; /* Adjust as needed */
+  z-index: 10;
+  display: flex;
+  gap: 5px;
+}
+
+.map-trail-toggle-btn {
+  padding: 6px 10px;
+  font-size: 0.85em;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid #ccc;
+  color: #333;
+}
+.map-trail-toggle-btn:hover {
+  background-color: rgba(240, 240, 240, 0.8);
+}
+
 .map-info {
     position: absolute;
     top: 5px;

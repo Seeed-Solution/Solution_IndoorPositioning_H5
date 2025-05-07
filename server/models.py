@@ -1,6 +1,6 @@
 # server/models.py
 from pydantic import BaseModel, Field, AliasChoices
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 # --- Models for Miniprogram Exported Configuration (e.g., map_beacon_config.json) ---
 
@@ -79,6 +79,7 @@ class TrackerState(BaseModel):
     last_update_time: int # Unix ms timestamp (server time of this update)
     last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
     last_detected_beacons: List[DetectedBeacon] = [] 
+    position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
 
 # --- Old combined ConfigData and CommonSettings (can be removed after refactoring) ---
 # class OldBeaconConfig(BaseModel):
