@@ -36,11 +36,15 @@ The system is composed of three main components:
 Here's a glimpse of the system in action:
 
 **1. Configuring Beacons with the Miniprogram Tool:**
+
 This shows a brief example of how the Weixin Miniprogram tool is used to set up beacon locations and parameters.
+
 ![Demonstration of Miniprogram beacon configuration](assets/miniprogram_example.gif)
 
 **2. Live Tracking on the Web Interface:**
+
 This demonstrates the web application displaying live tracker movements on the configured map.
+
 ![Demonstration of live tracking on the web interface](assets/web_example.gif)
 
 ## Architecture & Data Flow
