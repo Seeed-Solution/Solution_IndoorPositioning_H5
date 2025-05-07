@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "dxf-parser": "^1.1.2",
-    "sharp": "^0.34.1"
-  }
-}
