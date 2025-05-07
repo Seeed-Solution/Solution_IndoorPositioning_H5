@@ -84,7 +84,7 @@ def calculate_position(
     detected_beacons: List[DetectedBeacon],
     miniprogram_config: MiniprogramConfig, # Changed from ConfigData to MiniprogramConfig
     last_known_position: Optional[Tuple[float, float]] = None
-) -> Optional[Tuple[float, float]]:
+    ) -> Optional[Tuple[float, float]]:
     """
     Main function to calculate position from detected beacons and miniprogram_config.
     Uses least squares multilateration.
@@ -142,7 +142,7 @@ def calculate_position(
         log.info(f"Multilateration requires at least 3 beacons, got {len(beacons_with_coords_dist)}. Skipping position calculation.")
         # Reverting the previous change of allowing 2 beacons for the least_squares function, 
         # as it's more robust with 3. If only 2 are available, it will be handled by the function itself returning None.
-        return None 
+        return None
 
     estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
 

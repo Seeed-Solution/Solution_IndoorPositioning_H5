@@ -78,7 +78,7 @@ class TrackerState(BaseModel):
     y: Optional[float] = None
     last_update_time: int # Unix ms timestamp (server time of this update)
     last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
-    last_detected_beacons: List[DetectedBeacon] = []
+    last_detected_beacons: List[DetectedBeacon] = [] 
 
 # --- Old combined ConfigData and CommonSettings (can be removed after refactoring) ---
 # class OldBeaconConfig(BaseModel):

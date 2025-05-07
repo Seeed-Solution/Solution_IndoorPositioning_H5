@@ -1,6 +1,6 @@
 # Multi-Tracker Beacon Positioning System
 
-This project provides a system for tracking multiple devices (trackers) indoors using iBeacon signals and visualizing their positions on a web-based map.
+This project provides a system for tracking multiple devices (trackers) indoors using beacon signals (primarily iBeacon or MAC-address based like SenseCAP) and visualizing their positions on a web-based map.
 
 ## Overview
 
@@ -8,17 +8,23 @@ The system consists of three main components:
 
 1.  **Backend Server (`server/`)**:
     *   Built with Python and FastAPI.
-    *   Receives tracker reports containing detected iBeacon signals via an HTTP API endpoint.
-    *   Loads map and beacon configuration from a `config.json` file.
-    *   Calculates the position of each tracker based on received signal strengths (RSSI) and configured beacon locations using trilateration.
-    *   Manages the state of tracked devices (rolling 1-hour window in memory).
+    *   Receives tracker beacon data via an MQTT subscription (specifically configured for SenseCAP format with MeasurementID "5002").
+    *   Manages two primary configuration files:
+        *   `server/miniprogram_config.json`: For map layout, beacon definitions (including MAC addresses), and signal propagation settings. Typically sourced from the miniprogram tool and uploaded via the web UI.
+        *   `server/server_runtime_config.json`: For MQTT broker details, backend server port, and Kalman filter parameters. Managed via the web UI or manually on the server.
+    *   Calculates the position of each tracker based on received signal strengths (RSSI) and configured beacon locations (matching by MAC address) using trilateration.
+    *   Employs a Kalman filter for smoothing calculated positions.
+    *   Manages the state of tracked devices.
     *   Broadcasts tracker position updates and configuration changes to connected frontend clients via WebSockets.
-    *   Serves the compiled frontend application (optional).
+    *   Provides API endpoints for configuration management and MQTT control.
 
 2.  **Web Frontend (`web/`)**:
     *   Built with Vue 3 and Vite.
-    *   Connects to the backend server via WebSockets.
-    *   Provides an interface to upload the `config.json` file to the backend.
+    *   Connects to the backend server via WebSockets for real-time updates.
+    *   Provides an interface to:
+        *   Load the "Map & Beacon Configuration" (`miniprogram_config.json`) by pasting JSON.
+        *   View and edit "Server Runtime Configuration" (MQTT, Server Port, Kalman params).
+        *   Manually connect/disconnect the MQTT client.
     *   Displays the configured map layout and beacon locations using HTML Canvas.
     *   Visualizes the real-time positions of tracked devices on the map.
     *   Lists currently tracked devices and their status.
@@ -26,47 +32,48 @@ The system consists of three main components:
 3.  **Miniprogram Configuration Tool (`miniprogram/`)**:
     *   A Weixin Mini Program designed to run on a mobile device.
     *   Allows users to:
-        *   Upload a map layout file (`.json`).
-        *   Scan for nearby iBeacons using Bluetooth.
-        *   Manually add or edit iBeacon configurations (UUID, Major, Minor, TxPower).
-        *   Place configured beacons onto the uploaded map by clicking.
-        *   Configure the signal propagation factor (n) for distance calculation.
-    *   Provides a button to export the complete map and beacon configuration as a JSON string to the clipboard, ready to be saved as `config.json` for the backend server.
+        *   Upload a map layout.
+        *   Scan for nearby iBeacons or manually input beacon details (including MAC addresses).
+        *   Place configured beacons onto the uploaded map.
+        *   Configure the signal propagation factor (n).
+    *   Exports the complete map and beacon configuration as a JSON string, ready to be pasted into the Web Frontend.
 
 ## Architecture & Data Flow
 
 ```
-+-------------------------+      +------------------------+      +-----------------+
-| Tracker Device          | ---> | LoRaWAN Network Server | ---> | Backend Server  |
-| (Sends Beacon Scans via |      | (Decodes Payload)      |      | (FastAPI)       |-----> WebSocket
-| LoRaWAN)                |      +------------------------+      | - Receives Reports  |
-+-------------------------+                                      | - Calculates Pos    |<---+ 
-                                                                 | - Manages State     |
++--------------------------+     +-------------------------+      +-----------------+
+| Tracker Device           | --> | MQTT Broker             | M--> | Backend Server  |
+| (e.g., SenseCAP T1000)   |     | (e.g., Seeed's SenseCAP | Q--> | (FastAPI)       |-----> WebSocket
+| - Scans Beacons          |     |  OpenStream, or other)  | T--> | - Receives Reports  |
+| - Publishes to MQTT topic|     +-------------------------+ T    | - Calculates Pos    |<---+ (Frontend UI)
++--------------------------+                                     | - Manages State     |
                                                                  | - Serves Config/API |
                                                                  +---------|---------+
-                                                                           | (HTTP API)
-       +-----------------------+      +------------------------+           | (Upload Config)
+                                                                           | (HTTP API for Config)
+       +-----------------------+      +------------------------+           |
        | Weixin Mini Program   | ---> | User copies JSON to    | --------->|
-       | (Configuration Tool)  |      | file (`config.json`)   |           |
+       | (Configuration Tool)  |      | Web UI Paste Area      |           |
        | - Configure Map       |      +------------------------+           |
        | - Configure Beacons   |                                           |
        | - Export Config JSON  |                                           |
-       +-----------------------+                                           |
-                                                                           V
+       +-----------------------+                                           V
                                                                  +-----------------+
                                                                  | Web Frontend    |
                                                                  | (Vue 3)         |
-                                                                 | - Uploads Config|
+                                                                 | - Config Mgmt   |
                                                                  | - Displays Map  |
                                                                  | - Shows Trackers|
-                                                                 +-----------------+
+                                                                 +-----------------+\
 ```
 
-1.  **Configuration:** Use the Mini Program tool to define the map layout and beacon locations. Export the configuration JSON.
-2.  **Upload Config:** Upload the exported `config.json` to the Backend Server via the Web Frontend.
-3.  **Tracker Reports:** Trackers scan for Beacons and send reports (UUID, Major, Minor, RSSI) via LoRaWAN (or other means) to the Backend Server's `/api/tracker/report` endpoint. *(Note: The LoRaWAN decoding part is assumed to happen before the data reaches this backend)*.
-4.  **Position Calculation:** The Backend calculates the tracker's position using the report data and the loaded configuration.
-5.  **Visualization:** The Backend broadcasts position updates via WebSocket to the Web Frontend, which displays the trackers on the map.
+1.  **Configuration:**
+    *   **Map & Beacons:** Use the Mini Program tool to define the map layout and beacon locations/MAC addresses. Export the configuration JSON.
+    *   **Server Runtime:** In the Web Frontend, navigate to "Show Settings" to configure MQTT broker details, server port, and Kalman parameters. This creates/updates `server/server_runtime_config.json`.
+2.  **Load Map & Beacon Config:** In the Web Frontend, paste the JSON exported from the Mini Program into the "Map & Beacon Configuration" section. This updates `server/miniprogram_config.json`.
+3.  **Connect MQTT:** In the Web Frontend, click "Connect MQTT". The backend will subscribe to the topic defined in `server_runtime_config.json`.
+4.  **Tracker Data:** Trackers (e.g., SenseCAP devices) publish beacon scan data (MAC addresses, RSSI) to the configured MQTT topic. The backend specifically listens for messages with `MeasurementID == "5002"` from SenseCAP devices.
+5.  **Position Calculation:** The Backend calculates the tracker's position using the received data and the loaded configurations.
+6.  **Visualization:** The Backend broadcasts position updates via WebSocket to the Web Frontend, which displays the trackers on the map.
 
 ## Setup
 
@@ -74,28 +81,27 @@ The system consists of three main components:
 
 *   **Node.js:** Latest LTS version recommended (for Vue frontend).
 *   **npm:** Comes with Node.js.
-*   **Python:** 3.8+ recommended (for FastAPI backend).
-*   **pip:** Comes with Python.
+*   **Python:** 3.10+ recommended.
+*   **uv:** (Recommended Python package manager) or `pip`.
 *   **Weixin DevTools:** For running and debugging the Mini Program configuration tool.
 
 **1. Backend Server Setup:**
 
 ```bash
-# Navigate to the project root directory (e.g., beacon_posistion_r1000)
-# cd /path/to/your/beacon_posistion_r1000 
+# Navigate to the project root directory
+# cd /path/to/your/beacon_posistion_r1000
 
 # Create and activate a virtual environment (recommended)
-python -m venv .venv  # Creates .venv in the project root
+python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
-# or: .venv\Scripts\activate # Windows
+# or: .venv\\Scripts\\activate # Windows
 
-# Install Python dependencies (requirements.txt is in the server/ directory)
-pip install -r server/requirements.txt
-
-# Note: The server needs a valid `config.json`. Either place one manually
-# in the `server/` directory or upload it via the web frontend later.
-# An empty placeholder {} exists initially in server/config.json.
+# Install Python dependencies using uv (or pip)
+uv pip install -r requirements.txt 
+# If requirements.txt is not up-to-date, you might need to install from pyproject.toml:
+# uv pip install . 
 ```
+An `__init__.py` file in the `server/` directory makes it a Python package.
 
 **2. Web Frontend Setup:**
 
@@ -106,83 +112,128 @@ cd web
 # Install Node.js dependencies
 npm install
 ```
+The frontend uses a Vite proxy (configured in `web/vite.config.js`) to forward API (`/api`) and WebSocket (`/ws`) requests to the backend during development.
 
 **3. Miniprogram Tool Setup:**
 
 *   Open Weixin DevTools.
-*   Import Project -> Select the `miniprogram/` directory within your project folder.
-*   Fill in your AppID if necessary.
-*   The DevTools should recognize it as a Mini Program project.
+*   Import Project -> Select the `miniprogram/` directory.
+*   The Mini Program allows configuration of map, beacons (including MAC addresses for non-iBeacon SenseCAP compatibility), and signal propagation factor.
+
+## Configuration Files
+
+The backend relies on two main JSON configuration files located in the `server/` directory:
+
+1.  **`server/miniprogram_config.json`**
+    *   **Purpose:** Defines the map layout, beacon locations (x, y coordinates), beacon identifiers (MAC address, display name, TxPower/reference RSSI), and the signal propagation factor (n).
+    *   **Source:** Generated by the **Miniprogram Configuration Tool** and then pasted into the "Map & Beacon Configuration" section of the **Web Frontend UI**.
+    *   **Example Snippet (conceptual):**
+        ```json
+        {
+          "map": {
+            "name": "Sample Map",
+            "width": 20.0,
+            "height": 15.0,
+            // ... other map properties ...
+            "entities": [ /* wall polylines, etc. */ ]
+          },
+          "beacons": [
+            {
+              "deviceId": "MBeaco1",
+              "displayName": "Entrance Beacon",
+              "macAddress": "C3:00:00:3E:7D:DA", // Crucial for matching SenseCAP data
+              "x": 2.5,
+              "y": 3.0,
+              "txPower": -59 // Reference RSSI at 1m
+            }
+            // ... more beacons
+          ],
+          "settings": {
+            "signalPropagationFactor": 2.5
+          }
+        }
+        ```
+    *   A full example template can be viewed in the Web Frontend UI when loading the configuration.
+
+2.  **`server/server_runtime_config.json`**
+    *   **Purpose:** Defines MQTT broker connection details, the backend server port, and Kalman filter parameters.
+    *   **Source:** Managed via the "Server Runtime Configuration" panel in the **Web Frontend UI**, or can be created/edited manually on the server.
+    *   **Example Structure:**
+        ```json
+        {
+          "mqtt": {
+            "brokerHost": "sensecap-openstream.seeed.cc",
+            "brokerPort": 1883,
+            "username": "org-YOUR_ORG_ID",
+            "password": "YOUR_MQTT_PASSWORD",
+            "applicationID": "YOUR_SEEED_ORG_ID", // Used in the topic pattern
+            "topicPattern": "/device_sensor_data/{ApplicationID}/+/+/+/+", // For SenseCAP
+            "clientID": "beacon_positioning_system_client_123", // Optional, but recommended
+            "enabled": true // Note: This currently only indicates if config is present; manual connection is required via UI.
+          },
+          "server": {
+            "port": 8000 // Port for the FastAPI backend
+          },
+          "kalman": {
+            "processVariance": 1.0,
+            "measurementVariance": 10.0
+          }
+        }
+        ```
 
 ## Running the System
 
-1.  **Start Backend Server:**
-    ```bash
-    # Navigate to the project root directory if not already there
-    # cd /path/to/your/beacon_posistion_r1000
-    
-    # Activate virtual env if not already active
-    # source .venv/bin/activate # Linux/macOS
-    # or: .venv\Scripts\activate # Windows
-    
-    uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
-    ```
-    The backend API will be available at `http://localhost:8000`.
+1.  **Prepare Configuration Files:**
+    *   Ensure `server/server_runtime_config.json` exists and is correctly configured with your MQTT broker details and desired server port. You can do this via the UI once the server is running, or create it manually first.
+    *   Have your map & beacon configuration JSON (from the miniprogram tool) ready to paste into the UI.
 
-2.  **Start Frontend Dev Server:**
+2.  **Start Backend Server:**
+    ```bash
+    # Navigate to the project root directory
+    # Activate virtual env: source .venv/bin/activate
+
+    # IMPORTANT: Run WITHOUT --reload for stable MQTT and WebSocket operation
+    uvicorn server.main:app --host 0.0.0.0 --port <your_configured_port>
+    # Example: uvicorn server.main:app --host 0.0.0.0 --port 8000
+    ```
+    *   **Note on `--reload`**: Due to interactions between the Paho MQTT client's threading model and Uvicorn's auto-reloader, using the `--reload` flag can cause WebSocket connections to drop and MQTT client state to become inconsistent. For stable operation, especially when testing MQTT features, **run the server without `--reload`**. For backend code changes, a manual restart is necessary.
+
+3.  **Start Frontend Development Server:**
     ```bash
     cd web
     npm run dev
     ```
-    The frontend will likely be available at `http://localhost:5173` (check terminal output).
+    Access the frontend at `http://localhost:5173` (or the port specified by Vite in the terminal).
 
-3.  **Configure via Mini Program:**
-    *   Run the Mini Program in Weixin DevTools or on a device.
-    *   Navigate to the "配置" (Config) tab.
-    *   Use the "地图配置" (Map Config) and "Beacon配置" (Beacon Config) sections to set up your environment.
-    *   Go to "通用设置" (Common Settings), optionally adjust the signal factor, and click "导出配置到剪贴板" (Export Config to Clipboard).
+4.  **Initial Setup via Web UI:**
+    *   Open the Web Frontend in your browser.
+    *   If `server_runtime_config.json` was not pre-configured, click "Show Settings", fill in your MQTT broker details, server port, and Kalman parameters, then save.
+    *   In the "Map & Beacon Configuration" panel, click "Load Config via Paste", paste the JSON from your miniprogram tool, and submit. The map and beacons should appear.
+    *   In the top panel, click "Connect MQTT" to establish the connection to your MQTT broker.
 
-4.  **Upload Configuration to Backend:**
-    *   Paste the copied JSON data from the clipboard into a new text file.
-    *   Save this file as `config.json`.
-    *   Open the Web Frontend (e.g., `http://localhost:5173`) in your browser.
-    *   Use the "Choose File" button to select your `config.json`.
-    *   Click "Upload Config". The map and beacons should appear.
+5.  **View Results:**
+    *   If trackers are publishing data to the configured MQTT topic (and matching `MeasurementID "5002"` for SenseCAP), they should appear on the live map and in the trackers list.
 
-5.  **Send Tracker Data:**
-    *   Trackers need to send POST requests to `http://<your_backend_ip>:8000/api/tracker/report`.
-    *   The request body must be JSON matching the `TrackerReport` model (see `server/models.py`).
-    *   **Example using `curl`:**
-        ```bash
-        curl -X POST http://localhost:8000/api/tracker/report \
-        -H "Content-Type: application/json" \
-        -d '{
-              "trackerId": "tracker_sim_01",
-              "timestamp": '$(date +%s000)',
-              "detectedBeacons": [
-                { "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825", "major": 100, "minor": 1, "rssi": -65 },
-                { "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825", "major": 100, "minor": 2, "rssi": -72 },
-                { "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825", "major": 100, "minor": 3, "rssi": -68 }
-              ]
-            }'
-        ```
-        *(Replace beacon details with your actual configured beacons and observed RSSI values)*
+## Key Functionality & Files
 
-6.  **View Results:** Observe the tracker icons appearing and moving on the map in the Web Frontend.
+*   **MQTT Data Parsing:** `server/main.py` includes `parse_sensecap_payload` for handling incoming SenseCAP MQTT messages. The `on_message` callback filters for `MeasurementID "5002"`.
+*   **Positioning:** `server/positioning.py` contains distance calculation and trilateration. Beacons are matched using MAC addresses.
+*   **Configuration Management:** `server/config_manager.py` handles loading and saving of the two JSON configuration files.
+*   **State Management & WebSockets:** `server/main.py` manages tracker states and uses `ConnectionManager` for broadcasting updates.
+*   **Frontend UI Components:**
+    *   `web/src/App.vue`: Main application shell, WebSocket handling, MQTT controls, and overall layout.
+    *   `web/src/components/MapView.vue`: Renders the map and trackers.
+    *   `web/src/components/ServerSettings.vue`: UI for managing `server_runtime_config.json`.
 
-## Key Files & Configuration
+## Troubleshooting
 
-*   **`server/config.json`**: Defines the map layout and beacon positions. Essential for backend operation.
-*   **`server/models.py`**: Defines Pydantic models for API data (`ConfigData`, `TrackerReport`, `TrackerState`). Check `TrackerReport` for the expected input format.
-*   **`server/positioning.py`**: Contains the core distance calculation and trilateration logic.
-*   **`miniprogram/pages/config/config.js`**: Contains the `exportConfig` function responsible for generating the `config.json` output.
-*   **`web/src/App.vue`**: Main component for the frontend UI, WebSocket handling, and map interaction.
-*   **`web/src/components/MapView.vue`**: Component responsible for rendering the map canvas.
-
-## Further Development
-
-*   **LoRaWAN Payload Parsing:** Adapt the `/api/tracker/report` endpoint in `server/main.py` to parse the actual data format received from your LoRaWAN Network Server.
-*   **Positioning Algorithm:** Replace the basic trilateration in `server/positioning.py` with a more robust multilateration algorithm (e.g., Least Squares) for improved accuracy, especially with >3 beacons.
-*   **Kalman Filter:** Re-integrate a Kalman filter (or similar) in the backend (`server/positioning.py`, `server/state.py`) to smooth tracker movements.
-*   **Error Handling:** Enhance error handling and reporting in both backend and frontend.
-*   **Deployment:** Adapt backend (e.g., using Gunicorn) and frontend (build static files) for production deployment. 
+*   **WebSocket Disconnects / MQTT Status Not Updating:** If using `uvicorn` with `--reload`, this is the most likely cause. Run the backend server without the `--reload` flag.
+*   **`NameError` or `AttributeError` in Backend:** Ensure all helper functions (like `parse_sensecap_payload`) are correctly defined and that constants (like `PASSWORD_PLACEHOLDER`) are present in their respective modules.
+*   **Frontend Not Loading Data / API Errors:** Check the browser's developer console for JavaScript errors or network errors (404s, CORS issues if proxy is misconfigured). Ensure the Vite proxy in `web/vite.config.js` is correctly forwarding `/api` and `/ws` requests to your backend's host and port.
+*   **MQTT Connection Issues:** Double-check all MQTT settings in `server_runtime_config.json` (broker host, port, credentials, client ID, topic, ApplicationID). Verify connectivity to the broker with another MQTT tool if unsure.
+*   **No Trackers Appearing:**
+    *   Confirm MQTT is connected via the UI.
+    *   Ensure trackers are publishing to the correct topic and `ApplicationID` as configured.
+    *   For SenseCAP, verify data is under `MeasurementID "5002"`.
+    *   Check that beacon MAC addresses in your `miniprogram_config.json` match those being sent by the trackers.
+    *   Review backend logs for errors during message parsing or position calculation. 

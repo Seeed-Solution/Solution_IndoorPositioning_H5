@@ -9,6 +9,9 @@ from .models import MiniprogramConfig, ServerRuntimeConfig, MiniprogramBeaconCon
 MINIPROGRAM_CONFIG_FILE_PATH = Path("server/miniprogram_config.json")
 SERVER_RUNTIME_CONFIG_FILE_PATH = Path("server/server_runtime_config.json")
 
+# Placeholder for passwords when returning config to frontend
+PASSWORD_PLACEHOLDER = "********" 
+
 # Caches for the loaded configurations
 miniprogram_cfg_cache: Optional[MiniprogramConfig] = None
 server_runtime_cfg_cache: Optional[ServerRuntimeConfig] = None
@@ -77,6 +80,46 @@ def save_miniprogram_config(config_data: MiniprogramConfig) -> bool:
     except Exception as e:
         print(f"Error saving miniprogram configuration: {e}")
         return False
+
+def save_server_runtime_config(config_data: ServerRuntimeConfig) -> Tuple[bool, Optional[ServerRuntimeConfig]]:
+    """Saves the server runtime configuration data to its file.
+       If a new password is provided (not the placeholder), it's saved directly.
+       If the password in config_data is the placeholder, it means no change was intended by the user for the password.
+       In this case, we retain the existing password from the cache or file if possible.
+    """
+    global server_runtime_cfg_cache
+    try:
+        data_to_save = config_data.model_copy(deep=True) # Work with a copy
+
+        # Handle password: if placeholder is received, try to keep existing password
+        if hasattr(data_to_save, 'mqtt') and data_to_save.mqtt and data_to_save.mqtt.password == PASSWORD_PLACEHOLDER:
+            existing_password = None
+            if server_runtime_cfg_cache and server_runtime_cfg_cache.mqtt:
+                existing_password = server_runtime_cfg_cache.mqtt.password
+            elif SERVER_RUNTIME_CONFIG_FILE_PATH.is_file(): # Fallback to reading from file if cache is stale/empty
+                try:
+                    with open(SERVER_RUNTIME_CONFIG_FILE_PATH, 'r', encoding='utf-8') as f_read:
+                        current_file_data = json.load(f_read)
+                        if current_file_data.get("mqtt") and current_file_data["mqtt"].get("password"):
+                            existing_password = current_file_data["mqtt"]["password"]
+                except Exception as e_read:
+                    print(f"Could not read existing password from file during save: {e_read}")
+            
+            if existing_password and existing_password != PASSWORD_PLACEHOLDER:
+                data_to_save.mqtt.password = existing_password
+            else:
+                # If no existing sensible password, save it as empty or None (as Pydantic model allows)
+                data_to_save.mqtt.password = None 
+
+        with open(SERVER_RUNTIME_CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(data_to_save.model_dump(), f, indent=2)
+        
+        server_runtime_cfg_cache = data_to_save # Update cache with what was actually saved
+        print(f"Server runtime configuration saved successfully to {SERVER_RUNTIME_CONFIG_FILE_PATH}")
+        return True, server_runtime_cfg_cache
+    except Exception as e:
+        print(f"Error saving server runtime configuration: {e}")
+        return False, None
 
 def get_miniprogram_config() -> Optional[MiniprogramConfig]:
     """Returns the currently loaded miniprogram configuration."""

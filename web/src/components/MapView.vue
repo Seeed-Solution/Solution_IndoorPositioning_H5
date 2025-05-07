@@ -2,8 +2,8 @@
 <template>
   <div class="map-container">
     <canvas ref="mapCanvas" :width="canvasWidth" :height="canvasHeight" style="border: 1px solid #ccc;"></canvas>
-    <div v-if="config" class="map-info">
-      Map Dimensions: {{ config.mapInfo.width.toFixed(1) }}m x {{ config.mapInfo.height.toFixed(1) }}m
+    <div v-if="config && config.map" class="map-info">
+      Map Dimensions: {{ config.map.width.toFixed(1) }}m x {{ config.map.height.toFixed(1) }}m
     </div>
     <div v-else class="map-info">
       Load configuration to display map.
@@ -32,9 +32,15 @@ const canvasHeight = ref(600); // Default or calculated height
 const scale = ref(30); // Pixels per meter (adjust as needed)
 
 const drawMap = (ctx) => {
-  if (!props.config || !ctx) return;
+  if (!props.config || !props.config.map || !ctx) {
+    console.warn("[MapView] Attempted to drawMap without valid config.map data.");
+    if (ctx) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+    return;
+  }
 
-  const { width: mapWidthMeters, height: mapHeightMeters, entities } = props.config.mapInfo;
+  const { width: mapWidthMeters, height: mapHeightMeters, entities } = props.config.map;
   const beacons = props.config.beacons || [];
 
   // Calculate canvas size based on map dimensions and scale
