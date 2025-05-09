@@ -123,6 +123,9 @@ Make sure to add the UUIDs of the beacons you intend to use.
 **1. Backend Server Setup (Python):**
 
 ```bash
+# 0. If you use uv, you can directly run the program without setup since uv will take charge of installing the requirement
+# uv run uvicorn server.main:app --host 0.0.0.0 --port 8022
+
 # 1. Navigate to the project root directory
 # Example: cd /path/to/your/beacon_posistion_r1000
 
