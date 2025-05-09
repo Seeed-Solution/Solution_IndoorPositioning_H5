@@ -1,6 +1,7 @@
 // config.js
 const app = getApp();
 const appManager = require('../../utils/appManager');
+const bleScanConfig = require('../../config/ble_scan_config.js'); // Corrected path
 
 // Import the key definition from appManager or define it consistently
 // Assuming appManager is correctly required:
@@ -39,6 +40,10 @@ Page({
     // --- 扫描状态 ---
     isScanning: false,
     scanResults: [], // 扫描到的Beacon列表
+    latestBluetoothError: null, // To store the last BT error object {errCode, errMsg}
+    showDebugDetails: false, // To toggle visibility of debug info
+    lastActionLog: '', // To store simple status messages
+    platform: wx.getSystemInfoSync().platform, // Store platform info
 
     // --- 地图交互状态 ---
     coordSelectMode: false, // 是否处于坐标选择模式
@@ -57,6 +62,10 @@ Page({
 
   // --- 页面生命周期 ---
   onLoad() {
+    this.initParsers(); // Call parser initialization
+    this.setData({
+      iOSScanUUIDs: bleScanConfig.iOSScanUUIDs || [] // Load UUIDs from config, default to empty array
+    });
     this.loadData();
   },
   
@@ -205,15 +214,18 @@ Page({
   // 保存地图配置 (通过appManager)
   saveMapConfigAction() {
     console.log('[saveMapConfigAction] Function called.');
-    const mapData = this.data.mapInfo.jsonContent;
-    if (!mapData) {
-      console.log('[saveMapConfigAction] No map data to save.');
-      wx.showToast({ title: '没有地图数据可保存', icon: 'none' });
+    const fullConfig = this.data.mapInfo.jsonContent; // Get the full loaded config
+    if (!fullConfig || typeof fullConfig.map !== 'object') { // Check if it has the expected structure
+      console.log('[saveMapConfigAction] Invalid or missing map data structure in jsonContent.');
+      wx.showToast({ title: '地图数据结构无效', icon: 'none' });
       return;
     }
+    
+    const mapDataToSave = fullConfig.map; // Extract ONLY the map object
+
     wx.showLoading({ title: '保存中...', mask: true });
-    console.log('[saveMapConfigAction] Calling appManager.loadMapData...');
-    appManager.loadMapData(mapData) // loadMapData 包含保存逻辑
+    console.log('[saveMapConfigAction] Calling appManager.loadMapData with map object:', mapDataToSave);
+    appManager.loadMapData(mapDataToSave) // Pass only the map object
       .then(() => {
         console.log('[saveMapConfigAction] appManager.loadMapData resolved (Success).');
         wx.hideLoading();
@@ -453,29 +465,60 @@ Page({
   
   // --- Beacon 扫描相关 ---
   startScanBeacons() {
-    if (this.data.isScanning) { return; }
+    console.log(`[BT LOG] startScanBeacons called on platform: ${this.data.platform}.`); // LOG
+    this.setData({ 
+        isScanning: false, // Reset just in case
+        scanResults: [], 
+        latestBluetoothError: null, 
+        lastActionLog: '尝试启动扫描...' // Trying to start scan...
+    }); 
+    if (this.data.isScanning) { 
+        console.log('[BT LOG] Scan already in progress, returning.');
+        return; 
+    }
     this.initBluetooth()
       .then(() => {
-        this.setData({ isScanning: true, showScanResultModal: true, scanResults: [] });
-        this.startDiscovery();
+        if (this.data.platform === 'android') {
+          this.startAndroidDiscovery();
+        } else { // Use BeaconDiscovery for iOS and any other non-Android platform
+          this.startBeaconDiscovery(); // Renamed from startIOSBeaconDiscovery
+        }
       })
-      .catch(err => { this.showBluetoothError(err); });
+      .catch(err => { 
+          console.error('[BT LOG] initBluetooth failed in startScanBeacons chain.');
+          this.setData({ lastActionLog: '蓝牙初始化失败' }); // Bluetooth init failed
+      });
   },
 
   initBluetooth() {
+    console.log('[BT LOG] initBluetooth called.'); // LOG
+    this.setData({ lastActionLog: '初始化蓝牙适配器...' }); // Initializing BT adapter...
     return new Promise((resolve, reject) => {
     wx.openBluetoothAdapter({
         success: (res) => {
+          console.log('[BT LOG] wx.openBluetoothAdapter SUCCESS:', res); // LOG
+          this.setData({ lastActionLog: '蓝牙适配器打开成功' }); // BT adapter opened successfully
           wx.onBluetoothAdapterStateChange((res) => {
+            console.log('[BT LOG] BluetoothAdapterStateChange:', res); // LOG
             if (!res.available && this.data.isScanning) {
+              console.log('[BT LOG] Adapter became unavailable during scan. Stopping.'); // LOG
               this.stopScanBeacons();
               wx.showToast({ title: '蓝牙已断开', icon: 'none' });
+              this.setData({ lastActionLog: '蓝牙适配器状态改变: 不可用' }); // BT adapter state change: unavailable
+            } else if (res.available) {
+                 this.setData({ lastActionLog: '蓝牙适配器状态改变: 可用' }); // BT adapter state change: available
             }
           });
-          resolve();
+          resolve(res); // Resolve with the success response
         },
         fail: (err) => {
-          console.error('蓝牙适配器初始化失败', err);
+          console.error('[BT LOG] wx.openBluetoothAdapter FAILED:', err); // LOG Full Error
+          const errorInfo = { errCode: err.errCode, errMsg: err.errMsg };
+          this.setData({ 
+              latestBluetoothError: errorInfo,
+              lastActionLog: `蓝牙适配器失败: ${err.errMsg}` // BT adapter failed
+          }); 
+          this.showBluetoothError(err); 
           reject(err);
         }
       });
@@ -483,178 +526,383 @@ Page({
   },
 
   showBluetoothError(err) {
+    console.error('[BT LOG] showBluetoothError called with:', err); // LOG
     let errorMsg = '蓝牙操作失败';
-    if (err.errCode === 10001) { errorMsg = '请先打开设备蓝牙'; }
-    else if (err.errCode === 10009) { errorMsg = '请授权小程序蓝牙权限'; }
-    else if (err.errMsg && err.errMsg.includes('support')) { errorMsg = '设备不支持蓝牙'; }
-    else if (err.errMsg) { errorMsg = err.errMsg; }
-    wx.showModal({ title: '蓝牙错误', content: errorMsg, showCancel: false });
+    let detail = err.errMsg || '未知错误';
+    let code = err.errCode;
+
+    // Log detailed error info regardless of modal message
+    console.error(`[BT LOG] Bluetooth Error Details: Code=${code}, Message=${detail}`);
+
+    if (code === 10001) { errorMsg = '请先打开设备蓝牙'; }
+    else if (code === 10008) { errorMsg = '请开启系统定位服务'; } // System location service often needed on iOS
+    else if (code === 10009) { errorMsg = '请授权小程序蓝牙权限'; }
+    else if (detail && detail.includes('support')) { errorMsg = '设备不支持蓝牙'; }
+    else if (detail) { errorMsg = `错误: ${detail}`; } // Show full message if generic
+
+    wx.showModal({ 
+        title: '蓝牙错误', 
+        content: `${errorMsg} (错误码: ${code})`, 
+        showCancel: false 
+    });
+    // Also update log state
+    this.setData({ lastActionLog: `蓝牙错误: ${errorMsg}` });
   },
 
-  startDiscovery() {
+  startAndroidDiscovery() {
+    console.log('[BT LOG] startAndroidDiscovery called.'); // LOG
+    this.setData({ 
+        isScanning: true, 
+        showScanResultModal: true, 
+        scanResults: [], 
+        latestBluetoothError: null,
+        lastActionLog: '开始搜索蓝牙设备 (Android)...'
+    });
     wx.startBluetoothDevicesDiscovery({
-      allowDuplicatesKey: true, // 允许重复上报以更新RSSI
+      allowDuplicatesKey: true, 
+      interval: 0, 
       success: (res) => {
-        wx.onBluetoothDeviceFound(this.handleDeviceFound); // 使用独立函数处理
-        // 设置30秒超时自动停止
-        setTimeout(() => { if (this.data.isScanning) { this.stopScanBeacons(); } }, 30000);
+        console.log('[BT LOG] wx.startBluetoothDevicesDiscovery SUCCESS:', res); // LOG
+        this.setData({ lastActionLog: '设备搜索已启动 (Android)' });
+        console.log('[BT LOG] Registering wx.onBluetoothDeviceFound listener.'); // LOG
+        wx.onBluetoothDeviceFound(this.handleAndroidDeviceFound); // Use specific handler
+         setTimeout(() => { 
+             if (this.data.isScanning) { 
+                 console.log('[BT LOG] Android Scan timeout reached. Stopping.'); // LOG
+                 this.stopScanBeacons(); 
+             } 
+         }, 30000); // 30 seconds timeout
       },
       fail: (err) => {
-        console.error('开始蓝牙设备扫描失败:', err);
-        this.setData({ isScanning: false });
-        wx.showModal({ title: '扫描失败', content: '启动扫描失败: ' + (err.errMsg || '未知错误'), showCancel: false });
+        console.error('[BT LOG] wx.startBluetoothDevicesDiscovery FAILED:', err); // LOG Full Error
+        const errorInfo = { errCode: err.errCode, errMsg: err.errMsg };
+        this.setData({ 
+            isScanning: false, 
+            latestBluetoothError: errorInfo,
+            lastActionLog: `启动Android搜索失败: ${err.errMsg}`
+        }); 
+        this.showBluetoothError(err);
+        this.setData({ showScanResultModal: false });
       }
     });
   },
 
-  handleDeviceFound(res) {
-      if (!res.devices || res.devices.length === 0) return;
-      res.devices.forEach(device => {
-          // --- REMOVE Raw Device Info Log ---
-          // console.log(`[handleDeviceFound] Detected Device: ID=${device.deviceId}, Name=${device.name}, LocalName=${device.localName}`);
-            if (device.advertisData) {
-              // --- REMOVE Adv Data Log ---
-              // try {
-              //     const hexAdvData = Array.prototype.map.call(new Uint8Array(device.advertisData), x => ('00' + x.toString(16)).slice(-2)).join(' ');
-              //     console.log(`[handleDeviceFound] Adv Data: ${hexAdvData}`);
-              // } catch (e) {
-              //     console.warn('[handleDeviceFound] Error converting AdvData to hex', e);
-              // }
-          // --- END REMOVE Adv Data Log ---
+  // NEW: Start Beacon Discovery for iOS / Non-Android
+  startBeaconDiscovery() { // Renamed from startIOSBeaconDiscovery
+    console.log('[BT LOG] startBeaconDiscovery called (for non-Android).'); // LOG
+    if (!this.data.iOSScanUUIDs || this.data.iOSScanUUIDs.length === 0) {
+      console.error('[BT LOG] No UUIDs configured to scan for.');
+      this.setData({ lastActionLog: '扫描错误: 未配置UUID' });
+      wx.showModal({ title: '错误', content: '未配置用于iBeacon扫描的UUID', showCancel: false });
+      return;
+    }
+    this.setData({ 
+        isScanning: true, 
+        showScanResultModal: true, 
+        scanResults: [], 
+        latestBluetoothError: null,
+        lastActionLog: '开始搜索iBeacon (非安卓)...',
+    });
 
-              let beaconInfo = this.parseAdvertisDataStandard(device.advertisData);
-              if (!beaconInfo) {
-                  beaconInfo = this.parseAdvertisDataAlternative(device.advertisData);
-              }
+    // Ensure UUIDs are uppercase without extra spaces
+    const cleanUUIDs = this.data.iOSScanUUIDs.map(uuid => uuid.toUpperCase().trim());
+    console.log('[BT LOG] Starting beacon discovery for UUIDs:', cleanUUIDs);
 
-              // --- REMOVE Parsing Result Log ---
-              if (beaconInfo && beaconInfo.isIBeacon) {
-                  // console.log(`[handleDeviceFound] Parsed as iBeacon:`, JSON.stringify(beaconInfo));
-                  this.addBeaconToScanResults({
-                      ...beaconInfo,
+    wx.startBeaconDiscovery({
+      uuids: cleanUUIDs,
+      ignoreBluetoothAvailable: false, // Recommended default
+      success: (res) => {
+        console.log('[BT LOG] wx.startBeaconDiscovery SUCCESS:', res); // LOG
+        this.setData({ lastActionLog: 'iBeacon搜索已启动 (非安卓)' });
+        console.log('[BT LOG] Registering wx.onBeaconUpdate listener.'); // LOG
+        wx.onBeaconUpdate(this.handleBeaconUpdate); // Renamed from handleIOSBeaconUpdate
+
+         setTimeout(() => { 
+             if (this.data.isScanning) { 
+                 console.log('[BT LOG] BeaconDiscovery Scan timeout reached. Stopping.'); // LOG
+                 this.stopScanBeacons(); 
+             } 
+         }, 30000); // 30 seconds timeout
+      },
+      fail: (err) => {
+        console.error('[BT LOG] wx.startBeaconDiscovery FAILED:', err); // LOG Full Error
+        const errorInfo = { errCode: err.errCode, errMsg: err.errMsg };
+        this.setData({ 
+            isScanning: false, 
+            latestBluetoothError: errorInfo,
+            lastActionLog: `启动iBeacon搜索失败: ${err.errMsg}`
+        }); 
+        this.showBluetoothError(err);
+        this.setData({ showScanResultModal: false });
+      }
+    });
+  },
+
+  // Renamed from handleDeviceFound
+  handleAndroidDeviceFound(res) {
+    // console.log('[BT LOG] wx.onBluetoothDeviceFound received (Android):', res);
+    if (!res.devices || res.devices.length === 0) return;
+    
+    res.devices.forEach(device => {
+        const deviceId = device.deviceId || '(no ID)';
+        const name = device.name || '(no name)';
+        const localName = device.localName || '(no local name)';
+        const rssi = device.RSSI;
+        console.log(`[BT LOG Android] Device Found: ID=${deviceId}, Name=${name}, RSSI=${rssi}`);
+        // this.setData({ lastActionLog: `Android发现: ${name} (${deviceId})` });
+
+        let beaconInfo = null;
+        // Parsing logic (advertisData / manufacturerData) remains here for Android
+        if (device.advertisData) {
+             try {
+                 const hexAdvData = Array.prototype.map.call(new Uint8Array(device.advertisData), x => ('00' + x.toString(16)).slice(-2)).join(' ');
+                 console.log(`[BT LOG Android]   Adv Data (Hex): ${hexAdvData}`);
+             } catch (e) { console.warn('[BT LOG Android]   Error converting AdvData to hex', e); }
+
+            beaconInfo = this.parseAdvertisDataStandard(device.advertisData);
+            if (!beaconInfo) {
+                beaconInfo = this.parseAdvertisDataAlternative(device.advertisData);
+            }
+            if (!beaconInfo) {
+                 console.log('[BT LOG Android]   advertisData exists but did not parse as iBeacon.');
+            }
+        } else {
+             console.log(`[BT LOG Android]   Device ${deviceId} has no AdvData.`);
+        }
+
+        if (!beaconInfo && device.manufacturerData) {
+             console.log('[BT LOG Android]   Attempting to parse manufacturerData.');
+             try {
+                 const hexManuData = Array.prototype.map.call(new Uint8Array(device.manufacturerData), x => ('00' + x.toString(16)).slice(-2)).join(' ');
+                 console.log(`[BT LOG Android]   Manu Data (Hex): ${hexManuData}`);
+             } catch (e) { console.warn('[BT LOG Android]   Error converting ManuData to hex', e); }
+            beaconInfo = this.parseManufacturerDataForIBeacon(device.manufacturerData); // Reuse parser if needed
+        } else if (!beaconInfo) {
+             console.log(`[BT LOG Android]   Device ${deviceId} has no ManufacturerData either.`);
+        }
+
+        if (beaconInfo && beaconInfo.isIBeacon) {
+            console.log(`[BT LOG Android]   Parsed as iBeacon: UUID=${beaconInfo.uuid}, Major=${beaconInfo.major}, Minor=${beaconInfo.minor}, TxPower=${beaconInfo.txPower}`);
+            this.setData({ lastActionLog: `Android解析iBeacon: ${name}` });
+            this.addBeaconToScanResults({
+                ...beaconInfo,
                 rssi: device.RSSI,
-                deviceId: device.deviceId,
-                      name: device.name,
-                      localName: device.localName
-                  });
-              } else {
-                   // if (device.advertisData) {
-                   //    console.log(`[handleDeviceFound] Device ${device.deviceId || '(no ID)'} not parsed as iBeacon.`);
-                   // }
-              }
-              // --- END REMOVE Parsing Result Log ---
-          } else {
-              // console.log(`[handleDeviceFound] Device ${device.deviceId || '(no ID)'} has no AdvData.`);
-      }
+                deviceId: device.deviceId, // Android uses MAC address here
+                name: device.name,
+                localName: device.localName
+            });
+        } else {
+             console.log(`[BT LOG Android]   Device ${deviceId} not parsed as iBeacon.`);
+        }
     });
   },
-  
-  // 标准iBeacon解析 (主要依据Apple规范)
-  parseAdvertisDataStandard(advertisData) {
+
+  // NEW: Handler for iOS beacon updates (Now generalized)
+  handleBeaconUpdate(res) { // Renamed from handleIOSBeaconUpdate
+      console.log(`[BT LOG BeaconDiscovery] wx.onBeaconUpdate received ${res.beacons.length} beacons.`);
+      if (!res.beacons || res.beacons.length === 0) return;
+
+      res.beacons.forEach(beacon => {
+          const { uuid, major, minor, proximity, accuracy, rssi } = beacon;
+          console.log(`[BT LOG BeaconDiscovery] Update: UUID=${uuid}, Major=${major}, Minor=${minor}, RSSI=${rssi}, Acc=${accuracy}`);
+          this.setData({ lastActionLog: `发现iBeacon: ${major}-${minor}` });
+
+          // Adapt the beacon data structure
+          this.addBeaconToScanResults({
+              isIBeacon: true, // Mark as confirmed iBeacon
+              uuid: uuid.toUpperCase(),
+              major: major,
+              minor: minor,
+              rssi: rssi,
+              txPower: -59, // Assign a default/placeholder TxPower, as it's often unreliable from onBeaconUpdate
+              deviceId: '', // deviceId (MAC) is not available from this iOS API
+              name: 'iBeacon', // Generic name, can refine if needed
+              localName: '',
+              // Optional: Include accuracy/proximity if useful for display
+              accuracy: accuracy,
+              proximity: proximity
+          });
+      });
+  },
+
+  // --- Parsing Functions (Moved to separate init method) ---
+  // parseAdvertisDataStandard, parseAdvertisDataAlternative, parseManufacturerDataForIBeacon definitions removed from here
+
+  // --- NEW: Method to initialize parser functions on the instance --- 
+  initParsers() {
+    this.parseAdvertisDataStandard = (advertisData) => {
+      // Standard iBeacon parsing (Major/Minor Big-Endian)
       try {
           const dataView = new DataView(advertisData);
-          // 查找 4C 00 02 15 (Apple iBeacon identifier)
-          for (let i = 0; i <= dataView.byteLength - 25; i++) { // 至少需要25字节
+          // Find 4C 00 02 15 (Apple iBeacon identifier)
+          for (let i = 0; i <= dataView.byteLength - 25; i++) { 
               if (dataView.getUint8(i) === 0x4C && dataView.getUint8(i + 1) === 0x00 &&
                   dataView.getUint8(i + 2) === 0x02 && dataView.getUint8(i + 3) === 0x15) {
                   const startIndex = i + 4;
-          let uuid = '';
+                  let uuid = '';
                   for (let j = 0; j < 16; j++) {
                       uuid += dataView.getUint8(startIndex + j).toString(16).padStart(2, '0');
                       if (j === 3 || j === 5 || j === 7 || j === 9) uuid += '-';
                   }
-                  const major = dataView.getUint16(startIndex + 16, false); // Big-endian
-                  const minor = dataView.getUint16(startIndex + 18, false); // Big-endian
-          const txPower = dataView.getInt8(startIndex + 20);
+                  const major = dataView.getUint16(startIndex + 16, false); 
+                  const minor = dataView.getUint16(startIndex + 18, false); 
+                  const txPower = dataView.getInt8(startIndex + 20);
                   return { isIBeacon: true, uuid: uuid.toUpperCase(), major, minor, txPower };
               }
           }
-      } catch (e) { /* console.error('标准解析错误', e); */ } // Keep error silent
-    return null;
-  },
-  
-  // 备用iBeacon解析 (针对可能省略Apple ID的情况)
-  parseAdvertisDataAlternative(advertisData) {
-    try {
-          const dataView = new DataView(advertisData);
-          // 查找 02 15 (iBeacon type and length)
-          for (let i = 0; i <= dataView.byteLength - 23; i++) { // 至少需要23字节
-              if (dataView.getUint8(i) === 0x02 && dataView.getUint8(i + 1) === 0x15) {
-                  const startIndex = i + 2;
-      let uuid = '';
-                  for (let j = 0; j < 16; j++) {
-                      uuid += dataView.getUint8(startIndex + j).toString(16).padStart(2, '0');
-                      if (j === 3 || j === 5 || j === 7 || j === 9) uuid += '-';
-                  }
-      const major = dataView.getUint16(startIndex + 16, false);
-      const minor = dataView.getUint16(startIndex + 18, false);
-      const txPower = dataView.getInt8(startIndex + 20);
-                  return { isIBeacon: true, uuid: uuid.toUpperCase(), major, minor, txPower };
-              }
-          }
-      } catch (e) { /* console.error('备用解析错误', e); */ } // Keep error silent
+      } catch (e) { console.error('[BT Parser] Standard parse error', e); }
       return null;
+    };
+
+    this.parseAdvertisDataAlternative = (advertisData) => {
+      // Alt parsing (Maybe missing Apple ID 4C 00)
+      try {
+            const dataView = new DataView(advertisData);
+            // Find 02 15 (iBeacon type and length)
+            for (let i = 0; i <= dataView.byteLength - 23; i++) { 
+                if (dataView.getUint8(i) === 0x02 && dataView.getUint8(i + 1) === 0x15) {
+                    const startIndex = i + 2;
+                    let uuid = '';
+                    for (let j = 0; j < 16; j++) {
+                        uuid += dataView.getUint8(startIndex + j).toString(16).padStart(2, '0');
+                        if (j === 3 || j === 5 || j === 7 || j === 9) uuid += '-';
+                    }
+                    const major = dataView.getUint16(startIndex + 16, false);
+                    const minor = dataView.getUint16(startIndex + 18, false);
+                    const txPower = dataView.getInt8(startIndex + 20);
+                    return { isIBeacon: true, uuid: uuid.toUpperCase(), major, minor, txPower };
+                }
+            }
+        } catch (e) { console.error('[BT Parser] Alternative parse error', e); } 
+        return null;
+    };
+
+    this.parseManufacturerDataForIBeacon = (manufacturerData) => {
+      // Parse manufacturerData directly (common iOS format)
+      if (!manufacturerData || manufacturerData.byteLength !== 23) {
+        // console.log(`[BT Parser] ManufacturerData length not 23.`);
+        return null;
+      }
+      try {
+        const dataView = new DataView(manufacturerData);
+        // Check for iBeacon type (0x02) and length (0x15)
+        if (dataView.getUint8(0) === 0x02 && dataView.getUint8(1) === 0x15) {
+          const startIndex = 2; 
+          let uuid = '';
+          for (let j = 0; j < 16; j++) {
+            uuid += dataView.getUint8(startIndex + j).toString(16).padStart(2, '0');
+            if (j === 3 || j === 5 || j === 7 || j === 9) uuid += '-';
+          }
+          const major = dataView.getUint16(startIndex + 16, false); 
+          const minor = dataView.getUint16(startIndex + 18, false); 
+          const txPower = dataView.getInt8(startIndex + 20);
+          console.log('[BT Parser] Successfully parsed iBeacon from manufacturerData.');
+          return { isIBeacon: true, uuid: uuid.toUpperCase(), major, minor, txPower };
+        } else {
+          // console.log('[BT Parser] ManufacturerData prefix not 0x02 0x15.');
+        }
+      } catch (e) {
+        console.error('[BT Parser] ManufacturerData parse error:', e);
+      }
+      return null;
+    };
   },
+  // --- END NEW PARSER INIT ---
 
   addBeaconToScanResults(beacon) {
     if (!beacon || !beacon.uuid) { 
         console.warn('[addBeaconToScanResults] Invalid beacon data received:', beacon);
         return; 
     }
+    const platform = this.data.platform; // Get platform info
+    console.log(`[addBeaconToScanResults] Platform: ${platform}, Processing Beacon:`, beacon);
 
-    // console.log(`[addBeaconToScanResults] Processing Beacon: UUID=${beacon.uuid}, Major=${beacon.major}, Minor=${beacon.minor}, Name=${beacon.displayName}, DeviceID=${beacon.deviceId}`);
-
-    // --- MODIFIED Check: Filter out based on matching Device ID (MAC Address) only ---
+    // --- Platform-Aware Filtering against Configured Beacons ---
     let isAlreadyConfigured = false;
-    if (beacon.deviceId) { // Only filter if the scanned beacon has a deviceId
-        isAlreadyConfigured = this.data.beacons.some(configuredBeacon =>
-            configuredBeacon.deviceId && // Ensure the configured beacon also has a deviceId
-            configuredBeacon.deviceId === beacon.deviceId
-        );
+    if (platform === 'android') {
+        // Android: Filter based on deviceId (MAC Address)
+        if (beacon.deviceId) { 
+            isAlreadyConfigured = this.data.beacons.some(configuredBeacon =>
+                configuredBeacon.deviceId && 
+                configuredBeacon.deviceId === beacon.deviceId
+            );
+            if(isAlreadyConfigured) console.log(`[addBeaconToScanResults Android] Filtered: Device ID ${beacon.deviceId} already configured.`);
+        } else {
+             console.log(`[addBeaconToScanResults Android] Skipping beacon with missing deviceId:`, beacon);
+             return; // Exit the function, do not add this beacon
+        }
     } else {
-        // console.log(`[addBeaconToScanResults] Scanned beacon has no deviceId, cannot filter by MAC.`);
+        // Non-Android (iOS, etc.): Filter based on UUID/Major/Minor
+        isAlreadyConfigured = this.data.beacons.some(configuredBeacon =>
+            configuredBeacon.uuid === beacon.uuid &&
+            configuredBeacon.major === beacon.major &&
+            configuredBeacon.minor === beacon.minor
+        );
+         if(isAlreadyConfigured) console.log(`[addBeaconToScanResults Non-Android] Filtered: UUID/Major/Minor ${beacon.uuid}/${beacon.major}/${beacon.minor} already configured.`);
     }
-    // --- END MODIFIED Check ---
+    // --- END Platform-Aware Filtering ---
     
     if (isAlreadyConfigured) {
-        // console.log(`[addBeaconToScanResults] Filtered: Device ID ${beacon.deviceId} already configured.`);
-        return; // Don't add to scan results if already configured by deviceId
-    } else {
-        // console.log(`[addBeaconToScanResults] Device ID ${beacon.deviceId || '(none)'} not configured, proceeding.`);
+        return; // Don't add to scan results if already configured
     }
 
-      const scanResults = [...this.data.scanResults];
-    // Check for duplicates within the *scan results list itself* based on UUID/Major/Minor
-    const existingIndex = scanResults.findIndex(item =>
-        item.uuid === beacon.uuid &&
-        item.major === beacon.major &&
-        item.minor === beacon.minor
-    );
+    const scanResults = [...this.data.scanResults];
+    let existingIndex = -1;
 
+    // --- Platform-Aware De-duplication/Update within Scan Results List ---
+    if (platform === 'android') {
+        // Android: Find existing ONLY by deviceId (MAC address)
+        if (beacon.deviceId) {
+             existingIndex = scanResults.findIndex(item => item.deviceId === beacon.deviceId);
+        } else {
+             // If no deviceId on Android, we cannot reliably de-duplicate or identify.
+             // Options: Skip, or add anyway (might lead to UUID/Major/Minor duplicates shown).
+             // Let's skip for now to enforce MAC-based uniqueness on Android.
+             console.warn('[addBeaconToScanResults Android] Skipping beacon with missing deviceId:', beacon);
+             return; // Exit the function, do not add this beacon
+        }
+    } else {
+        // Non-Android (iOS, etc.): Find existing by UUID/Major/Minor
+        existingIndex = scanResults.findIndex(item =>
+            item.uuid === beacon.uuid &&
+            item.major === beacon.major &&
+            item.minor === beacon.minor
+        );
+    }
+    // --- END Platform-Aware De-duplication ---
+
+    // Determine Display Name
     let displayName = beacon.localName || beacon.name;
     if (!displayName) {
-        displayName = beacon.deviceId ? beacon.deviceId.substring(beacon.deviceId.length - 6) : beacon.uuid.substring(0, 8);
+        // Android gets MAC suffix, others get Major-Minor
+        displayName = platform === 'android' && beacon.deviceId 
+                      ? beacon.deviceId.substring(beacon.deviceId.length - 6) 
+                      : `${beacon.major}-${beacon.minor}`;
     }
 
+    // Ensure consistent structure for list items
     const beaconInfo = {
       uuid: beacon.uuid,
       major: beacon.major,
       minor: beacon.minor,
       rssi: beacon.rssi,
-      txPower: beacon.txPower,
-      deviceId: beacon.deviceId || '',
-      name: beacon.name,
-      localName: beacon.localName,
-      displayName: displayName
+      txPower: beacon.txPower, // Keep TxPower from parsing (Android) or default (iOS)
+      deviceId: beacon.deviceId || '', // Use empty string if not available (iOS)
+      name: beacon.name || '',
+      localName: beacon.localName || '',
+      displayName: displayName,
+      // Include optional iOS fields if present
+      accuracy: beacon.accuracy,
+      proximity: beacon.proximity
     };
 
     if (existingIndex >= 0) {
       scanResults[existingIndex] = beaconInfo;
-      // console.log(`[addBeaconToScanResults] Updated existing entry in scan list (UUID/Major/Minor match).`);
+      console.log(`[addBeaconToScanResults ${platform}] Updated existing entry index ${existingIndex}.`);
     } else {
       scanResults.push(beaconInfo);
-      scanResults.sort((a, b) => b.rssi - a.rssi);
-      // console.log(`[addBeaconToScanResults] Added new entry to scan list.`);
+      scanResults.sort((a, b) => b.rssi - a.rssi); // Sort by RSSI descending
+      console.log(`[addBeaconToScanResults ${platform}] Added new entry.`);
     }
     this.setData({ scanResults: scanResults });
   },
@@ -665,26 +913,50 @@ Page({
     if (!beacon || !beacon.uuid) {
       wx.showToast({ title: '选择的设备无效', icon: 'none' }); return;
     }
-    this.stopScanBeacons();
+    this.stopScanBeacons(); // Stop whichever scan is running
     this.setData({ showScanResultModal: false });
     
-    // --- Modified displayName Population ---
-    // Pre-fill displayName with discovered name, allow user to edit
-    const prefilledDisplayName = beacon.displayName; // Already derived in addBeaconToScanResults
-    // --- End Modification ---
-    
+    // --- Determine platform-aware prefilledDisplayName ---
+    let prefilledDisplayName = '';
+    const platform = this.data.platform;
+
+    if (platform === 'android') {
+      if (beacon.localName && beacon.localName.trim() !== '') {
+        prefilledDisplayName = beacon.localName.trim();
+      } else if (beacon.name && beacon.name.trim() !== '') {
+        prefilledDisplayName = beacon.name.trim();
+      } else if (beacon.deviceId) {
+        // Fallback for Android if no name/localName, use part of deviceId
+        prefilledDisplayName = beacon.deviceId.substring(beacon.deviceId.length - 6);
+      } else {
+        // Further fallback if no deviceId either (unlikely for Android scan)
+        prefilledDisplayName = `${beacon.major}-${beacon.minor}`;
+      }
+    } else { // iOS or other platforms
+      prefilledDisplayName = `${beacon.major}-${beacon.minor}`; // Default for iOS
+    }
+    // Ensure displayName is not just an empty string if previous logic resulted in one accidentally
+    if (!prefilledDisplayName || prefilledDisplayName.trim() === '') {
+        prefilledDisplayName = `Beacon ${beacon.major}-${beacon.minor}` // Generic fallback
+    }
+    // --- End display name logic ---
+
+    const prefilledTxPower = (beacon.txPower !== undefined && beacon.txPower !== 0) // Check if txPower is valid (not 0 from iOS onBeaconUpdate)
+                             ? beacon.txPower.toString() 
+                             : '-59'; // Default if invalid/missing
+
     this.setData({
       showBeaconModal: true,
       beaconModalMode: 'add',
       editingBeaconIndex: -1,
       editingBeacon: {
         uuid: beacon.uuid,
-        major: beacon.major || '',
-        minor: beacon.minor || '',
-        deviceId: beacon.deviceId || '',
-        displayName: prefilledDisplayName, // Use the pre-filled name
+        major: beacon.major !== undefined ? beacon.major.toString() : '',
+        minor: beacon.minor !== undefined ? beacon.minor.toString() : '',
+        deviceId: beacon.deviceId || '', // Include deviceId if available (Android)
+        displayName: prefilledDisplayName,
         x: '', y: '',
-        txPower: beacon.txPower !== undefined ? beacon.txPower.toString() : '-59'
+        txPower: prefilledTxPower // Use default if scan didn't provide valid one
       }
     });
     wx.showToast({ title: '请设置位置信息', icon: 'none' });
@@ -692,13 +964,36 @@ Page({
 
   stopScanBeacons() {
     if (!this.data.isScanning) return;
-    this.setData({ isScanning: false });
-    wx.stopBluetoothDevicesDiscovery({ fail: (err) => console.warn('停止扫描失败', err) });
-    wx.closeBluetoothAdapter({ fail: (err) => console.warn('关闭蓝牙适配器失败', err) });
-    wx.offBluetoothDeviceFound(this.handleDeviceFound); // 移除监听器
+    console.log(`[BT LOG] stopScanBeacons called on platform: ${this.data.platform}.`); // LOG
+    this.setData({ isScanning: false, lastActionLog: '停止扫描...' });
+
+    if (this.data.platform === 'android') {
+        wx.stopBluetoothDevicesDiscovery({ 
+             success: () => console.log('[BT LOG] wx.stopBluetoothDevicesDiscovery success.'),
+            fail: (err) => console.warn('[BT LOG] wx.stopBluetoothDevicesDiscovery failed', err) 
+        });
+        wx.offBluetoothDeviceFound(this.handleAndroidDeviceFound); // Unregister Android listener
+        console.log('[BT LOG] Unregistered wx.onBluetoothDeviceFound listener.');
+    } else {
+        // Stop BeaconDiscovery for iOS and other platforms
+        wx.stopBeaconDiscovery({ 
+            success: () => console.log('[BT LOG] wx.stopBeaconDiscovery success.'),
+            fail: (err) => console.warn('[BT LOG] wx.stopBeaconDiscovery failed', err) 
+        });
+        wx.offBeaconUpdate(this.handleBeaconUpdate); // Unregister BeaconUpdate listener
+        console.log('[BT LOG] Unregistered wx.onBeaconUpdate listener.');
+    }
+    
+    // Keep closing adapter common for now
+    wx.closeBluetoothAdapter({ 
+        success: () => console.log('[BT LOG] wx.closeBluetoothAdapter success.'),
+        fail: (err) => console.warn('[BT LOG] wx.closeBluetoothAdapter failed', err) 
+    });
+    this.setData({ lastActionLog: '扫描已停止' });
   },
 
   hideScanResultModal() {
+    console.log('[BT LOG] hideScanResultModal called, stopping scan.'); // LOG
     this.stopScanBeacons();
     this.setData({ showScanResultModal: false });
   },
@@ -879,11 +1174,23 @@ Page({
 
   // --- 地图绘制 ---
   drawJSONMap(ctx, canvasWidth, canvasHeight) {
-    const jsonData = this.data.mapInfo.jsonContent;
-    if (!jsonData || !this.validateMapJSON(jsonData)) { return; }
-    const mapWidth = jsonData.width; const mapHeight = jsonData.height;
+    const fullConfig = this.data.mapInfo.jsonContent;
+    // Validate that we have the map object within the loaded config
+    if (!fullConfig || typeof fullConfig.map !== 'object' || !this.validateMapJSON(fullConfig)) { 
+        console.error('[drawJSONMap] Invalid or missing map data structure.');
+        // Draw placeholder text if data is invalid after loading
+        ctx.fillStyle = '#666666'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('无效或缺失地图数据', canvasWidth / 2, canvasHeight / 2 - 10);
+        ctx.textAlign = 'start'; // Reset alignment
+        return; 
+    }
 
-    // 计算缩放和偏移 (边距20px, 额外缩小10%)
+    const jsonData = fullConfig.map; // Use the nested map object for drawing
+    const mapWidth = jsonData.width; 
+    const mapHeight = jsonData.height;
+    const mapEntities = jsonData.entities || []; // Use entities from the nested map object
+
+    // Calculation of scale/offset remains the same, using mapWidth/mapHeight
     const scale = Math.min((canvasWidth - 40) / mapWidth, (canvasHeight - 40) / mapHeight) * 0.9;
     const offsetX = (canvasWidth - mapWidth * scale) / 2;
     const offsetY = (canvasHeight - mapHeight * scale) / 2;
@@ -908,7 +1215,7 @@ Page({
 
     // 绘制地图实体 (只处理polyline)
     ctx.strokeStyle = '#333333'; ctx.lineWidth = 1.5;
-    jsonData.entities.forEach(entity => {
+    mapEntities.forEach(entity => { // Iterate through mapEntities from the nested map object
       if (entity && entity.type === 'polyline' && Array.isArray(entity.points) && entity.points.length >= 2) {
       ctx.beginPath();
         const startPixel = this.meterToPixel(entity.points[0][0], entity.points[0][1]);
@@ -1027,50 +1334,71 @@ Page({
   },
 
   validateMapJSON(jsonData) {
-    if (!jsonData) return false;
-    if (typeof jsonData.width !== 'number' || jsonData.width <= 0) return false;
-    if (typeof jsonData.height !== 'number' || jsonData.height <= 0) return false;
-    if (!Array.isArray(jsonData.entities)) return false;
-    // 简单验证通过
-    return true;
+    // Basic validation: check for map and beacons keys
+    return jsonData && typeof jsonData.map === 'object' && Array.isArray(jsonData.beacons);
   },
 
-  // --- Export Configuration --- // NEW FUNCTION
+  toggleDebugInfo: function() {
+    this.setData({
+      showDebugDetails: !this.data.showDebugDetails
+    });
+    console.log("Toggled debug info visibility to:", this.data.showDebugDetails);
+    // Consider if you need to refresh what 'latestBluetoothError' shows, 
+    // but it should ideally be updated when the error actually occurs.
+  },
+
   exportConfig() {
     console.log('Exporting configuration...');
-    const mapInfo = this.data.mapInfo.jsonContent;
-    const rawBeacons = this.data.beacons || []; // Ensure beacons is an array
-    const settings = {
-      signalPropagationFactor: parseFloat(this.data.signalPathLossExponent) || 2.5 // Use default if NaN
-    };
+    const mapInfoContent = this.data.mapInfo.jsonContent;
+    const rawBeacons = this.data.beacons || [];
+    const signalFactor = parseFloat(this.data.signalPathLossExponent) || 2.5;
 
-    if (!mapInfo) {
-      wx.showToast({ title: '地图未配置，无法导出', icon: 'none' });
+    if (!mapInfoContent || typeof mapInfoContent.map !== 'object') {
+      wx.showToast({ title: '地图数据无效，无法导出', icon: 'none' });
       return;
     }
 
-    // Prepare beacons for export, including deviceId (MAC address)
+    // Extract the actual map object (width, height, entities, etc.)
+    const mapToExport = { ...mapInfoContent.map }; // Shallow copy to avoid modifying original state if needed
+
+    // Prepare beacons for export, ensuring macAddress is present
     const exportableBeacons = rawBeacons.map(beacon => {
-      const подготовленныйBeacon = {
-        uuid: beacon.uuid,
-        major: parseInt(beacon.major) || 0, // Ensure integer, default 0 if undefined/NaN
-        minor: parseInt(beacon.minor) || 0, // Ensure integer, default 0 if undefined/NaN
-        x: parseFloat(beacon.x) || 0,       // Ensure float, default 0
-        y: parseFloat(beacon.y) || 0,       // Ensure float, default 0
-        txPower: parseInt(beacon.txPower) || -59, // Ensure integer, default -59
-        displayName: beacon.displayName || '' // Optional display name
+      // Ensure all numeric fields are actual numbers, not strings
+      const major = parseInt(beacon.major);
+      const minor = parseInt(beacon.minor);
+      const x = parseFloat(beacon.x);
+      const y = parseFloat(beacon.y);
+      const txPower = parseInt(beacon.txPower);
+
+      const preparedBeacon = {
+        uuid: beacon.uuid || '', // Default to empty string if somehow missing
+        major: !isNaN(major) ? major : 0,
+        minor: !isNaN(minor) ? minor : 0,
+        x: !isNaN(x) ? x : 0,
+        y: !isNaN(y) ? y : 0,
+        txPower: !isNaN(txPower) ? txPower : -59,
+        displayName: beacon.displayName || '',
+        // Backend expects 'macAddress'. Use miniprogram's 'deviceId' for this.
+        // If deviceId is missing, this beacon might fail backend validation or require a placeholder.
+        // For now, we directly map it. User needs to ensure deviceId is populated in miniprogram.
+        macAddress: beacon.deviceId || '' // Or some placeholder like `UNKNOWN_MAC_${index}` if required
       };
-      // Add deviceId if it exists
-      if (beacon.deviceId) {
-        подготовленныйBeacon.deviceId = beacon.deviceId;
-      }
-      return подготовленныйBeacon;
+      // Optionally, include deviceId if the backend model also has a separate deviceId field
+      // if (beacon.deviceId) {
+      //   preparedBeacon.deviceId = beacon.deviceId; 
+      // }
+      return preparedBeacon;
     });
 
+    const settingsToExport = {
+      signalPropagationFactor: signalFactor
+      // Add other settings if the backend expects them under a 'settings' object
+    };
+
     const configToExport = {
-      map: mapInfo,
-      beacons: exportableBeacons, // Use the processed beacons
-      settings: settings
+      map: mapToExport, // Use the extracted map object
+      beacons: exportableBeacons,
+      settings: settingsToExport
     };
 
     try {

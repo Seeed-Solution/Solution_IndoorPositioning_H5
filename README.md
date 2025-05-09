@@ -18,7 +18,16 @@ The primary goal of this system is to determine and display the location of mult
 The system is composed of three main components:
 *   **Backend Server (`server/`):** Python (FastAPI) based, handles MQTT, position calculation, state management, and serves the API and WebSocket.
 *   **Web Frontend (`web/`):** Vue 3 and Vite based, provides the user interface for configuration, map display, and tracker visualization.
-*   **Miniprogram Configuration Tool (`miniprogram/`):** A Weixin (WeChat) Mini Program for easy map and beacon setup on a mobile device.
+*   **Miniprogram Configuration Tool (`miniprogram/`):** A Weixin (WeChat) Mini Program for easy map and beacon setup on a mobile device. This tool allows you to:
+    *   Upload a map image.
+    *   Scan for nearby iBeacons (via specified UUIDs for iOS, or general scan for Android).
+    *   Manually input beacon details.
+    *   **Crucially, for each beacon, you must ensure the "MAC Address / Device ID" field is correctly populated.**
+        *   For Android-scanned beacons, this might be pre-filled.
+        *   **For beacons found via iOS scans (which do not provide MAC addresses) or those added manually, you MUST enter the beacon's actual MAC address (or a unique identifier that your backend will use for matching, especially for trackers like SenseCAP).** This is vital for the backend to correctly identify which physical beacon corresponds to the signals received from trackers.
+    *   Place beacons on the map (x, y coordinates).
+    *   Configure the signal propagation factor (n).
+    *   Export the entire configuration as a JSON string.
 
 ## Key Features in v0.1
 
@@ -99,6 +108,18 @@ Follow these steps to set up and run the system.
     *   `pip` is the standard Python package installer, usually included with Python.
 *   **Weixin Developer Tools:** Required for running and debugging the Miniprogram configuration tool (`miniprogram/`). Download from the official WeChat developer site.
 
+**Important Note for iOS Beacon Scanning:**
+To specify which iBeacon UUIDs the Miniprogram should scan for on iOS devices, you need to edit the `miniprogram/config/ble_scan_config.js` file. This file allows you to list multiple UUIDs. Example content:
+```javascript
+// miniprogram/config/ble_scan_config.js
+const iOSScanUUIDs = [
+  '74278BDA-B644-4520-8F0C-720EAF059935', // Default/Example UUID
+  // 'YOUR-OTHER-BEACON-UUID-HERE' 
+];
+module.exports = { iOSScanUUIDs: iOSScanUUIDs };
+```
+Make sure to add the UUIDs of the beacons you intend to use.
+
 **1. Backend Server Setup (Python):**
 
 ```bash
@@ -169,12 +190,16 @@ The backend relies on two main JSON configuration files located in the `server/`
           },
           "beacons": [
             {
-              "deviceId": "MBeaco1", // Often used as primary ID in miniprogram
-              "displayName": "Entrance Beacon",
-              "macAddress": "C3:00:00:3E:7D:DA", // Crucial for matching SenseCAP data
+              "uuid": "74278BDA-B644-4520-8F0C-720EAF059935",
+              "major": 10001,
+              "minor": 19641,
               "x": 2.5,
               "y": 3.0,
-              "txPower": -59 // Reference RSSI at 1m
+              "txPower": -59, // Reference RSSI at 1m
+              "displayName": "Entrance Beacon",
+              "macAddress": "C3:00:00:3E:7D:DA" // CRITICAL: Must be the actual MAC or unique ID for backend matching.
+                                               // Populated from "MAC Address / Device ID" field in Miniprogram.
+                                               // If left blank in Miniprogram for an iOS-scanned/manual beacon, it will be an empty string here.
             }
             // ... more beacons
           ],
@@ -223,11 +248,14 @@ The backend relies on two main JSON configuration files located in the `server/`
     *   Run the Uvicorn server:
     ```bash
     # IMPORTANT: Run WITHOUT --reload for stable MQTT and WebSocket operation.
-    # Replace <your_configured_port> with the port in server_runtime_config.json (default 8000).
+    # Replace <your_configured_port> with the port in server_runtime_config.json (default 8022).
     uvicorn server.main:app --host 0.0.0.0 --port <your_configured_port>
     
-    # Example using default port 8000:
-    # uvicorn server.main:app --host 0.0.0.0 --port 8000
+    # Example using default port 8022:
+    # uvicorn server.main:app --host 0.0.0.0 --port 8022
+
+    # Or directly run with uv
+    # uv run uvicorn server.main:app --host 0.0.0.0 --port 8022
     ```
     *   **Note on `--reload`**: Using Uvicorn\'s `--reload` flag can interfere with the Paho MQTT client\'s threading and WebSocket stability. For reliable operation, especially when using MQTT features, **run the server without `--reload`**. If you make backend code changes, a manual server restart is necessary.
 
@@ -257,4 +285,3 @@ The backend relies on two main JSON configuration files located in the `server/`
 *   **Configuration Management:** `server/config_manager.py` loads and saves the two primary JSON configuration files.
 *   **State Management & WebSockets:** `server/main.py` (class `ConnectionManager` and `tracker_states` dictionary) manages tracker states and broadcasts updates via WebSockets.
 *   **Frontend UI Components:**
-    *   `

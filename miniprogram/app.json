@@ -11,5 +11,16 @@
   "style": "v2",
   "componentFramework": "glass-easel",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "获取位置信息以扫描蓝牙信标"
+    },
+    "scope.bluetooth": {
+      "desc": "使用蓝牙扫描和连接设备"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation"
+  ]
 }

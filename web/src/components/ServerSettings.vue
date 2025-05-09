@@ -148,7 +148,7 @@ const fetchServerRuntimeConfig = async () => {
       passwordField.value = response.data.mqtt.password || '';
       
       // The main formState.mqtt.password is not directly used by UI input, clear it.
-      formState.value.mqtt.password = ''; 
+      formState.value.mqtt.password = '';
       isPasswordVisible.value = false; // Ensure password is not visible on load/fetch
       
       loadingStatus.value = 'loaded';

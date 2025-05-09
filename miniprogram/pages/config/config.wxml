@@ -169,6 +169,11 @@
         <input class="form-input" value="{{editingBeacon.uuid}}" bindinput="updateBeaconField" data-field="uuid" placeholder="Beacon UUID"/>
       </view>
       <view class="form-group">
+        <view class="form-label">MAC 地址/设备ID (*)</view>
+        <input class="form-input" value="{{editingBeacon.deviceId}}" data-field="deviceId" bindinput="updateBeaconField" placeholder="输入设备的MAC地址或唯一ID" />
+        <view class="form-hint">对于iOS扫描或手动添加的Beacon，请务必填写此项以用于后端匹配。</view>
+      </view>
+      <view class="form-group">
         <view class="form-label">Major</view>
         <input class="form-input" type="number" value="{{editingBeacon.major}}" bindinput="updateBeaconField" data-field="major" placeholder="(可选) Beacon Major"/>
       </view>
