@@ -34,6 +34,44 @@ class MiniprogramConfig(BaseModel):
     settings: MiniprogramSettings
 
 
+# --- Models for Web UI Configuration (e.g., web_ui_config.json) ---
+
+class WebUIMapEntity(BaseModel):
+    type: str # e.g., 'polyline'
+    points: List[List[float]] # List of [x, y] coordinates
+    closed: Optional[bool] = None
+    # Visual properties, ensure they match what MapEditorTab.vue uses/expects
+    strokeColor: Optional[str] = None 
+    lineWidth: Optional[float] = None
+    fillColor: Optional[str] = None # If supporting filled shapes
+    # 'color' was in MiniprogramMapEntity, MapEditorTab uses strokeColor, fillColor
+
+class WebUIMapInfo(BaseModel):
+    name: Optional[str] = None # Optional name for the map layout itself
+    width: float # in meters
+    height: float # in meters
+    entities: List[WebUIMapEntity] = []
+
+class WebUIBeaconConfig(BaseModel):
+    uuid: str = Field(..., description="iBeacon UUID")
+    major: int = Field(..., description="iBeacon Major value")
+    minor: int = Field(..., description="iBeacon Minor value")
+    x: float = Field(..., description="x coordinate in meters")
+    y: float = Field(..., description="y coordinate in meters")
+    txPower: int = Field(..., description="Measured RSSI at 1m for distance calculation")
+    displayName: Optional[str] = Field(default=None, description="User-friendly display name for the beacon")
+    macAddress: Optional[str] = Field(default=None, description="Physical MAC address, if known/relevant")
+    # deviceId is not used here as uuid/major/minor are primary keys
+
+class WebUISettings(BaseModel):
+    signalPropagationFactor: float = Field(default=2.5, ge=1.0, le=6.0, description="Path loss exponent 'n' for RSSI to distance conversion")
+
+class WebUIConfig(BaseModel):
+    map: Optional[WebUIMapInfo] = None # Map can be optional initially
+    beacons: List[WebUIBeaconConfig] = []
+    settings: WebUISettings
+
+
 # --- Models for Server-Side Runtime Configuration (e.g., server_runtime_config.json) ---
 
 class MqttServerConfig(BaseModel): # Renamed from MqttConfig to avoid clash if old one is kept temporarily

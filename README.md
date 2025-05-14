@@ -8,17 +8,23 @@ The primary goal of this system is to determine and display the location of mult
 
 1.  **Receiving Beacon Data:** A backend server listens to an MQTT broker for messages containing beacon scan data from tracker devices (e.g., RSSI, beacon identifiers).
 2.  **Configuration:**
-    *   **Map & Beacons:** Users define the physical layout of the indoor space and the precise locations (x, y coordinates) of reference beacons using a Miniprogram tool. This configuration also includes beacon MAC addresses (crucial for trackers like SenseCAP that don\'t use standard iBeacon UUID/Major/Minor for identification in this context) and their signal characteristics (TxPower).
-    *   **Server & MQTT:** Users configure MQTT broker details and server operational parameters via a web UI.
-3.  **Position Calculation:** The backend server uses the received signal strength (RSSI) from multiple beacons and their known locations to calculate the tracker\'s position via trilateration.
+    *   **Map & Beacons (Initial Creation):** Users can define the physical layout of the indoor space and the precise locations (x, y coordinates) of reference beacons using a Weixin (WeChat) Miniprogram tool. This configuration also includes beacon MAC addresses (crucial for trackers like SenseCAP) and their signal characteristics (TxPower). This tool exports a JSON file.
+    *   **Map & Beacons (Web UI Management):**
+        *   **"Map & Beacon Configuration" view:** This central web UI section allows users to import the JSON from the Miniprogram (or another source), create a configuration from scratch, or edit an existing one. Its state is session-based and is primarily used to generate a complete configuration JSON for export.
+        *   **"Tracker Mode Configuration" view:** Users import a configuration JSON here. This action updates the main server-side map & beacon settings (stored in `server/web_config.json`) that the backend uses for live tracking.
+        *   **"Personal Mode Configuration" view:** Users import a configuration JSON here for in-browser positioning. This configuration is stored locally in the browser.
+    *   **Server & MQTT:** Users configure MQTT broker details and server operational parameters via the "Tracker Mode Configuration" view, which hosts the server settings panel. This updates `server/server_runtime_config.json`.
+3.  **Position Calculation:** The backend server uses the received signal strength (RSSI) from multiple beacons and their known locations (from `server/web_config.json`) to calculate the tracker's position.
 4.  **Position Smoothing:** A Kalman filter is applied to smooth the calculated positions, reducing jitter and improving accuracy.
-5.  **Real-time Visualization:** A web-based frontend displays the map, beacon locations, and the live, smoothed positions of all active trackers. Tracker movements can also be visualized as trails.
-6.  **Data Communication:** The backend communicates with the frontend using WebSockets for real-time updates.
+5.  **Real-time Visualization:**
+    *   **Tracker Mode:** The "Tracker Mode Configuration" view in the web frontend displays the map, beacon locations, and the live, smoothed positions of all active trackers. Tracker movements can also be visualized as trails.
+    *   **Personal Mode:** The "Personal Mode Configuration" view displays the map and the calculated position of the local device using Web Bluetooth for beacon scanning.
+6.  **Data Communication:** The backend communicates with the frontend using WebSockets for real-time updates in Tracker Mode.
 
 The system is composed of three main components:
 *   **Backend Server (`server/`):** Python (FastAPI) based, handles MQTT, position calculation, state management, and serves the API and WebSocket.
-*   **Web Frontend (`web/`):** Vue 3 and Vite based, provides the user interface for configuration, map display, and tracker visualization.
-*   **Miniprogram Configuration Tool (`miniprogram/`):** A Weixin (WeChat) Mini Program for easy map and beacon setup on a mobile device. This tool allows you to:
+*   **Web Frontend (`web/`):** Vue 3 and Vite based, provides the user interface for configuration, map display, and tracker/local device visualization through dedicated views.
+*   **Miniprogram Configuration Tool (`miniprogram/`):** A Weixin (WeChat) Mini Program for easy initial map and beacon setup on a mobile device. This tool allows you to:
     *   Upload a map image.
     *   Scan for nearby iBeacons (via specified UUIDs for iOS, or general scan for Android).
     *   Manually input beacon details.
@@ -61,38 +67,37 @@ This demonstrates the web application displaying live tracker movements on the c
 ```
 +--------------------------+     +-------------------------+      +-----------------+
 | Tracker Device           | --> | MQTT Broker             | M--> | Backend Server  |
-| (e.g., SenseCAP T1000)   |     | (e.g., Seeed\'s SenseCAP | Q--> | (FastAPI)       |-----> WebSocket
-| - Scans Beacons          |     |  OpenStream, or other)  | T--> | - Receives Reports  |
-| - Publishes to MQTT topic|     +-------------------------+ T    | - Calculates Pos    |<---+ (Frontend UI)
+| (e.g., SenseCAP T1000)   |     | (e.g., Seeed's SenseCAP | Q--> | (FastAPI)       |-----> WebSocket
+| - Scans Beacons          |     |  OpenStream, or other)  | T--> | - Reads web_config.json |
+| - Publishes to MQTT topic|     +-------------------------+ T    | - Calculates Pos    |<---+ (Web UI - Tracker Mode)
 +--------------------------+                                     | - Manages State     |
                                                                  | - Serves Config/API |
                                                                  +---------|---------+
-                                                                           | (HTTP API for Config)
-       +-----------------------+      +------------------------+           |
-       | Weixin Mini Program   | ---> | User copies JSON to    | --------->|
-       | (Configuration Tool)  |      | Web UI Paste Area      |           |
-       | - Configure Map       |      +------------------------+           |
-       | - Configure Beacons   |                                           |
-       | - Export Config JSON  |                                           |
-       +-----------------------+                                           V
-                                                                 +-----------------+\\
-                                                                 | Web Frontend    |
-                                                                 | (Vue 3)         |
-                                                                 | - Config Mgmt   |
-                                                                 | - Displays Map  |
-                                                                 | - Shows Trackers|
-                                                                 +-----------------+
+       +-----------------------+                                           | (HTTP API for Config)
+       | Weixin Mini Program   |                                           |
+       | (Configuration Tool)  | ---(Exports JSON)--> User --> Web UI -----+
+       | - Configure Map       |                               (Imports JSON to appropriate mode)
+       | - Configure Beacons   |
+       | - Export Config JSON  |      +-----------------------------------------------------+
+       +-----------------------+      | Web Frontend (Vue 3)                                |
+                                      | - "Map & Beacon Configuration" (Create/Edit/Export) |
+                                      | - "Tracker Mode Configuration" (Import to Server)   |
+                                      | - "Personal Mode Configuration" (Import for Local)  |
+                                      +-----------------------------------------------------+
 ```
 
 **Data Flow Summary:**
 1.  **Configuration:**
-    *   **Map & Beacons:** Use the Miniprogram tool to define the map layout, beacon locations, and MAC addresses. Export the configuration as JSON.
-    *   **Server Runtime:** In the Web Frontend ("Show Settings"), configure MQTT broker details, server port, and Kalman parameters. This creates/updates `server/server_runtime_config.json`.
-2.  **Load Map & Beacon Config:** In the Web Frontend, paste the JSON from the Miniprogram into the "Map & Beacon Configuration" section. This updates `server/miniprogram_config.json`.
-3.  **Connect MQTT:** In the Web Frontend, click "Connect MQTT." The backend subscribes to the MQTT topic defined in `server_runtime_config.json`.
-4.  **Tracker Data Transmission:** Trackers publish beacon scan data (MAC addresses, RSSI) to the MQTT topic. The backend specifically listens for SenseCAP messages with `MeasurementID == "5002"`.
-5.  **Position Calculation & Smoothing:** The Backend calculates the tracker\'s position and applies a Kalman filter.
-6.  **Visualization:** The Backend broadcasts position and state updates via WebSocket to the Web Frontend, which displays trackers on the map.
+    *   **Initial Map & Beacons JSON:** Use the Miniprogram tool to define the map layout, beacon locations, and MAC addresses. Export the configuration as JSON.
+    *   **Web UI - Map & Beacon Configuration:** Optionally, import the JSON here (or create from scratch) to view, edit, and then export a refined master configuration JSON.
+    *   **Web UI - Tracker Mode Configuration:** Import the desired map & beacon JSON. This updates the server's `web_config.json` file. This view also provides access to the server runtime settings panel (MQTT, port, Kalman) which updates `server/server_runtime_config.json`.
+    *   **Web UI - Personal Mode Configuration:** Import a map & beacon JSON. This configuration is saved in the browser's local storage for local device positioning.
+2.  **Connect MQTT:** In the "Tracker Mode Configuration" view, after ensuring server runtime settings are correct, the system connects to MQTT (usually on server start if enabled, or via UI interactions if manual connection is offered).
+3.  **Tracker Data Transmission:** Trackers publish beacon scan data (MAC addresses, RSSI) to the MQTT topic.
+4.  **Position Calculation & Smoothing:** The Backend (using `web_config.json` for beacon/map data) calculates the tracker's position and applies a Kalman filter.
+5.  **Visualization:**
+    *   **Tracker Mode:** The Backend broadcasts position and state updates via WebSocket to the "Tracker Mode Configuration" view, which displays trackers on the map.
+    *   **Personal Mode:** Uses Web Bluetooth and in-browser calculations, displaying the local device's position.
 
 ## Setup: Getting Started
 
@@ -178,9 +183,9 @@ npm install
 
 The backend relies on two main JSON configuration files located in the `server/` directory:
 
-1.  **`server/miniprogram_config.json`**
-    *   **Purpose:** Defines the map layout, beacon locations (x, y coordinates), beacon identifiers (MAC address, display name, TxPower/reference RSSI), and the signal propagation factor (n).
-    *   **Source:** Generated by the **Miniprogram Configuration Tool** and then pasted into the "Map & Beacon Configuration" section of the **Web Frontend UI**.
+1.  **`server/web_config.json`** (Formerly `miniprogram_config.json` in terms of primary map/beacon data for the server)
+    *   **Purpose:** Defines the map layout, beacon locations (x, y coordinates), beacon identifiers (MAC address, display name, TxPower/reference RSSI), and the signal propagation factor (n) **for server-side tracker positioning**.
+    *   **Source:** This file is created or updated when a user imports a valid configuration JSON through the **"Tracker Mode Configuration" view** in the Web Frontend. The JSON itself is typically first generated by the Miniprogram tool and potentially refined in the "Map & Beacon Configuration" web view.
     *   **Example Snippet (conceptual):**
         ```json
         {
@@ -193,29 +198,27 @@ The backend relies on two main JSON configuration files located in the `server/`
           },
           "beacons": [
             {
-              "uuid": "74278BDA-B644-4520-8F0C-720EAF059935",
-              "major": 10001,
-              "minor": 19641,
+              "uuid": "74278BDA-B644-4520-8F0C-720EAF059935", // May not be used by server if matching by MAC
+              "major": 10001, // May not be used
+              "minor": 19641, // May not be used
               "x": 2.5,
               "y": 3.0,
               "txPower": -59, // Reference RSSI at 1m
               "displayName": "Entrance Beacon",
               "macAddress": "C3:00:00:3E:7D:DA" // CRITICAL: Must be the actual MAC or unique ID for backend matching.
-                                               // Populated from "MAC Address / Device ID" field in Miniprogram.
-                                               // If left blank in Miniprogram for an iOS-scanned/manual beacon, it will be an empty string here.
             }
             // ... more beacons
           ],
           "settings": {
             "signalPropagationFactor": 2.5
+            // other general settings from the config file might be stored here
           }
         }
         ```
-    *   A full example template can be viewed in the Web Frontend UI when loading the configuration.
 
 2.  **`server/server_runtime_config.json`**
     *   **Purpose:** Defines MQTT broker connection details, the backend server port, and Kalman filter parameters.
-    *   **Source:** Managed via the "Server Runtime Configuration" panel in the **Web Frontend UI**. It can also be created/edited manually on the server before the first run.
+    *   **Source:** Managed via the "Server Runtime Configuration" panel, accessed from the **"Tracker Mode Configuration" view** in the Web Frontend UI. It can also be created/edited manually on the server before the first run.
     *   **Example Structure:**
         ```json
         {
@@ -241,9 +244,9 @@ The backend relies on two main JSON configuration files located in the `server/`
 
 ## Running the System
 
-1.  **Prepare Configuration Files:**
-    *   **Server Runtime Config:** Ensure `server/server_runtime_config.json` exists and is correctly configured with your MQTT broker details and desired server port. You can create this file manually based on the example above, or configure it via the UI after starting the server and frontend for the first time.
-    *   **Map & Beacon Config:** Have your map & beacon configuration JSON (exported from the miniprogram tool) ready to paste into the UI.
+1.  **Prepare Initial Configuration (Optional but Recommended):**
+    *   Use the **Miniprogram Tool** to create your map and define beacon locations (ensure MAC addresses are correct). Export this as a JSON file. This file will be used for import into the web UI.
+    *   **Server Runtime Config:** Ensure `server/server_runtime_config.json` exists and is correctly configured with your MQTT broker details and desired server port. You can create this file manually based on the example above, or configure it via the UI after starting the server and frontend.
 
 2.  **Start Backend Server:**
     *   Navigate to the project root directory.
@@ -272,13 +275,20 @@ The backend relies on two main JSON configuration files located in the `server/`
     *   Access the frontend in your browser, typically at `http://localhost:5173` (Vite will show the exact URL in the terminal).
 
 4.  **Initial Setup via Web UI:**
-    *   Open the Web Frontend in your browser.
-    *   If `server_runtime_config.json` was not pre-configured, click "Show Settings," fill in your MQTT broker details, server port, and Kalman filter parameters, then save. The server will create/update the file.
-    *   In the "Map & Beacon Configuration" panel, click "Load Config via Paste," paste the JSON from your miniprogram tool, and submit. The map and beacons should appear.
-    *   In the top panel, click "Connect MQTT" to establish the connection to your MQTT broker.
+    *   Open the Web Frontend in your browser (e.g., `http://localhost:5173`).
+    *   Navigate to **"Tracker Mode Configuration"**:
+        *   If `server_runtime_config.json` was not pre-configured, click the "Configure Server (MQTT, etc.)" button, fill in your MQTT broker details, server port, and Kalman filter parameters, then save. The server will create/update the file.
+        *   Click "Import Configuration & Update Server (JSON)", select the JSON file you prepared (e.g., from the Miniprogram tool or exported from "Map & Beacon Configuration" view). This will send the configuration to the server (updating `server/web_config.json`) and also store it for this mode's display. The map and beacons should appear.
+        *   The system should attempt to connect to MQTT based on the server runtime settings. Status indicators for WebSocket and MQTT will be shown.
+    *   Navigate to **"Map & Beacon Configuration" (Optional):**
+        *   Here you can import a JSON file (e.g., from the Miniprogram), edit it in detail (manage beacons, edit map entities if that feature is developed, adjust general settings), and then "Export Configuration to Clipboard". This exported JSON can then be used in "Tracker Mode" or "Personal Mode".
+    *   Navigate to **"Personal Mode Configuration" (Optional):**
+        *   Click "Import Master Configuration (JSON)" and select a prepared configuration file. This saves the configuration for local, in-browser positioning.
+        *   Click "Start Local Positioning" to begin scanning for beacons using your device's Bluetooth.
 
 5.  **View Results:**
-    *   If trackers are publishing data to the configured MQTT topic (and matching `MeasurementID "5002"` for SenseCAP devices, using MAC addresses defined in your beacon config), they should appear on the live map and in the trackers list. You can toggle "Show Trails" on the map to see recent movement.
+    *   **Tracker Mode:** If trackers are publishing data to the configured MQTT topic, they should appear on the live map and in the trackers list within the "Tracker Mode Configuration" view.
+    *   **Personal Mode:** If local positioning is started and beacons are detected, your device's calculated position will be shown on the map in the "Personal Mode Configuration" view.
 
 ## Key Functionality & Files (for Developers)
 
@@ -288,3 +298,9 @@ The backend relies on two main JSON configuration files located in the `server/`
 *   **Configuration Management:** `server/config_manager.py` loads and saves the two primary JSON configuration files.
 *   **State Management & WebSockets:** `server/main.py` (class `ConnectionManager` and `tracker_states` dictionary) manages tracker states and broadcasts updates via WebSockets.
 *   **Frontend UI Components:**
+    *   `web/src/views/MasterConfigView.vue`: "Map & Beacon Configuration" view for creating/editing/exporting full configurations.
+    *   `web/src/views/PersonalModeConfigView.vue`: "Personal Mode Configuration" view for local device positioning.
+    *   `web/src/views/TrackerModeConfigView.vue`: "Tracker Mode Configuration" view for server-side tracking, MQTT/server settings, and live tracker display.
+    *   `web/src/components/configuration/BeaconManagerTab.vue`, `MapEditorTab.vue`, `GeneralSettingsTab.vue`: Child components used within `MasterConfigView.vue`.
+    *   `web/src/components/ServerSettings.vue`: Modal for MQTT and server runtime settings.
+    *   `web/src/components/MapView.vue`: Component for displaying the map and trackers (used in Tracker Mode).

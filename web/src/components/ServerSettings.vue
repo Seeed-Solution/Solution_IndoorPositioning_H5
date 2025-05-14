@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, computed, defineProps, watch } from 'vue';
-import axios from 'axios';
+import { ref, onMounted, computed, watch } from 'vue';
+import { loadServerConfiguration, saveServerConfiguration } from '@/services/configApiService.js';
 
 const props = defineProps({
   liveMqttStatus: {
@@ -9,19 +9,21 @@ const props = defineProps({
   }
 });
 
+const emit = defineEmits(['settings-applied']);
+
 const formState = ref({
   mqtt: {
     brokerHost: '',
     brokerPort: 1883,
     username: '',
-    password: '', // Will be handled carefully: display ********, only send if changed
+    password: '',
     applicationID: '',
     topicPattern: '',
     clientID: '',
     enabled: true,
   },
   server: {
-    port: 8000,
+    port: 8022,
   },
   kalman: {
     processVariance: 1.0,
@@ -29,69 +31,62 @@ const formState = ref({
   },
 });
 
-const initialPasswordPlaceholder = '********'; // Placeholder for password if loaded
-const passwordField = ref(''); // Separate ref for password input to detect changes
-const isPasswordVisible = ref(false); // For password visibility toggle
+const initialPasswordPlaceholder = '********';
+const passwordField = ref('');
+const isPasswordVisible = ref(false);
 
-const loadingStatus = ref('idle'); // idle, loading, loaded, error
+const loadingStatus = ref('idle');
 const loadingError = ref('');
-const saveStatus = ref('idle'); // idle, saving, success, error
+const saveStatus = ref('idle');
 const saveError = ref('');
-
-// This ref will hold the status fetched via API, to combine with WebSocket updates
-const initialApiMqttStatus = ref('unknown');
 
 const mqttStatusMessage = computed(() => {
   let statusText = 'MQTT status is currently unknown.';
   let statusClass = 'info';
-  let iconClass = 'fas fa-question-circle'; // Default icon
-
-  // Prioritize live status from WebSocket if it's not 'unknown'
-  const currentStatus = props.liveMqttStatus !== 'unknown' ? props.liveMqttStatus : initialApiMqttStatus.value;
+  let iconClass = 'fas fa-question-circle';
 
   if (!formState.value.mqtt.enabled) {
-    statusText = 'MQTT client is disabled in settings.';
+    statusText = 'MQTT client is Disabled in these settings. Save to apply.';
     statusClass = 'info';
     iconClass = 'fas fa-toggle-off';
   } else if (!formState.value.mqtt.brokerHost) {
-    statusText = 'MQTT broker host not configured.';
+    statusText = 'MQTT broker host not configured. MQTT will not connect.';
     statusClass = 'warn';
     iconClass = 'fas fa-exclamation-triangle';
   } else {
-    // Use the determined currentStatus (from WS or API)
-    switch (currentStatus) {
+    switch (props.liveMqttStatus) {
       case 'connected':
-        statusText = 'MQTT: Connected to broker.';
+        statusText = 'Live MQTT Status: Connected.';
         statusClass = 'success';
         iconClass = 'fas fa-check-circle';
         break;
       case 'connecting':
-        statusText = 'MQTT: Connecting...';
+        statusText = 'Live MQTT Status: Connecting...';
         statusClass = 'info';
         iconClass = 'fas fa-spinner fa-spin';
         break;
       case 'disconnected':
-        statusText = 'MQTT: Disconnected.';
+        statusText = 'Live MQTT Status: Disconnected. Check settings or click "Apply Settings" to attempt reconnect.';
         statusClass = 'warn';
         iconClass = 'fas fa-plug';
         break;
-      case 'disabled': // Set by backend if MQTT explicitly disabled during setup
-        statusText = 'MQTT: Disabled by server configuration.';
+      case 'disabled': 
+        statusText = 'Live MQTT Status: Disabled by server.';
         statusClass = 'info';
         iconClass = 'fas fa-toggle-off';
         break;
-      case 'misconfigured': // Set by backend if essential parts missing
-        statusText = 'MQTT: Misconfigured (e.g., missing broker host).';
+      case 'misconfigured': 
+        statusText = 'Live MQTT Status: Misconfigured on server.';
         statusClass = 'warn';
         iconClass = 'fas fa-exclamation-triangle';
         break;
       case 'error':
-        statusText = 'MQTT: Connection error or setup failure.';
+        statusText = 'Live MQTT Status: Connection Error.';
         statusClass = 'error';
         iconClass = 'fas fa-times-circle';
         break;
-      default: // 'unknown' or any other case
-        statusText = 'MQTT: Status unavailable. Configured to connect.';
+      default:
+        statusText = 'Live MQTT Status: Unknown. MQTT is configured as enabled; click "Apply Settings" to ensure connection.';
         statusClass = 'info';
         iconClass = 'fas fa-question-circle';
         break;
@@ -100,109 +95,55 @@ const mqttStatusMessage = computed(() => {
   return { text: statusText, class: statusClass, icon: iconClass };
 });
 
-const fetchInitialMqttStatus = async () => {
-    try {
-        const response = await axios.get('/api/mqtt-status', {
-             headers: { 'Cache-Control': 'no-cache' } // Ensure fresh status
-        });
-        if (response.data && response.data.status) {
-            initialApiMqttStatus.value = response.data.status;
-            console.log("[ServerSettings] Initial MQTT status from API:", initialApiMqttStatus.value);
-        }
-    } catch (error) {
-        console.error("[ServerSettings] Failed to fetch initial MQTT status:", error);
-        initialApiMqttStatus.value = 'error_fetching'; // Indicate API fetch error
-    }
-};
-
-const fetchServerRuntimeConfig = async () => {
+const fetchFullServerConfig = async () => {
   loadingStatus.value = 'loading';
   loadingError.value = '';
   try {
-    const response = await axios.get('/api/server-runtime-config', {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache', // For HTTP/1.0 proxies/clients.
-        'Expires': '0', // Proxies.
-      }
-    });
-    console.log("[ServerSettings] Raw response from /api/server-runtime-config:", JSON.stringify(response.data, null, 2));
-    if (response.data && response.data.mqtt && response.data.server && response.data.kalman) {
+    const config = await loadServerConfiguration();
+    console.log("[ServerSettings] Raw response from loadServerConfiguration:", JSON.stringify(config, null, 2));
+    if (config && config.mqtt && config.server && config.kalman) {
       formState.value = {
-        mqtt: { 
-            ...formState.value.mqtt, 
-            ...response.data.mqtt 
-        },
-        server: { 
-            ...formState.value.server,
-            ...response.data.server 
-        },
-        kalman: { 
-            ...formState.value.kalman,
-            ...response.data.kalman 
-        },
+        mqtt: { ...formState.value.mqtt, ...config.mqtt },
+        server: { ...formState.value.server, ...config.server },
+        kalman: { ...formState.value.kalman, ...config.kalman },
       };
-      
-      // Directly use the password from the server response for passwordField.
-      // If it's null or undefined, default to an empty string.
-      passwordField.value = response.data.mqtt.password || '';
-      
-      // The main formState.mqtt.password is not directly used by UI input, clear it.
+      passwordField.value = config.mqtt.password ? initialPasswordPlaceholder : '';
       formState.value.mqtt.password = '';
-      isPasswordVisible.value = false; // Ensure password is not visible on load/fetch
-      
+      isPasswordVisible.value = false;
       loadingStatus.value = 'loaded';
-      console.log("[ServerSettings] Populated formState:", JSON.stringify(formState.value, null, 2));
     } else {
-        console.error("[ServerSettings] API response for server runtime config is missing expected structure.", response.data);
-        loadingStatus.value = 'error';
-        loadingError.value = 'Invalid data structure received from server.';
+      console.error("[ServerSettings] API response for server config is missing expected structure.", config);
+      loadingStatus.value = 'error';
+      loadingError.value = 'Invalid data structure received from server.';
     }
-    // Now also fetch initial MQTT status after fetching the main config
-    await fetchInitialMqttStatus();
   } catch (error) {
-    console.error("Failed to fetch server runtime config:", error);
+    console.error("Failed to fetch server config:", error);
     loadingStatus.value = 'error';
-    loadingError.value = error.response?.data?.detail || error.message || 'Unknown error';
+    loadingError.value = error.message || 'Unknown error';
   }
 };
 
-const saveServerRuntimeConfig = async () => {
+const applyAndSaveChanges = async () => {
   saveStatus.value = 'saving';
   saveError.value = '';
 
-  const passwordValueBeforeSave = passwordField.value; // Capture current input value
-
-  // Construct payload, including password only if it has been changed from placeholder or filled
-  const payload = JSON.parse(JSON.stringify(formState.value)); // Deep copy
+  const payload = JSON.parse(JSON.stringify(formState.value));
   if (passwordField.value && passwordField.value !== initialPasswordPlaceholder) {
     payload.mqtt.password = passwordField.value;
   } else {
-    // If password field is placeholder or empty, don't send password field at all
-    // This tells backend not to update it if it's not provided in payload
-    // Pydantic `Optional` fields if not present in payload are not updated by default.
     delete payload.mqtt.password; 
   }
 
   try {
-    await axios.post('/api/server-runtime-config', payload);
+    await saveServerConfiguration(payload);
     saveStatus.value = 'success';
-    
-    // Fetch the latest config for all fields. This will set passwordField to '********' or ''
-    await fetchServerRuntimeConfig(); 
-
-    // If user had entered a new password (not placeholder, not empty), restore that value to the field.
-    // Otherwise, the '********' or '' set by fetchServerRuntimeConfig is correct.
-    if (passwordValueBeforeSave !== initialPasswordPlaceholder && passwordValueBeforeSave !== '') {
-      passwordField.value = passwordValueBeforeSave;
-    }
-    
-    isPasswordVisible.value = false; // Ensure password is not visible after save
-
+    await fetchFullServerConfig(); 
+    isPasswordVisible.value = false;
+    emit('settings-applied');
   } catch (error) {
-    console.error("Failed to save server runtime config:", error);
+    console.error("Failed to save server config:", error);
     saveStatus.value = 'error';
-    saveError.value = error.response?.data?.detail || error.message || 'Unknown error';
+    saveError.value = error.message || 'Unknown error';
   }
 };
 
@@ -213,29 +154,28 @@ const togglePasswordVisibility = () => {
 };
 
 onMounted(() => {
-  fetchServerRuntimeConfig();
+  fetchFullServerConfig();
 });
 
-// Optional: Watch the liveMqttStatus prop for direct updates if needed for other logic
-// watch(() => props.liveMqttStatus, (newStatus) => {
-//   console.log("[ServerSettings] Live MQTT status prop changed to:", newStatus);
-// });
+watch(() => props.liveMqttStatus, (newStatus) => {
+  console.log("[ServerSettings] Live MQTT status prop changed to:", newStatus);
+});
 
 </script>
 
 <template>
   <div class="server-settings-config-section settings-panel">
-    <h3><i class="fas fa-cogs"></i> Server Runtime Configuration</h3>
+    <p :class="['status-display', mqttStatusMessage.class, 'mqtt-status-banner']">
+        <i :class="mqttStatusMessage.icon"></i> {{ mqttStatusMessage.text }}
+    </p>
+
     <div v-if="loadingStatus === 'loading'" class="status info"><i class="fas fa-spinner fa-spin"></i> Loading settings...</div>
     <div v-if="loadingStatus === 'error'" class="status error"><i class="fas fa-exclamation-triangle"></i> Failed to load settings: {{ loadingError }}</div>
     
-    <form @submit.prevent="saveServerRuntimeConfig" v-if="loadingStatus === 'loaded'" class="settings-form">
+    <form @submit.prevent="applyAndSaveChanges" v-if="loadingStatus === 'loaded'" class="settings-form">
       <div class="form-columns-container">
-        <!-- Column 1: MQTT Configuration -->
         <div class="form-column">
-          <h4><i class="fas fa-network-wired"></i> MQTT Configuration</h4>
-          
-          <!-- Applying horizontal layout to MQTT fields -->
+          <h4><i class="fas fa-network-wired"></i> MQTT Configuration Details <span v-if="!formState.mqtt.enabled">(Disabled)</span></h4>
           <div class="form-group horizontal">
             <label for="mqttBrokerHost">Broker Host:</label>
             <input type="text" id="mqttBrokerHost" v-model="formState.mqtt.brokerHost" :disabled="!formState.mqtt.enabled" />
@@ -251,28 +191,26 @@ onMounted(() => {
           <div class="form-group horizontal">
             <label for="mqttPassword">Password:</label>
             <div class="password-input-wrapper">
-              <input :type="passwordInputType" id="mqttPassword" v-model="passwordField" placeholder="" :disabled="!formState.mqtt.enabled" />
-              <button type="button" @click="togglePasswordVisibility" class="toggle-password-visibility" :disabled="!formState.mqtt.enabled">
-                <i :class="['fas', isPasswordVisible ? 'fa-eye-slash' : 'fa-eye']"></i>
-              </button>
+                <input :type="passwordInputType" id="mqttPassword" v-model="passwordField" :placeholder="initialPasswordPlaceholder" :disabled="!formState.mqtt.enabled" />
+                <button type="button" @click="togglePasswordVisibility" class="button-icon-only" :disabled="!formState.mqtt.enabled">
+                    <i :class="isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                </button>
             </div>
           </div>
-          
           <div class="form-group horizontal">
             <label for="mqttApplicationID">Application ID (OrgID):</label>
             <input type="text" id="mqttApplicationID" v-model="formState.mqtt.applicationID" :disabled="!formState.mqtt.enabled" />
           </div>
           <div class="form-group horizontal">
             <label for="mqttTopicPattern">Topic Pattern:</label>
-            <input type="text" id="mqttTopicPattern" v-model="formState.mqtt.topicPattern" :disabled="!formState.mqtt.enabled" />
+            <input type="text" id="mqttTopicPattern" v-model="formState.mqtt.topicPattern" :disabled="!formState.mqtt.enabled" placeholder="e.g., /device_sensor_data/{ApplicationID}/+/+/+/+" />
           </div>
           <div class="form-group horizontal">
             <label for="mqttClientID">Client ID (Optional):</label>
-            <input type="text" id="mqttClientID" v-model="formState.mqtt.clientID" :disabled="!formState.mqtt.enabled" />
+            <input type="text" id="mqttClientID" v-model="formState.mqtt.clientID" :disabled="!formState.mqtt.enabled" placeholder="Autogenerated if empty" />
           </div>
         </div>
 
-        <!-- Column 2: Web Server & Kalman -->
         <div class="form-column">
           <h4><i class="fas fa-server"></i> Web Server Configuration</h4>
           <div class="form-group horizontal">
@@ -280,7 +218,7 @@ onMounted(() => {
             <input type="number" id="serverPort" v-model.number="formState.server.port" />
           </div>
 
-          <h4 class="section-spacing"><i class="fas fa-filter"></i> Kalman Filter Parameters</h4>
+          <h4><i class="fas fa-filter"></i> Kalman Filter Parameters</h4>
           <div class="form-group horizontal">
             <label for="kalmanProcessVariance">Process Variance (Q):</label>
             <input type="number" step="any" id="kalmanProcessVariance" v-model.number="formState.kalman.processVariance" />
@@ -293,12 +231,12 @@ onMounted(() => {
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="button primary" :disabled="saveStatus === 'saving'">
-          <i :class="saveStatus === 'saving' ? 'fas fa-spinner fa-spin' : 'fas fa-save'"></i> 
-          {{ saveStatus === 'saving' ? 'Saving...' : 'Save Configuration' }}
+        <button type="submit" class="button-primary" :disabled="saveStatus === 'saving'">
+          <i v-if="saveStatus === 'saving'" class="fas fa-spinner fa-spin"></i>
+          {{ saveStatus === 'saving' ? 'Applying...' : 'Apply Settings & Reconnect MQTT' }}
         </button>
-        <div v-if="saveStatus === 'success'" class="status success small"><i class="fas fa-check-circle"></i> Settings saved successfully.</div>
-        <div v-if="saveStatus === 'error'" class="status error small"><i class="fas fa-exclamation-triangle"></i> Failed to save: {{ saveError }}</div>
+        <div v-if="saveStatus === 'success'" class="status success"><i class="fas fa-check-circle"></i> Settings applied successfully. MQTT will attempt to (re)connect if enabled.</div>
+        <div v-if="saveStatus === 'error'" class="status error"><i class="fas fa-exclamation-triangle"></i> Failed to apply settings: {{ saveError }}</div>
       </div>
     </form>
   </div>
@@ -331,33 +269,32 @@ onMounted(() => {
 
 .settings-form .form-columns-container {
   display: flex;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens */
-  gap: 30px; /* Space between columns */
+  flex-wrap: wrap;
+  gap: 30px;
 }
 
 .form-column {
-  flex: 1; /* Each column takes equal space */
-  min-width: 300px; /* Minimum width before wrapping */
+  flex: 1;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
-  gap: 15px; /* Space between form groups within a column */
+  gap: 15px;
 }
 
 .form-column .section-spacing {
-  margin-top: 25px; /* Add space before a new h4 within the same column */
+  margin-top: 25px;
 }
 
 .form-group {
   display: flex;
-  flex-direction: column; /* Stack label and input vertically */
-  gap: 6px; /* Space between label and input */
+  flex-direction: column;
+  gap: 6px;
 }
 
 .form-group-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Responsive grid for grouped items */
-  gap: 15px; /* Space between grid items */
-  /* Align items in the grid group to the baseline for better visual consistency if labels are different heights */
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 15px;
   align-items: baseline;
 }
 
@@ -391,14 +328,13 @@ onMounted(() => {
   transform: scale(1.1);
   accent-color: #007bff;
 }
-/* Adjust checkbox label alignment if needed */
-.form-group input[type="checkbox"] + label, 
-label[for*="mqttEnabled"] { /* Target specifically if structure is input then label */
-  display: inline-flex; /* Align checkbox and label text */
-  align-items: center;
-  font-weight: normal; /* Labels for checkboxes usually normal weight */
-}
 
+.form-group input[type="checkbox"] + label, 
+label[for*="mqttEnabled"] {
+  display: inline-flex;
+  align-items: center;
+  font-weight: normal;
+}
 
 .form-group small {
   font-size: 0.8em;
@@ -477,56 +413,32 @@ label[for*="mqttEnabled"] { /* Target specifically if structure is input then la
   color: #721c24;
 }
 
-.mqtt-status-indicator {
-  margin-bottom: 20px; /* Specific margin for this status */
+.mqtt-status-banner {
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 500;
 }
+.mqtt-status-banner.success { background-color: var(--success-bg-color); border: 1px solid var(--success-border-color); color: var(--success-text-color); }
+.mqtt-status-banner.warn { background-color: var(--warning-bg-color); border: 1px solid var(--warning-border-color); color: var(--warning-text-color); }
+.mqtt-status-banner.error { background-color: var(--error-bg-color); border: 1px solid var(--error-border-color); color: var(--error-text-color); }
+.mqtt-status-banner.info { background-color: var(--info-bg-color); border: 1px solid var(--info-border-color); color: var(--info-text-color); }
 
-/* Ensure checkbox is next to label, not above */
-div.form-group > label[for="mqttEnabled"] {
-    order: 1; /* Puts label after checkbox if input is first */
-    font-weight: 600; /* Keep consistent label weight */
-}
-div.form-group > input#mqttEnabled {
-    order: 0; /* Puts checkbox before label */
-    width: auto; /* Override full width for checkbox */
-    margin-right: 8px; /* Space between checkbox and its label */
-}
-/* Re-target for checkbox with label directly after for better alignment */
-.form-group.checkbox-group {
+.form-group.horizontal,
+.form-group-grid .form-group {
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-}
-.form-group.checkbox-group label {
-  /* font-weight: 600; */ /* Default form-group label style will apply */
-  /* flex-basis: auto; */ /* Override fixed basis for checkbox label if needed, or set specific */
-  flex-basis: 200px; /* Example: give it more space if needed */
-  text-align: left; /* Override right-align for checkbox label */
-  margin-bottom: 0;
-}
-.form-group.checkbox-group input[type="checkbox"] {
- margin: 0; /* Reset margin if handled by gap */
- order: 1; /* Ensure checkbox comes after label if preferred */
-}
-.form-group.checkbox-group label {
-    order: 0;
-}
-
-/* Styles for horizontal form groups */
-.form-group.horizontal,
-.form-group-grid .form-group { /* Apply to direct children of grid too if they are simple groups */
-  flex-direction: row;
-  align-items: center; /* Vertically align label and input */
-  gap: 10px; /* Space between label and input */
+  gap: 10px;
 }
 
 .form-group.horizontal label,
 .form-group-grid .form-group label {
-  flex-basis: 150px; /* Give label a fixed basis */
-  flex-shrink: 0; /* Prevent label from shrinking */
-  margin-bottom: 0; /* Remove bottom margin as it's now horizontal */
-  text-align: right; /* Optional: align label text to the right */
-  padding-right: 10px; /* Add some padding for spacing from input */
+  flex-basis: 150px;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  text-align: right;
+  padding-right: 10px;
 }
 
 .form-group.horizontal input[type="text"],
@@ -534,66 +446,55 @@ div.form-group > input#mqttEnabled {
 .form-group.horizontal input[type="password"],
 .form-group-grid .form-group input[type="text"],
 .form-group-grid .form-group input[type="number"] {
-  flex-grow: 1; /* Allow input to take remaining space */
-  width: auto; /* Override width: 100% if previously set */
+  flex-grow: 1;
+  width: auto;
 }
 
-/* Ensure checkbox group still behaves as intended */
 .form-group.checkbox-group {
   flex-direction: row;
   align-items: center;
   gap: 8px;
 }
 .form-group.checkbox-group label {
-  /* font-weight: 600; */ /* Default form-group label style will apply */
-  /* flex-basis: auto; */ /* Override fixed basis for checkbox label if needed, or set specific */
-  flex-basis: 200px; /* Example: give it more space if needed */
-  text-align: left; /* Override right-align for checkbox label */
+  flex-basis: 200px;
+  text-align: left;
   margin-bottom: 0;
 }
 .form-group.checkbox-group input[type="checkbox"] {
- margin: 0; /* Reset margin if handled by gap */
- order: 1; /* Ensure checkbox comes after label if preferred */
+ margin: 0;
+ order: 1;
 }
 .form-group.checkbox-group label {
     order: 0;
 }
 
-/* Ensure checkbox is next to label, not above - old specific rules might conflict or be redundant */
-/* Remove or comment out older specific mqttEnabled styling if it conflicts with new horizontal/checkbox-group approach */
-/*
-div.form-group > label[for="mqttEnabled"] {
-    order: 1; 
-    font-weight: 600; 
+.form-group.horizontal label {
+  align-self: center;
 }
-div.form-group > input#mqttEnabled {
-    order: 0; 
-    width: auto; 
-    margin-right: 8px; 
-}
-*/
 
-/* Specific styling for password note if needed */
+.modal-overlay {
+  /* Add any necessary styles for the modal overlay */
+}
+
 .password-note {
   font-size: 0.8em;
   color: #777;
   margin-top: 2px;
-  /* Adjust margin if it's outside a .form-group.horizontal or if that group needs specific padding */
-  padding-left: 160px; /* Align with inputs if labels are 150px + 10px gap/padding */
-  display: block; /* Ensure it takes its own line if needed */
-  margin-bottom: 10px; /* Space before next form group */
+  padding-left: 160px;
+  display: block;
+  margin-bottom: 10px;
 }
 
 .password-input-wrapper {
   display: flex;
   align-items: center;
-  width: 100%; /* Ensure it takes the available width in the form group */
+  width: 100%;
 }
 
 .password-input-wrapper input[type="password"],
 .password-input-wrapper input[type="text"] {
   flex-grow: 1;
-  border-right: none; /* Optional: if you want button to look attached */
+  border-right: none;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -607,7 +508,7 @@ div.form-group > input#mqttEnabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: calc(2.25em + 2px); /* Match typical input height */
+  height: calc(2.25em + 2px);
   border-top-right-radius: var(--border-radius, 4px);
   border-bottom-right-radius: var(--border-radius, 4px);
   color: #333;
@@ -623,21 +524,68 @@ div.form-group > input#mqttEnabled {
 }
 
 .password-note {
-  grid-column: 2 / -1; /* Span across the input area if in grid */
+  grid-column: 2 / -1;
   font-size: 0.8em;
   color: #666;
-  margin-top: -0.5em; /* Adjust spacing if needed */
+  margin-top: -0.5em;
   margin-bottom: 0.5em;
   display: block;
 }
 
-/* Adjust label alignment if password-input-wrapper causes misalignment */
 .form-group.horizontal label {
-  align-self: center; /* Vertically center label with the input group */
+  align-self: center;
 }
 
-.modal-overlay {
-  /* Add any necessary styles for the modal overlay */
+.button-icon-only {
+    padding: 0.5rem;
+    height: 100%;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: none;
+    background-color: #f0f0f0;
+}
+
+.button-icon-only:hover {
+    background-color: #e0e0e0;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="checkbox"] {
+  padding: 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 0.95em;
+  box-sizing: border-box;
+}
+
+.form-group input[type="checkbox"] {
+    width: auto;
+    margin-right: 0.5rem;
+}
+
+.form-group-checkbox {
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.form-group-checkbox label {
+    text-align: left;
+    flex-basis: auto;
+    font-weight: normal;
+}
+
+.form-actions {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color-light);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.form-actions button {
+  min-width: 200px;
 }
 
 </style> 
