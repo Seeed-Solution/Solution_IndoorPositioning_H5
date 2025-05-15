@@ -424,10 +424,10 @@ def on_message(client, userdata, msg):
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global miniprogram_cfg, runtime_cfg, tracker_states, kalman_filters
+    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters
 
-    if not miniprogram_cfg or not miniprogram_cfg.beacons:
-        log.warning("Miniprogram configuration (beacons) not loaded, cannot process tracker report.")
+    if not web_ui_cfg or not web_ui_cfg.beacons:
+        log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
         return
     if not runtime_cfg:
         log.warning("Server runtime configuration not loaded, cannot process tracker report for Kalman params.")
@@ -446,8 +446,8 @@ async def process_tracker_report(report: TrackerReport):
 
     calculated_position = positioning.calculate_position(
         detected_beacons=report.detectedBeacons,
-        miniprogram_config=miniprogram_cfg, # Pass the whole miniprogram_cfg
-        # signal_propagation_factor is inside miniprogram_cfg.settings
+        miniprogram_config=web_ui_cfg,
+        # signal_propagation_factor is inside web_ui_cfg.settings
     )
 
     filtered_position: Optional[Tuple[float, float]] = None
@@ -500,8 +500,50 @@ async def process_tracker_report(report: TrackerReport):
     )
     tracker_states[tracker_id] = new_state
 
-    update_data = {tracker_id: new_state.model_dump()} # Use model_dump for Pydantic v2+
-    await manager.broadcast({"type": "tracker_update", "data": update_data})
+    # Prepare data for WebSocket broadcast
+    position_payload = None
+    if new_state.x is not None and new_state.y is not None:
+        position_payload = {"x": new_state.x, "y": new_state.y}
+        # Add accuracy if available and needed by frontend, e.g.:
+        # if kf and hasattr(kf, 'get_accuracy_somehow'): 
+        #    position_payload['accuracy'] = kf.get_accuracy_somehow()
+
+    # Construct the data payload for the specific tracker_id
+
+    enriched_detected_beacons = []
+    if new_state.last_detected_beacons and web_ui_cfg and web_ui_cfg.beacons:
+        configured_beacons_map = {b.macAddress: b for b in web_ui_cfg.beacons if b.macAddress} # Create a map for quick lookup by MAC
+        for detected_b in new_state.last_detected_beacons:
+            enriched_b_data = detected_b.model_dump() # Start with macAddress, rssi, etc. from DetectedBeacon
+            configured_b = configured_beacons_map.get(detected_b.macAddress)
+            if configured_b:
+                enriched_b_data['txPower'] = configured_b.txPower
+                enriched_b_data['name'] = configured_b.displayName
+                enriched_b_data['configured_x'] = configured_b.x
+                enriched_b_data['configured_y'] = configured_b.y
+            else:
+                # If no matching configured beacon by MAC, fill with None or defaults for consistency if needed
+                enriched_b_data['txPower'] = None 
+                enriched_b_data['name'] = 'Unknown Beacon'
+                enriched_b_data['configured_x'] = None
+                enriched_b_data['configured_y'] = None
+            enriched_detected_beacons.append(enriched_b_data)
+    else:
+        # Fallback if no web_ui_cfg.beacons or no detected_beacons, send basic detected beacon info
+        enriched_detected_beacons = [b.model_dump() for b in new_state.last_detected_beacons] if new_state.last_detected_beacons else []
+
+    tracker_data_payload = {
+        "trackerId": new_state.trackerId,
+        "timestamp": new_state.last_update_time, 
+        "position": position_payload, 
+        "last_detected_beacons": enriched_detected_beacons, # Use the enriched list
+        "position_history": new_state.position_history
+    }
+
+    await manager.broadcast({
+        "type": "tracker_update", 
+        "data": {tracker_id: tracker_data_payload}
+    })
 
 # --- Configuration Loading for Web UI ---
 def load_web_ui_config() -> Optional[WebUIConfig]:
@@ -704,7 +746,7 @@ async def update_api_server_runtime_config(config_payload: config_manager.Server
             # Handle MQTT client based on changes
             if config_payload.mqtt:
                 # If MQTT settings are present in payload, but it's marked as not enabled (e.g. checkbox was there and unchecked)
-                # OR if the intention is to disable (though we removed the explicit checkbox for enabled)
+                # OR if the intention is to disable (though we removed the explicit 'enabled' flag check for disconnection here.
                 # For now, removing the direct 'enabled' flag check for disconnection here.
                 # Disconnection will be handled by manual API call or if essential config (like broker) is removed.
                 # if not config_payload.mqtt.enabled: <--- REMOVED THIS CONDITION
@@ -782,19 +824,33 @@ async def websocket_endpoint(websocket: WebSocket):
     """Handles WebSocket connections."""
     await manager.connect(websocket)
     try:
-        # Send initial state upon connection?
-        initial_state = {tid: ts.model_dump() for tid, ts in tracker_states.items()}
-        await websocket.send_json({"type": "initial_state", "data": initial_state})
-
         while True:
-            # Keep connection alive, wait for messages (though we mostly broadcast)
-            # You could add handling for client->server messages here if needed
             data = await websocket.receive_text()
-            log.debug(f"Received message from WebSocket client {websocket.client}: {data}")
-            # Example: client could request resync
-            if data == "request_sync":
-                 full_state = {tid: ts.model_dump() for tid, ts in tracker_states.items()}
-                 await websocket.send_json({"type": "full_state", "data": full_state})
+            log.info(f"WebSocket received: {data}")
+            try:
+                message = json.loads(data)
+                command = message.get("command")
+
+                if command == "startScan":
+                    log.info("Start scan command received.")
+                    # TODO: Implement actual Bluetooth scanning logic here
+                    # For now, send a confirmation that scan started.
+                    await manager.broadcast({"type": "info", "message": "Scanning started."})
+                elif command == "stopScan":
+                    log.info("Stop scan command received.")
+                    # TODO: Implement logic to stop Bluetooth scanning here
+                    # For now, send a confirmation that scan stopped.
+                    await manager.broadcast({"type": "info", "message": "Scanning stopped."})
+                elif message.get("action") == "request_initial_data": # Example action, kept for now
+                    # Send initial data if needed
+                    await manager.broadcast({"type": "initial_data", "payload": "some_initial_state"})
+                else:
+                    log.warning(f"Unknown command/action received: {message}")
+                    await manager.broadcast({"type": "error", "message": "Unknown command"})
+
+            except json.JSONDecodeError:
+                log.error(f"Error decoding JSON from WebSocket: {data}")
+                await manager.broadcast({"type": "error", "message": "Error decoding JSON"})
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

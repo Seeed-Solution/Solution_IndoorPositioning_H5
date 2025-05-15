@@ -23,28 +23,34 @@
 }
 
 .main-nav {
-  background-color: var(--dark-color); /* Use theme variable */
-  padding: 0.75rem 1.5rem; /* Consistent padding */
+  background-color: var(--card-background); /* Changed from --dark-color to white */
+  padding: 0.75rem 1.5rem;
   display: flex;
-  /* gap: 1rem; */ /* Consistent gap - removed to allow router-links to space themselves or use margins */
-  justify-content: center; /* Center nav items */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Add a subtle shadow */
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08); /* Adjusted shadow for white bg */
+  border-bottom: 1px solid var(--border-color); /* Added a light border like SenseCraft */
 }
 
 .nav-link {
-  color: var(--light-color); /* Light text on dark background */
+  color: var(--secondary-color); /* Medium gray for inactive links */
   text-decoration: none;
-  padding: 0.5rem 1rem;
-  margin: 0 0.5rem; /* Added margin for spacing between links */
+  padding: 0.85rem 1.3rem; /* Adjusted padding for larger font */
+  margin: 0 0.5rem;
   border-radius: var(--border-radius);
-  transition: background-color 0.2s ease;
-  font-weight: 500;
+  transition: color 0.2s ease, border-bottom-color 0.2s ease;
+  font-weight: 600; /* Bolder font weight */
+  font-size: 1.05rem; /* Further increased font size */
+  border-bottom: 3px solid transparent; /* Increased border thickness slightly */
 }
 
-.nav-link:hover,
+.nav-link:hover {
+  color: var(--primary-color); /* Green on hover */
+}
+
 .nav-link.router-link-exact-active {
-  background-color: var(--primary-color); /* Use primary color for active/hover */
-  color: white;
+  color: var(--primary-color); /* Green text for active tab */
+  border-bottom-color: var(--primary-color); /* Green underline for active tab */
+  /* font-weight: 700; */ /* Active link is already 600, ensure it stands out or keep same */
 }
 
 /* The <router-view /> itself doesn't need styling unless it's wrapped */

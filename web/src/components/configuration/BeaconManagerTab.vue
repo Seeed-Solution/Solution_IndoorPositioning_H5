@@ -1,14 +1,17 @@
 <template>
   <div class="beacon-manager-tab">
     <h3>Beacon List & Management</h3>
-    <p>Manage fixed reference beacons. You can add, edit, delete beacons, or discover new ones via Bluetooth scan.</p>
+    <p>Manage fixed reference beacons. You can add, edit, delete beacons, or discover new ones via the local scanning service.</p>
+    <p v-if="!hasMap" class="scan-status error">
+      A map is required to configure and place beacons. Please go to the "Map Editor" tab to upload or define a map first.
+    </p>
     
     <div class="actions-bar">
-      <button @click="showAddBeaconModal" :disabled="isScanning">Add New Beacon</button>
-      <button @click="startScan" :disabled="isScanning" style="margin-left: 10px;">
-        {{ isScanning ? 'Scanning... (Click stop button below to abort)' : 'Scan for Nearby Beacons (Web Bluetooth)' }}
+      <button @click="showAddBeaconModal" :disabled="isScanning || !isWebSocketConnected || !hasMap">Add New Beacon</button>
+      <button @click="attemptStartScan" :disabled="isScanning || !isWebSocketConnected || !hasMap" style="margin-left: 10px;">
+        {{ isScanning ? 'Scanning... (Click stop button below to abort)' : (isWebSocketConnected ? 'Scan via Local Service' : 'Local Service Offline') }}
       </button>
-      <button v-if="isScanning" @click="stopScan" style="margin-left: 10px; background-color: #dc3545;">Stop Scan</button>
+      <button v-if="isScanning" @click="attemptStopScan" style="margin-left: 10px; background-color: #dc3545;">Stop Scan</button>
     </div>
     <p v-if="scanStatusMessage" class="scan-status" :class="scanStatusType">{{ scanStatusMessage }}</p>
 
@@ -36,18 +39,20 @@
           <td>{{ beacon.y }}</td>
           <td>{{ beacon.txPower }}</td>
           <td>{{ beacon.macAddress || beacon.deviceId }}</td>
-          <td>
-            <button @click="showEditBeaconModal(index)" :disabled="isScanning">Edit</button>
-            <button @click="deleteBeacon(index)" :disabled="isScanning" style="margin-left: 5px;">Delete</button>
-            <button @click="selectBeaconForPlacement(beacon)" :disabled="isScanning" style="margin-left: 5px;">Place on Map</button>
+          <td class="actions-cell">
+            <div class="beacon-actions-container">
+              <button @click="showEditBeaconModal(index)" :disabled="isScanning || !isWebSocketConnected">Edit</button>
+              <button @click="deleteBeacon(index)" :disabled="isScanning || !isWebSocketConnected">Delete</button>
+              <!-- <button @click="selectBeaconForPlacement(beacon)" :disabled="isScanning || !isWebSocketConnected || !hasMap">Place on Map</button> -->
+            </div>
           </td>
         </tr>
       </tbody>
     </table>
-    <p v-else-if="!isScanning">No configured beacons yet. You can add them manually or scan for nearby ones.</p>
+    <p v-else-if="!isScanning">No configured beacons yet. You can add them manually or scan for nearby ones (if local service is connected).</p>
 
-    <div v-if="isScanning && scanResults.length === 0 && !scanStatusMessage.includes('Error')" class="scan-results-placeholder">
-      <p><i class="fas fa-spinner fa-spin"></i> Actively scanning for Bluetooth devices... Please ensure Bluetooth is enabled and the browser has permission.</p>
+    <div v-if="isScanning && scanResults.length === 0 && !scanStatusMessage.includes('Error') && !scanStatusMessage.includes('Failed')" class="scan-results-placeholder">
+      <p><i class="fas fa-spinner fa-spin"></i> Actively scanning via local service... Ensure the service is running and Bluetooth is enabled on the host.</p>
       <p>Scan will run for about 15 seconds or until you stop it manually. Detected iBeacons will appear below.</p>
     </div>
 
@@ -61,14 +66,14 @@
             UUID: {{ beacon.uuid }}<br>
             Major: {{ beacon.major }}, Minor: {{ beacon.minor }}, TxPower: {{ beacon.txPower }}
           </div>
-          <button @click="addScannedBeaconToForm(beacon)" :disabled="isBeaconAlreadyConfigured(beacon) || isScanning">
+          <button @click="addScannedBeaconToForm(beacon)" :disabled="isBeaconAlreadyConfigured(beacon) || isScanning || !hasMap">
             {{ isBeaconAlreadyConfigured(beacon) ? 'Already Configured' : 'Add This Beacon' }}
           </button>
         </li>
       </ul>
     </div>
-    <p v-if="!isScanning && userInitiatedScan && scanResults.length === 0 && !scanStatusMessage.includes('Error') && !scanStatusMessage.includes('Starting')" class="scan-status info">
-      Scan complete. No new iBeacon devices found.
+    <p v-if="!isScanning && userInitiatedScan && scanResults.length === 0 && !scanStatusMessage.value.includes('Error') && !scanStatusMessage.value.includes('Starting') && !scanStatusMessage.value.includes('Failed')" class="scan-status info">
+      Scan complete. No new iBeacon devices found by local service.
     </p>
 
     <!-- Add/Edit Beacon Modal -->
@@ -95,16 +100,27 @@
            <div>
             <label>MAC Address / Device ID:</label>
             <input type="text" v-model="editingBeacon.deviceId" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
-            <small>This is typically the Bluetooth device ID. For some beacons, it might be a MAC address if known.</small>
+            <small>This is typically the Bluetooth device ID from the scan. For some beacons, it might be a MAC address if known.</small>
           </div>
-          <div>
-            <label>X Coordinate (meters):</label>
-            <input type="number" v-model.number="editingBeacon.x" step="0.1" required />
+
+          <div v-if="beaconModalMode === 'edit' || (beaconModalMode === 'add' && editingBeacon.uuid)" class="form-actions coordinate-actions">
+             <label>Beacon Position (X, Y):</label>
+             <button type="button" @click="requestPlacementFromMapForEditingBeacon" :disabled="!hasMap">
+              {{ editingBeacon.x === null || editingBeacon.x === undefined ? 'Select Coordinates from Map' : 'Update Coordinates from Map' }}
+            </button>
           </div>
-          <div>
-            <label>Y Coordinate (meters):</label>
-            <input type="number" v-model.number="editingBeacon.y" step="0.1" required />
+
+          <div class="form-row coordinate-pair">
+            <div class="form-group-inline">
+              <label>X Coordinate (m):</label>
+              <input type="number" v-model.number="editingBeacon.x" step="0.01" />
+            </div>
+            <div class="form-group-inline">
+              <label>Y Coordinate (m):</label>
+              <input type="number" v-model.number="editingBeacon.y" step="0.01" />
+            </div>
           </div>
+
           <div>
             <label>TxPower (Reference RSSI@1m):</label>
             <input type="number" v-model.number="editingBeacon.txPower" required />
@@ -120,25 +136,39 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onBeforeUnmount } from 'vue';
-import webBluetoothService from '@/services/webBluetoothService';
+import { ref, watch, computed, onMounted, onBeforeUnmount, defineExpose } from 'vue';
+// import localBeaconService from '@/services/webBluetoothService'; // DELETED FILE
 
 const props = defineProps({
   initialBeacons: {
     type: Array,
     default: () => []
+  },
+  currentMapLayout: { // Added prop
+    type: Object,
+    default: null
   }
 });
 
 const emit = defineEmits(['beacons-updated', 'beacon-selected-for-placement']);
 
+// WebSocket connection state and management
+const socket = ref(null);
+const serviceUrl = 'ws://localhost:8081';
+const isWebSocketConnected = ref(false); // Renamed from isServiceConnected for clarity
+const retryCount = ref(0);
+const maxRetries = 5;
+const retryTimeout = 5000; // 5 seconds
+let connectTimeoutId = null;
+let scanActiveOnServer = ref(false); // Tracks if the server confirmed scan start
+
 const configuredBeacons = ref([]);
 const scanResults = ref([]);
-const isScanning = ref(false);
-const scanStatusMessage = ref('');
-const scanStatusType = ref('info'); // 'info', 'success', 'error'
+const isScanning = ref(false); // Reflects UI state / user's intent to scan, server confirms with scanActiveOnServer
+const scanStatusMessage = ref('Attempting to connect to local beacon service...');
+const scanStatusType = ref('info'); // 'info', 'success', 'error', 'warn'
 const userInitiatedScan = ref(false);
-let scanTimeoutId = null;
+let scanDurationTimeoutId = null; // For the 15-second scan duration
 
 const showBeaconModal = ref(false);
 const beaconModalMode = ref('add'); // 'add' or 'edit'
@@ -152,10 +182,108 @@ const initialEditingBeacon = () => ({
   y: 0,
   txPower: -59,
   displayName: '',
-  macAddress: '', // Legacy, will be populated by deviceId if that's what's available
-  deviceId: '' // From Bluetooth scan event.device.id
+  macAddress: '', 
+  deviceId: '' 
 });
 const editingBeacon = ref(initialEditingBeacon());
+
+const hasMap = computed(() => !!props.currentMapLayout);
+
+// --- WebSocket Logic ---
+const connectWebSocket = () => {
+  if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+    console.log('[BeaconManagerTab] WebSocket already open.');
+    return;
+  }
+  
+  handleServiceStatusUpdate({ type: 'connecting', message: `Attempting to connect to local beacon service at ${serviceUrl}... (Attempt ${retryCount.value + 1})` });
+
+  socket.value = new WebSocket(serviceUrl);
+
+  socket.value.onopen = () => {
+    console.log('[BeaconManagerTab] WebSocket connected to:', serviceUrl);
+    isWebSocketConnected.value = true;
+    retryCount.value = 0; // Reset retries on successful connection
+    if (connectTimeoutId) clearTimeout(connectTimeoutId);
+    handleServiceStatusUpdate({ type: 'connected', message: 'Successfully connected to local beacon service.' });
+  };
+
+  socket.value.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      // console.log('[BeaconManagerTab] WebSocket message received:', message);
+      if (message.type === 'beacon' && message.data) {
+        handleBeaconFound(message.data);
+      } else if (message.type === 'info') {
+        handleServiceStatusUpdate({ type: 'info', message: message.message });
+        if (message.message === 'Scanning started.') {
+          scanActiveOnServer.value = true;
+        } else if (message.message === 'Scanning stopped.') {
+          scanActiveOnServer.value = false;
+        }
+      } else if (message.type === 'error') {
+        handleServiceStatusUpdate({ type: 'error', message: `Server Error: ${message.message}` });
+      }
+    } catch (error) {
+      console.error('[BeaconManagerTab] Error processing WebSocket message:', error);
+      handleServiceStatusUpdate({ type: 'error', message: 'Received malformed message from server.' });
+    }
+  };
+
+  socket.value.onerror = (error) => {
+    console.error('[BeaconManagerTab] WebSocket Error:', error);
+    // isWebSocketConnected.value = false; // onclose will handle this
+    // The onclose event will typically fire immediately after onerror.
+    // To avoid double retry logic, let onclose handle reconnection attempts.
+    // However, we can update the status message here.
+    // handleServiceStatusUpdate({ type: 'error', message: 'WebSocket connection error. See console for details.' });
+  };
+
+  socket.value.onclose = (event) => {
+    console.log('[BeaconManagerTab] WebSocket disconnected.', event.reason ? `Reason: ${event.reason}` : '', `Code: ${event.code}`);
+    isWebSocketConnected.value = false;
+    scanActiveOnServer.value = false; // If socket closes, scan is no longer active on server
+    if (isScanning.value) { // If UI thought it was scanning
+        isScanning.value = false; // Update UI scanning state
+    }
+    if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
+
+    if (retryCount.value < maxRetries) {
+      retryCount.value++;
+      handleServiceStatusUpdate({ type: 'disconnected', message: `Disconnected. Retrying connection (${retryCount.value}/${maxRetries}) in ${retryTimeout / 1000}s...` });
+      if (connectTimeoutId) clearTimeout(connectTimeoutId);
+      connectTimeoutId = setTimeout(connectWebSocket, retryTimeout);
+    } else {
+      handleServiceStatusUpdate({ type: 'error', message: `Failed to connect after ${maxRetries} retries. Please check the local service and refresh.` });
+    }
+  };
+};
+
+const disconnectWebSocket = () => {
+  if (connectTimeoutId) clearTimeout(connectTimeoutId); // Clear any pending reconnection attempts
+  retryCount.value = maxRetries; // Prevent further retries by exhausting them
+
+  if (socket.value) {
+    socket.value.close(1000, 'Client initiated disconnect'); // 1000: Normal Closure
+    socket.value = null; 
+  }
+  isWebSocketConnected.value = false;
+  scanActiveOnServer.value = false;
+  if (isScanning.value) isScanning.value = false;
+  console.log('[BeaconManagerTab] WebSocket explicitly disconnected by client.');
+  handleServiceStatusUpdate({ type: 'disconnected', message: 'Disconnected from local beacon service by client.' });
+};
+
+const sendWebSocketMessage = (messageObject) => {
+  if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+    socket.value.send(JSON.stringify(messageObject));
+    console.log('[BeaconManagerTab] Sent WebSocket message:', messageObject);
+  } else {
+    console.warn('[BeaconManagerTab] WebSocket not connected or not open. Message not sent:', messageObject);
+    handleServiceStatusUpdate({ type: 'error', message: 'Cannot send command: Local service not connected.' });
+  }
+};
+// --- End WebSocket Logic ---
 
 const loadConfiguredBeacons = (beaconsFromProp) => {
   if (beaconsFromProp && Array.isArray(beaconsFromProp)) {
@@ -169,107 +297,242 @@ watch(() => props.initialBeacons, (newVal) => {
   loadConfiguredBeacons(newVal);
 }, { deep: true, immediate: true });
 
-onBeforeUnmount(() => {
-  if (isScanning.value) {
-    webBluetoothService.stopScan(); // Ensure service stops listening
-    isScanning.value = false;
+watch(() => props.currentMapLayout, (newMap, oldMap) => {
+  console.log('[BeaconManagerTab] watcher: props.currentMapLayout changed.', 
+              'New map PRESENT?:', !!newMap, 
+              'Old map PRESENT?:', !!oldMap, 
+              'New map name:', newMap ? newMap.name : 'N/A', 
+              'Computed hasMap value:', hasMap.value);
+}, { deep: true, immediate: true });
+
+const handleServiceStatusUpdate = (status) => {
+  console.log('[BeaconManagerTab] Service Status Update:', status);
+  scanStatusMessage.value = status.message;
+  switch (status.type) {
+    case 'connecting':
+      scanStatusType.value = 'info';
+      // isWebSocketConnected handled by WebSocket events
+      break;
+    case 'connected':
+      scanStatusType.value = 'success';
+      // isWebSocketConnected handled by WebSocket events
+      break;
+    case 'disconnected':
+      scanStatusType.value = 'warn';
+      // isWebSocketConnected handled by WebSocket events
+      if (isScanning.value) { 
+        isScanning.value = false; 
+        if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
+         scanStatusMessage.value = status.message + " Scan aborted.";
+      }
+      break;
+    case 'error':
+      scanStatusType.value = 'error';
+      if (status.message.includes('Bluetooth adapter') || status.message.includes('Failed to start')){
+          isScanning.value = false; // Server failed to start scan
+          scanActiveOnServer.value = false;
+          if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
+      }
+      break;
+    case 'info': 
+      scanStatusType.value = 'info';
+      if (status.message === 'Scanning started.') {
+        isScanning.value = true; // User intent is now confirmed by server
+        scanActiveOnServer.value = true;
+        scanStatusMessage.value = 'Actively scanning via local service... (Approx 15s)';
+        if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
+        scanDurationTimeoutId = setTimeout(() => {
+          if (scanActiveOnServer.value) { 
+            attemptStopScan('timeout');
+          }
+        }, 15000); 
+      } else if (status.message === 'Scanning stopped.') {
+        isScanning.value = false;
+        scanActiveOnServer.value = false;
+        if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
+        if (userInitiatedScan.value && scanResults.value.length === 0) {
+          scanStatusMessage.value = 'Scan finished. No Bluetooth devices found by local service.';
+        } else if (scanResults.value.length > 0) {
+          scanStatusMessage.value = `Scan finished. Found ${scanResults.value.length} unique device(s).`;
+        }
+      }
+      break;
+    default:
+      scanStatusType.value = 'info';
   }
-  if (scanTimeoutId) {
-    clearTimeout(scanTimeoutId);
-  }
-  console.log("BeaconManagerTab: Unmounted. Scan stopped if active.");
+};
+
+onMounted(() => {
+  console.log('[BeaconManagerTab] Mounted. props.currentMapLayout PRESENT?:', !!props.currentMapLayout, 
+              'Initial map name:', props.currentMapLayout ? props.currentMapLayout.name : 'N/A', 
+              'Computed hasMap on mount:', hasMap.value);
+  connectWebSocket();
 });
 
-const handleBeaconFound = (beacon) => {
-  // beacon: { id, name, rssi, uuid, major, minor, txPower, type, deviceId, deviceName }
-  // Note: webBluetoothService already provides 'id' which is event.device.id
-  // and 'deviceId'/'deviceName' within the parsed iBeacon data itself. Let's be consistent.
-  // The key for scanResults should be unique, event.device.id is good for that.
-  
-  const beaconKey = beacon.id; // This is event.device.id from webBluetoothService
+onBeforeUnmount(() => {
+  if (scanActiveOnServer.value) { // If scan was confirmed by server
+    sendWebSocketMessage({ command: 'stopScan' });
+  }
+  disconnectWebSocket();
+  if (scanDurationTimeoutId) {
+    clearTimeout(scanDurationTimeoutId);
+  }
+  console.log("BeaconManagerTab: Unmounted. WebSocket disconnected, scan stopped if active.");
+});
 
+const handleBeaconFound = (dataFromServer) => {
+  const beaconKey = dataFromServer.id;
+
+  let parsedUuid = 'N/A';
+  let parsedMajor = null;
+  let parsedMinor = null;
+  let parsedTxPower = -59; // Default TxPower if not available or not an iBeacon
+
+  if (dataFromServer.iBeacon) {
+    const iBeacon = dataFromServer.iBeacon;
+    parsedUuid = iBeacon.uuid || 'N/A'; // UUID from iBeacon data
+    if (iBeacon.major !== null && !isNaN(parseInt(iBeacon.major, 10))) {
+      parsedMajor = parseInt(iBeacon.major, 10);
+    }
+    if (iBeacon.minor !== null && !isNaN(parseInt(iBeacon.minor, 10))) {
+      parsedMinor = parseInt(iBeacon.minor, 10);
+    }
+    // Use txPowerCalibrated from iBeacon details for the beacon's TxPower
+    if (iBeacon.txPowerCalibrated !== null && !isNaN(parseInt(iBeacon.txPowerCalibrated, 10))) {
+      parsedTxPower = parseInt(iBeacon.txPowerCalibrated, 10);
+    }
+  }
+
+  // Filter out beacons with incomplete essential iBeacon data
+  if (parsedUuid === 'N/A' || parsedMajor === null || parsedMinor === null) {
+    console.log(`[BeaconManagerTab] Filtering out beacon ${beaconKey} (${dataFromServer.localName || 'Unknown'}) due to incomplete iBeacon data (UUID/Major/Minor).`);
+    // If it was already in scanResults and is now incomplete, we should remove it or mark it.
+    // For simplicity, if it's incomplete now, we just don't add/update it if the user wants to remove incomplete ones.
+    // If an existing one becomes incomplete, this logic means it won't be updated with incomplete data.
+    // To actively remove from list if it becomes incomplete:
+    // const existingIndex = scanResults.value.findIndex(b => b.id === beaconKey);
+    // if (existingIndex > -1) {
+    //   scanResults.value.splice(existingIndex, 1);
+    // }
+    return; 
+  }
+
+  const displayName = dataFromServer.localName || (parsedUuid !== 'N/A' ? `iBeacon ${parsedMajor}-${parsedMinor}` : `Device ${beaconKey.substring(0,8)}`);
   const existingResult = scanResults.value.find(b => b.id === beaconKey);
 
   if (existingResult) {
-    existingResult.rssi = beacon.rssi; // Update RSSI
-    if (!existingResult.name && beacon.name) existingResult.name = beacon.name; // Update name if it was generic
-    if (!existingResult.displayName && beacon.displayName) existingResult.displayName = beacon.displayName;
+    existingResult.rssi = parseInt(dataFromServer.rssi, 10);
+    existingResult.name = dataFromServer.localName || 'Scanned Device'; // Use localName from service
+    existingResult.uuid = parsedUuid;
+    existingResult.major = parsedMajor;
+    existingResult.minor = parsedMinor;
+    existingResult.txPower = parsedTxPower;
+    existingResult.displayName = displayName;
   } else {
     scanResults.value.push({
-      id: beaconKey, // This is the actual Bluetooth device ID
-      uuid: beacon.uuid.toUpperCase(),
-      major: parseInt(beacon.major, 10),
-      minor: parseInt(beacon.minor, 10),
-      txPower: parseInt(beacon.txPower, 10),
-      rssi: parseInt(beacon.rssi, 10),
-      name: beacon.deviceName || beacon.name || 'iBeacon Device', // From BLE advertisement or iBeacon data
-      displayName: beacon.deviceName || beacon.name || `iBeacon (${beacon.major}-${beacon.minor})`, // For UI display
-      // Keep deviceId in the editingBeacon model consistent with this 'id'
+      id: beaconKey,
+      uuid: parsedUuid,
+      major: parsedMajor,
+      minor: parsedMinor,
+      txPower: parsedTxPower,
+      rssi: parseInt(dataFromServer.rssi, 10),
+      name: dataFromServer.localName || 'Scanned Device', // Use localName from service
+      displayName: displayName,
     });
   }
-};
 
-const startScan = async () => {
-  if (isScanning.value) return;
-
-  isScanning.value = true;
-  userInitiatedScan.value = true;
-  scanResults.value = [];
-  scanStatusMessage.value = 'Initializing Bluetooth scan... Please grant permissions if prompted.';
-  scanStatusType.value = 'info';
-
-  if (scanTimeoutId) clearTimeout(scanTimeoutId);
-
-  try {
-    // The onBeaconFoundCallback is handleBeaconFound
-    // scanDuration is handled by webBluetoothService itself now.
-    await webBluetoothService.scanForIBeacons(handleBeaconFound); 
-    
-    scanStatusMessage.value = 'Actively scanning for iBeacons... This will run for about 15 seconds or until you stop. Detected devices will appear below.';
+  if (scanActiveOnServer.value) { 
+    scanStatusMessage.value = `Scan in progress... ${scanResults.value.length} unique device(s) detected so far.`;
     scanStatusType.value = 'info';
-
-    // Set a timeout to update UI after the scan duration (service stops itself)
-    scanTimeoutId = setTimeout(() => {
-      if (isScanning.value) { // Check if it wasn't stopped manually
-        isScanning.value = false; // Mark as not scanning
-        if (scanResults.value.length === 0) {
-          scanStatusMessage.value = 'Scan finished. No iBeacon devices found.';
-          scanStatusType.value = 'info';
-        } else {
-          scanStatusMessage.value = `Scan finished. Found ${scanResults.value.length} unique iBeacon(s).`;
-          scanStatusType.value = 'success';
-        }
-      }
-    }, 15500); // Slightly longer than the service's typical 15s scan
-
-  } catch (error) {
-    console.error('Error starting beacon scan:', error);
-    scanStatusMessage.value = `Scan Error: ${error.message || 'Failed to start Bluetooth scan. Check browser compatibility and permissions.'}`;
-    scanStatusType.value = 'error';
-    isScanning.value = false;
-    userInitiatedScan.value = false;
   }
 };
 
-const stopScan = () => {
-  if (scanTimeoutId) clearTimeout(scanTimeoutId);
-  webBluetoothService.stopScan(); // This will also clear the callback in the service
-  isScanning.value = false;
-  scanStatusMessage.value = 'Scan stopped by user.';
-  scanStatusType.value = 'info';
-  if (scanResults.value.length === 0 && userInitiatedScan.value) {
-    scanStatusMessage.value += ' No iBeacons found before stopping.';
+const attemptStartScan = async () => {
+  userInitiatedScan.value = true; // Mark that this scan was started by user action
+
+  if (!isWebSocketConnected.value) {
+    scanStatusMessage.value = 'Local service is not connected. Please ensure it is running and refresh.';
+    scanStatusType.value = 'error';
+    console.warn('[BeaconManagerTab] Attempted to start scan, but service is not connected.');
+    return;
   }
-  // userInitiatedScan.value = false; // Keep true to show "no devices found" if applicable after manual stop
+  if (!hasMap.value) {
+    scanStatusMessage.value = "A map is required. Please configure one in 'Map Editor' first.";
+    scanStatusType.value = 'warn';
+    alert("Please ensure a map is configured in the 'Map Editor' tab before scanning for beacons.");
+    return;
+  }
+  if (isScanning.value || scanActiveOnServer.value) {
+    scanStatusMessage.value = 'A scan is already in progress or active on the server.';
+    scanStatusType.value = 'info';
+    console.log('[BeaconManagerTab] Scan attempt while already scanning or server is active.');
+    return;
+  }
+
+  // Get MAC addresses of already configured beacons
+  const currentConfiguredBeacons = props.initialBeacons || [];
+  const ignoredMacAddresses = currentConfiguredBeacons
+    .map(b => b.macAddress) // Use macAddress field
+    .filter(mac => mac && typeof mac === 'string' && mac.trim() !== ''); // Filter out invalid/empty MACs
+
+  console.log("[BeaconManagerTab] Attempting to start scan, ignoring MACs:", ignoredMacAddresses);
+
+  scanResults.value = []; 
+  scanStatusMessage.value = 'Sending start scan command to local service...';
+  scanStatusType.value = 'info';
+  isScanning.value = true; // Optimistically set UI state
+
+  sendWebSocketMessage({ command: 'startScan', ignoredMacAddresses: ignoredMacAddresses });
+
+  // Set a timeout for the scan duration (e.g., 15 seconds)
+  if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
+  scanDurationTimeoutId = setTimeout(() => {
+    if (isScanning.value || scanActiveOnServer.value) { // Check both UI and server state
+      console.log('[BeaconManagerTab] Scan duration timeout (15s) reached. Requesting stopScan.');
+      attemptStopScan(); // Automatically stop the scan
+      scanStatusMessage.value = 'Scan finished (15s duration).';
+      scanStatusType.value = 'info';
+    }
+  }, 15000); // 15 seconds
+};
+
+const attemptStopScan = (reason = 'manual') => {
+  sendWebSocketMessage({ command: 'stopScan' });
+  
+  if (scanDurationTimeoutId) {
+    clearTimeout(scanDurationTimeoutId);
+    scanDurationTimeoutId = null;
+  }
+  // isScanning (UI) and scanActiveOnServer will be set to false by the 'Scanning stopped.' message from the server
+  
+  if (reason === 'timeout' && scanResults.value.length === 0) {
+      scanStatusMessage.value = 'Scan timed out. No Bluetooth devices found by local service.';
+  } else if (reason === 'timeout') {
+      scanStatusMessage.value = `Scan timed out. Found ${scanResults.value.length} device(s).`;
+  } else if (userInitiatedScan.value && scanResults.value.length === 0 && !scanStatusMessage.value.includes('Error')) {
+    scanStatusMessage.value = 'Stop command sent. Waiting for confirmation... No devices found yet.';
+  } else if (scanResults.value.length > 0 && !scanStatusMessage.value.includes('Error')) {
+    scanStatusMessage.value = `Stop command sent. Waiting for confirmation... ${scanResults.value.length} device(s) were found.`;
+  } else if (!scanStatusMessage.value.includes('Error')) {
+    scanStatusMessage.value = 'Stop command sent. Waiting for confirmation...';
+  }
+  scanStatusType.value = 'info';
+  isScanning.value = false; // Optimistically set UI state; server message will confirm scanActiveOnServer = false
 };
 
 const sortedScanResults = computed(() => {
-  // Sort by RSSI (strongest signal first)
-  return [...scanResults.value].sort((a, b) => b.rssi - a.rssi);
+  return [...scanResults.value].sort((a, b) => {
+    if (a.rssi < b.rssi) return 1;
+    if (a.rssi > b.rssi) return -1;
+    return (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '');
+  });
 });
 
-
 const showAddBeaconModal = () => {
+  if (!props.currentMapLayout) {
+    alert("A map is required to add beacons. Please go to the 'Map Editor' tab to define a map first.");
+    return;
+  }
   beaconModalMode.value = 'add';
   editingBeacon.value = initialEditingBeacon();
   showBeaconModal.value = true;
@@ -278,13 +541,7 @@ const showAddBeaconModal = () => {
 const showEditBeaconModal = (index) => {
   beaconModalMode.value = 'edit';
   editingBeaconIndex.value = index;
-  const beaconToEdit = configuredBeacons.value[index];
-  editingBeacon.value = JSON.parse(JSON.stringify({
-      ...initialEditingBeacon(), // Start with defaults
-      ...beaconToEdit, // Overlay with actual data
-      // Ensure deviceId is correctly mapped if it was stored as macAddress previously
-      deviceId: beaconToEdit.deviceId || beaconToEdit.macAddress || '' 
-  }));
+  editingBeacon.value = JSON.parse(JSON.stringify(configuredBeacons.value[index]));
   showBeaconModal.value = true;
 };
 
@@ -293,49 +550,81 @@ const hideBeaconModal = () => {
 };
 
 const saveBeacon = () => {
-  if (!editingBeacon.value.displayName || !editingBeacon.value.uuid ||
-      editingBeacon.value.major === null || editingBeacon.value.minor === null ||
-      editingBeacon.value.txPower === null) {
-    alert('Please fill in Display Name, UUID, Major, Minor, and TxPower.');
-    return;
-  }
-  const uuidRegex = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/i;
-  if (!uuidRegex.test(editingBeacon.value.uuid)) {
-    alert('Invalid UUID format.');
-    return;
-  }
+  console.log('[BeaconManagerTab - saveBeacon] Attempting to save beacon.');
+  console.log('  Editing beacon data before save:', JSON.parse(JSON.stringify(editingBeacon.value)));
 
   const beaconDataToSave = JSON.parse(JSON.stringify(editingBeacon.value));
-  beaconDataToSave.uuid = beaconDataToSave.uuid.toUpperCase();
-  beaconDataToSave.major = parseInt(beaconDataToSave.major, 10);
-  beaconDataToSave.minor = parseInt(beaconDataToSave.minor, 10);
-  beaconDataToSave.txPower = parseInt(beaconDataToSave.txPower, 10);
-  beaconDataToSave.x = parseFloat(beaconDataToSave.x) || 0;
-  beaconDataToSave.y = parseFloat(beaconDataToSave.y) || 0;
-  // deviceId should already be populated in editingBeacon.value
+
+  // Ensure UUID is consistently uppercase
+  if (beaconDataToSave.uuid) {
+    beaconDataToSave.uuid = String(beaconDataToSave.uuid).toUpperCase();
+  }
+
+  if (!beaconDataToSave.displayName || !beaconDataToSave.uuid) {
+      alert("Display Name and UUID are required.");
+      return;
+  }
 
   if (beaconModalMode.value === 'add') {
-    const exists = configuredBeacons.value.some(b =>
-        b.uuid === beaconDataToSave.uuid &&
-        b.major === beaconDataToSave.major &&
-        b.minor === beaconDataToSave.minor
+    const alreadyExists = configuredBeacons.value.some(
+        b => b.uuid.toUpperCase() === beaconDataToSave.uuid.toUpperCase() &&
+             b.major === beaconDataToSave.major &&
+             b.minor === beaconDataToSave.minor &&
+             ((b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId) ||
+              (!b.deviceId && !beaconDataToSave.deviceId))
     );
-    if (exists) {
-      alert('A beacon with the same UUID, Major, and Minor already exists.');
-      return;
+
+    if (alreadyExists) {
+        scanStatusMessage.value = "Error: A beacon with the same UUID, Major, Minor, and Device ID already exists.";
+        scanStatusType.value = 'error';
+        setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+        return; 
     }
+
+    console.log('[BeaconManagerTab - saveBeacon] Beacon data validated. Mode:', beaconModalMode.value);
+    console.log('  Configured beacons BEFORE save/push:', JSON.parse(JSON.stringify(configuredBeacons.value)));
+
     configuredBeacons.value.push(beaconDataToSave);
-  } else {
-    if (editingBeaconIndex.value >= 0 && editingBeaconIndex.value < configuredBeacons.value.length) {
+    
+    console.log('  Configured beacons AFTER save/push:', JSON.parse(JSON.stringify(configuredBeacons.value)));
+    console.log('  Emitting beacons-updated with this list (length '+ configuredBeacons.value.length + ').');
+    emit('beacons-updated', JSON.parse(JSON.stringify(configuredBeacons.value)));
+        
+    scanStatusMessage.value = `Beacon '${beaconDataToSave.displayName}' added successfully. Use 'Place on Map' to position it.`;
+    scanStatusType.value = 'success';
+    hideBeaconModal(); 
+    setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+
+  } else { 
+    if (editingBeaconIndex.value > -1 && editingBeaconIndex.value < configuredBeacons.value.length) {
+      const otherBeacons = configuredBeacons.value.filter((_, i) => i !== editingBeaconIndex.value);
+      const alreadyExistsOnEdit = otherBeacons.some(
+        b => b.uuid.toUpperCase() === beaconDataToSave.uuid.toUpperCase() &&
+             b.major === beaconDataToSave.major &&
+             b.minor === beaconDataToSave.minor &&
+             ((b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId) ||
+              (!b.deviceId && !beaconDataToSave.deviceId))
+      );
+      if (alreadyExistsOnEdit) {
+        scanStatusMessage.value = "Error: Editing this beacon would create a duplicate (same UUID, Major, Minor, Device ID) of another existing beacon.";
+        scanStatusType.value = 'error';
+        setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+        return;
+      }
       configuredBeacons.value.splice(editingBeaconIndex.value, 1, beaconDataToSave);
+      console.log('  Configured beacons AFTER update:', JSON.parse(JSON.stringify(configuredBeacons.value)));
+      console.log('  Emitting beacons-updated with this list (length '+ configuredBeacons.value.length + ').');
+      emit('beacons-updated', JSON.parse(JSON.stringify(configuredBeacons.value)));
+      scanStatusMessage.value = `Beacon '${beaconDataToSave.displayName}' updated.`;
+      scanStatusType.value = 'success';
+      setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 3000);
     } else {
-      alert('Error editing beacon: Invalid index.');
-      hideBeaconModal();
-      return;
+      scanStatusMessage.value = "Error: Could not update beacon. Index out of bounds.";
+      scanStatusType.value = 'error';
+      setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
     }
+    hideBeaconModal();
   }
-  emit('beacons-updated', JSON.parse(JSON.stringify(configuredBeacons.value)));
-  hideBeaconModal();
 };
 
 const deleteBeacon = (index) => {
@@ -352,28 +641,101 @@ const selectBeaconForPlacement = (beacon) => {
 };
 
 const isBeaconAlreadyConfigured = (scannedBeacon) => {
-  // Compare based on UUID, Major, Minor
-  return configuredBeacons.value.some(configured =>
-    configured.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase() &&
-    configured.major === scannedBeacon.major &&
-    configured.minor === scannedBeacon.minor
+  // console.log('[BeaconManagerTab] Checking if beacon is already configured. Scanned beacon ID:', scannedBeacon.id, 'UUID:', scannedBeacon.uuid);
+  const result = configuredBeacons.value.some(
+    b => {
+      const uuidMatch = b.uuid && scannedBeacon.uuid && b.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase();
+      const majorMatch = b.major === scannedBeacon.major;
+      const minorMatch = b.minor === scannedBeacon.minor;
+      const deviceIdMatch = (b.deviceId && scannedBeacon.id && b.deviceId === scannedBeacon.id);
+      
+      if (scannedBeacon.uuid && scannedBeacon.uuid !== 'N/A' && scannedBeacon.major !== 'N/A' && scannedBeacon.minor !== 'N/A') {
+        const configuredIsSimilarIBeacon = b.uuid && b.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase() &&
+                                       b.major === scannedBeacon.major &&
+                                       b.minor === scannedBeacon.minor;
+        if (configuredIsSimilarIBeacon) {
+            return true; 
+        }
+      }
+      return deviceIdMatch;
+    }
   );
+  // console.log('[BeaconManagerTab] isBeaconAlreadyConfigured result for ID', scannedBeacon.id, ':', result);
+  return result;
 };
 
-const addScannedBeaconToForm = (scannedBeacon) => {
-  beaconModalMode.value = 'add'; // Always add mode for scanned beacons
+const addScannedBeaconToForm = (scannedBeaconData) => {
+  // console.log('[BeaconManagerTab] addScannedBeaconToForm CALLED with:', JSON.parse(JSON.stringify(scannedBeaconData)));
+  // console.log('[BeaconManagerTab] Current isScanning state:', isScanning.value);
+
+  if (isBeaconAlreadyConfigured(scannedBeaconData)) {
+    // console.warn('[BeaconManagerTab] Add aborted: Beacon is considered already configured.', JSON.parse(JSON.stringify(scannedBeaconData)));
+    scanStatusMessage.value = `Beacon '${scannedBeaconData.displayName || scannedBeaconData.id}' is already configured or has identical key parameters.`;
+    scanStatusType.value = 'warn';
+    setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+    return;
+  }
+
+  // console.log('[BeaconManagerTab] Beacon not configured. Proceeding to populate form and show modal.');
   editingBeacon.value = {
-    ...initialEditingBeacon(), // Start with defaults
-    uuid: scannedBeacon.uuid.toUpperCase(),
-    major: scannedBeacon.major,
-    minor: scannedBeacon.minor,
-    txPower: scannedBeacon.txPower,
-    displayName: scannedBeacon.displayName || scannedBeacon.name || `Scanned iBeacon ${scannedBeacon.major}-${scannedBeacon.minor}`,
-    deviceId: scannedBeacon.id, // This is the Bluetooth device ID
-    macAddress: '' // Clear macAddress, as deviceId is the primary identifier from scan
+    uuid: scannedBeaconData.uuid && scannedBeaconData.uuid !== 'N/A' ? scannedBeaconData.uuid.toUpperCase() : '',
+    major: scannedBeaconData.major, // Already a number or null from handleBeaconFound
+    minor: scannedBeaconData.minor, // Already a number or null from handleBeaconFound
+    x: 0, 
+    y: 0, 
+    txPower: scannedBeaconData.txPower, // Already a number (default or parsed) from handleBeaconFound
+    displayName: scannedBeaconData.displayName, // Already prepared by handleBeaconFound
+    macAddress: '', // MAC address is not consistently available from noble scan result's main properties for iBeacons
+    deviceId: scannedBeaconData.id 
   };
+  editingBeaconIndex.value = -1;
+  beaconModalMode.value = 'add';
   showBeaconModal.value = true;
+  scanStatusMessage.value = `Adding beacon '${editingBeacon.value.displayName}'. Please verify details and save.`;
+  scanStatusType.value = 'info';
+  setTimeout(() => { if(scanStatusMessage.value.startsWith('Adding beacon')) scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
 };
+
+const requestPlacementFromMapForEditingBeacon = () => {
+  if (!props.currentMapLayout) {
+    alert("A map is required to place beacons. Please go to the 'Map Editor' tab to define a map first.");
+    return;
+  }
+  emit('beacon-selected-for-placement', { ...editingBeacon.value });
+  // Modal can remain open, parent handles tab switch.
+};
+
+const updateCoordinatesForBeaconInModal = (uuid, major, minor, newX, newY) => {
+  if (showBeaconModal.value && editingBeacon.value) {
+    // Ensure major/minor are numbers for comparison, as they might come as strings from parent
+    const numMajor = Number(major);
+    const numMinor = Number(minor);
+    const numNewX = Number(newX);
+    const numNewY = Number(newY);
+
+    if (
+      editingBeacon.value.uuid === uuid &&
+      editingBeacon.value.major === numMajor &&
+      editingBeacon.value.minor === numMinor
+    ) {
+      editingBeacon.value.x = parseFloat(numNewX.toFixed(2)); // Apply new X, rounded to 2 decimal places
+      editingBeacon.value.y = parseFloat(numNewY.toFixed(2)); // Apply new Y, rounded to 2 decimal places
+      console.log(`[BeaconManagerTab] Updated coordinates in modal for ${uuid}/${major}/${minor} to X:${editingBeacon.value.x}, Y:${editingBeacon.value.y}`);
+    } else {
+      console.warn(
+        '[BeaconManagerTab] Received coordinate update, but it does not match the currently editing beacon.',
+        'CurrentEditing:', {uuid: editingBeacon.value.uuid, major: editingBeacon.value.major, minor: editingBeacon.value.minor},
+        'ReceivedFor:', {uuid, major, minor}
+      );
+    }
+  } else {
+    console.warn('[BeaconManagerTab] Received coordinate update, but beacon modal is not open or no beacon is being edited.');
+  }
+};
+
+defineExpose({
+  updateCoordinatesForBeaconInModal
+});
 
 </script>
 
@@ -393,6 +755,7 @@ const addScannedBeaconToForm = (scannedBeacon) => {
 .scan-status.info { background-color: #e7f3fe; border: 1px solid #d0eaff; color: #0c5460; }
 .scan-status.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
 .scan-status.error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+.scan-status.warn { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
 
 table {
   width: 100%;
@@ -495,6 +858,19 @@ th {
   border-color: #007bff;
   outline: none;
 }
+.modal-content form .coordinate-actions {
+  margin-bottom: 10px; /* Add some space below the button and its label */
+}
+.modal-content form .coordinate-actions label {
+  /* Style for the new label above the button, if needed */
+  margin-bottom: 8px; /* Space between this label and the button */
+  font-weight: bold; /* Make it stand out a bit */
+}
+.modal-content form .coordinate-actions button {
+  width: 100%; /* Make button full width */
+  padding: 10px;
+  margin-bottom: 10px; /* Space below the button, before X coord */
+}
 .modal-content form small {
     font-size: 0.8em;
     color: #777;
@@ -524,5 +900,36 @@ th {
 }
 .modal-actions button[type="button"]:hover {
   background-color: #e0e0e0;
+}
+
+.beacon-actions-container {
+  display: flex;
+  gap: 5px;
+  align-items: center; /* Vertically align items if they have different heights */
+}
+
+.beacon-actions-container button {
+  padding: 6px 10px; /* Adjust padding for a more compact look if needed */
+  white-space: nowrap; /* Prevent text wrapping within buttons */
+  flex-shrink: 0; /* Prevent buttons from shrinking too much if space is tight */
+}
+
+.form-row.coordinate-pair {
+  display: flex;
+  gap: 15px; /* Space between X and Y input groups */
+  align-items: flex-start; /* Align items to the top if labels cause height differences */
+}
+
+.form-group-inline {
+  flex: 1; /* Allow each group to take equal space */
+}
+
+.form-group-inline label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.form-group-inline input[type="number"] {
+  width: 100%; /* Make inputs take full width of their flex container */
 }
 </style> 

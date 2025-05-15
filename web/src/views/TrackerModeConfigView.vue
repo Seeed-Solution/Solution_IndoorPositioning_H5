@@ -1,25 +1,34 @@
 <template>
-  <div class="tracker-mode-config-view page-container">
+  <div class="tracker-mode-config-view page-content-wrapper">
     <h1 class="page-title">Tracker Mode Configuration</h1>
     <p class="info-banner status-display info" v-if="statusMessage">{{ statusMessage }}</p>
 
     <div class="config-management card">
-      <div class="card-header"><h2>Master Configuration Management</h2></div>
-      <div class="card-content">
+      <div class="card-header">
+        <h2>Master Configuration Management</h2>
+        <button @click="toggleMasterConfigSection" class="button-secondary button-small">
+          <i :class="isMasterConfigSectionVisible ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+          {{ isMasterConfigSectionVisible ? 'Hide' : 'Show' }}
+        </button>
+      </div>
+      <div v-if="isMasterConfigSectionVisible" class="card-content">
         <!-- <input type="file" @change="handleImportMasterConfigFile" accept=".json" ref="importMasterFileRef" style="display: none;" /> -->
         <!-- <button @click="triggerImportMasterFile" class="button-primary">Import Configuration & Update Server (JSON)</button> -->
         
         <label for="jsonImportTracker">Paste Master Configuration JSON here:</label>
         <textarea id="jsonImportTracker" v-model="jsonInputForImport" rows="8" 
                   :placeholder="jsonPlaceholderText"></textarea>
-        <button @click="handleImportMasterConfigJson" class="button-primary">Import & Update Server (from Textarea)</button>
+        
+        <div class="action-buttons-group">
+          <button @click="handleImportMasterConfigJson" class="button-primary">Import & Update Server (from Textarea)</button>
+          <button @click="clearTrackerConfig" v-if="currentFullConfig.map" class="button-danger button-small">Clear This Tracker Configuration</button>
+        </div>
 
         <p v-if="!currentFullConfig.map && !statusMessage.includes('Processing')" class="status-display warning">Please import a master configuration file first.</p>
         <p v-if="currentFullConfig.map" class="status-display success">
           Current master configuration loaded: {{ currentFullConfig.map.name || 'Unnamed Map' }}.
           (Beacons: {{ currentFullConfig.beacons.length }}, Map Entities: {{ currentFullConfig.map.entities?.length || 0 }})
         </p>
-        <button @click="clearTrackerConfig" v-if="currentFullConfig.map" class="button-danger button-small">Clear This Tracker Configuration</button>
       </div>
     </div>
 
@@ -36,65 +45,77 @@
                 </p>
                 <div class="mqtt-controls">
                     <button 
-                        @click="connectMqtt"
-                        :disabled="isConnectingMqtt || (liveMqttStatusForServerSettings === 'connected' && currentServerConfig?.mqtt?.enabled)"
-                        class="button-success">
-                        <i v-if="isConnectingMqtt" class="fas fa-spinner fa-spin"></i>
-                        {{ (liveMqttStatusForServerSettings === 'connected' && currentServerConfig?.mqtt?.enabled) ? 'MQTT Enabled & Connected' : 'Enable & Connect MQTT' }}
+                        @click="toggleMqttConnection"
+                        :disabled="isMqttToggleInProgress || wsStatus !== 'connected' || !currentFullConfig.map || !currentServerConfig || !currentServerConfig.mqtt" 
+                        :class="{
+                            'button-success': (!currentServerConfig?.mqtt?.enabled || (currentServerConfig?.mqtt?.enabled && (liveMqttStatusForServerSettings === 'disconnected' || liveMqttStatusForServerSettings === 'error' || liveMqttStatusForServerSettings === 'misconfigured'))) && currentFullConfig.map,
+                            'button-danger': currentServerConfig?.mqtt?.enabled && liveMqttStatusForServerSettings === 'connected' && currentFullConfig.map,
+                            'button-default': !currentFullConfig.map || !currentServerConfig || !currentServerConfig.mqtt, // Fallback if config not loaded
+                        }"
+                        :title="!currentFullConfig.map ? 'Please import a master configuration first to enable MQTT' : (currentServerConfig?.mqtt?.enabled && liveMqttStatusForServerSettings === 'connected' ? 'Disconnect from MQTT' : 'Connect to MQTT')"
+                        >
+                        <i v-if="isMqttToggleInProgress" class="fas fa-spinner fa-spin"></i>
+                        {{ mqttToggleButtonText }}
                     </button>
-                    <button 
-                        @click="disconnectMqtt"
-                        :disabled="isDisconnectingMqtt || liveMqttStatusForServerSettings === 'disabled' || liveMqttStatusForServerSettings === 'disconnected' || (currentServerConfig && !currentServerConfig.mqtt?.enabled)" 
-                        class="button-danger">
-                        <i v-if="isDisconnectingMqtt" class="fas fa-spinner fa-spin"></i>
-                        {{ (currentServerConfig && !currentServerConfig.mqtt?.enabled) ? 'MQTT Is Disabled' : 'Disable MQTT' }}
-                    </button>
-                    <button @click="toggleServerSettingsPanel" class="button-primary">
+                    <button @click="toggleServerSettingsPanel" class="button-light-blue" :disabled="wsStatus !== 'connected'">
                         <i class="fas fa-cog"></i> 
                         {{ isServerSettingsPanelVisible ? 'Hide Settings' : 'Show Settings' }}
                     </button>
                 </div>
             </div>
-            <div class="form-group tracker-id-filter-group">
-              <label for="trackerIdFilter">Tracker ID Filter (e.g., tracker-*, specificID):</label>
-              <input type="text" id="trackerIdFilter" v-model="trackerSettings.filterPattern" @input="saveTrackerSettingsDebounced" placeholder="Leave empty to show all" />
-            </div>
-            <hr class="section-divider" v-if="isServerSettingsPanelVisible">
             <ServerSettings 
                 v-if="isServerSettingsPanelVisible"
                 :live-mqtt-status="liveMqttStatusForServerSettings" 
+                :initial-settings="currentServerConfig" 
                 @settings-applied="handleServerSettingsApplied" 
             />
         </div>
     </div>
     
     <div v-if="currentFullConfig.map" class="map-display-tracker card">
-      <div class="card-header"><h2>Map Preview (Live Trackers: {{ filteredTrackerList.length }})</h2></div>
-      <div class="card-content content-columns">
-        <div class="map-view-wrapper">
-          <MapView 
-            v-if="currentFullConfig.map" 
-            :config="currentFullConfig" 
-            :trackers="filteredTrackerList" 
-          />
+      <div class="card-header"><h2>Map Preview (Live Trackers: {{ trackerList.length }})</h2></div>
+      <div class="card-content">
+        <div class="content-columns">
+          <div class="map-view-wrapper">
+            <MapView 
+              v-if="currentFullConfig.map" 
+              :config="currentFullConfig" 
+              :trackers="trackerList" 
+            />
+          </div>
+          <aside class="tracker-list-aside">
+            <h4>Trackers ({{ trackerList.length }})</h4>
+            <ul v-if="trackerList.length > 0">
+              <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item">
+                <strong>{{ tracker.trackerId }}</strong>
+                
+                <!-- Position Data -->
+                <div v-if="tracker.position && typeof tracker.position.x === 'number' && typeof tracker.position.y === 'number'" class="tracker-pos">
+                  X: {{ tracker.position.x.toFixed(2) }}, Y: {{ tracker.position.y.toFixed(2) }}
+                  <span v-if="tracker.position.accuracy && typeof tracker.position.accuracy === 'number'">, Acc: {{ tracker.position.accuracy.toFixed(2) }}m</span>
+                </div>
+                <div v-else class="tracker-pos-na">
+                  No position data
+                </div>
+
+                <!-- Meta Data -->
+                <div class="tracker-meta-group">
+                  <div v-if="tracker.timestamp" class="tracker-meta-item">
+                     Last seen: {{ new Date(tracker.timestamp).toLocaleTimeString() }}
+                  </div>
+                  <div v-if="tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-meta-item">
+                    Strongest RSSI: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm
+                    (Detected {{ tracker.last_detected_beacons.length }} beacon(s))
+                  </div>
+                  <div v-else-if="tracker.last_detected_beacons" class="tracker-meta-item"> <!-- Added else-if for clarity if last_detected_beacons is an empty array -->
+                    No beacons detected in last update.
+                  </div>
+                </div>
+              </li>
+            </ul>
+            <p v-else>No trackers received yet.</p>
+          </aside>
         </div>
-        <aside class="tracker-list-aside">
-          <h4>Trackers ({{ filteredTrackerList.length }})</h4>
-          <ul v-if="filteredTrackerList.length > 0">
-            <li v-for="tracker in filteredTrackerList" :key="tracker.trackerId" class="tracker-item">
-              <strong>{{ tracker.trackerId }}</strong>
-              <span v-if="tracker.position" class="tracker-pos">
-                X: {{ tracker.position.x.toFixed(2) }}, Y: {{ tracker.position.y.toFixed(2) }}
-                <span v-if="tracker.position.accuracy">, Acc: {{ tracker.position.accuracy.toFixed(2) }}m</span>
-              </span>
-              <span v-else class="tracker-pos-na">No position data</span>
-              <div v-if="tracker.timestamp" class="tracker-meta">
-                 Last seen: {{ new Date(tracker.timestamp).toLocaleTimeString() }}
-              </div>
-            </li>
-          </ul>
-          <p v-else>No trackers matching filter, or no trackers received yet.</p>
-        </aside>
       </div>
     </div>
      <p v-if="!currentFullConfig.map && wsStatus !== 'disconnected'" class="info-banner warning">
@@ -109,7 +130,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import MapView from '@/components/MapView.vue';
 import ServerSettings from '@/components/ServerSettings.vue'; // Import ServerSettings
 import { loadConfigFromLocalStorage, saveConfigToLocalStorage, clearConfigFromLocalStorage } from '@/services/localStorageService.js';
-import { saveWebConfiguration, loadServerConfiguration, saveServerConfiguration } from '@/services/configApiService.js'; // Added for saving to server
+import { loadWebConfiguration, saveWebConfiguration, loadServerConfiguration, saveServerConfiguration, requestMqttAction } from '@/services/configApiService.js'; // Added loadWebConfiguration and requestMqttAction previously
 
 const CONFIG_STORAGE_KEY = 'trackerModeConfig'; 
 const TRACKER_SETTINGS_STORAGE_KEY = 'trackerModeUISettings';
@@ -132,9 +153,9 @@ const initialMasterConfig = () => ({
 });
 const currentFullConfig = ref(initialMasterConfig()); 
 
-const trackerSettings = ref({
-  filterPattern: ''
-});
+// const trackerSettings = ref({ // REMOVED as filter is gone
+// filterPattern: ''
+// });
 
 const trackers = ref({}); 
 const ws = ref(null);
@@ -144,23 +165,35 @@ let saveSettingsTimeout = null;
 
 const currentServerConfig = ref(null); // For storing full server config (mqtt.enabled, etc.)
 const isServerSettingsPanelVisible = ref(false);
-const isConnectingMqtt = ref(false);
-const isDisconnectingMqtt = ref(false);
+const isMqttToggleInProgress = ref(false); // Used for the single toggle button
+const isMasterConfigSectionVisible = ref(true); // Initialize as true
 
 const trackerList = computed(() => {
     return Object.values(trackers.value).sort((a, b) => (a.trackerId || '').localeCompare(b.trackerId || ''));
 });
 
-const filteredTrackerList = computed(() => {
-  if (!trackerSettings.value.filterPattern) {
-    return trackerList.value;
-  }
-  try {
-    const regex = new RegExp(trackerSettings.value.filterPattern, 'i');
-    return trackerList.value.filter(tracker => regex.test(tracker.trackerId));
-  } catch (e) {
-    console.warn("Invalid regex in tracker filter:", e);
-    return trackerList.value; 
+const isMqttEffectivelyEnabled = computed(() => {
+  // MQTT is effectively enabled if the config says so AND it's not in a live 'disabled' state from the server
+  return currentServerConfig.value?.mqtt?.enabled && liveMqttStatusForServerSettings.value !== 'disabled';
+});
+
+const mqttToggleButtonText = computed(() => {
+  if (isMqttToggleInProgress.value) return 'Processing...';
+  if (!currentServerConfig.value?.mqtt) return 'MQTT Status Loading...';
+
+  const intendedToBeEnabled = currentServerConfig.value.mqtt.enabled;
+  const liveStatus = liveMqttStatusForServerSettings.value;
+
+  if (intendedToBeEnabled) {
+    if (liveStatus === 'connected') {
+      return 'Disable MQTT';
+    } else if (liveStatus === 'connecting') {
+      return 'Processing...'; // Or 'Cancel Connecting'
+    } else { // 'disconnected', 'error', 'misconfigured', 'disabled' (server override), 'unknown' (but config says enabled)
+      return 'Connect MQTT'; 
+    }
+  } else { // Not intended to be enabled (mqtt.enabled is false)
+    return 'Enable MQTT';
   }
 });
 
@@ -222,19 +255,70 @@ const connectWebSocket = () => {
 
     ws.value.onopen = () => { 
         wsStatus.value = 'connected'; 
-        fetchFullServerConfig(); // Fetch server config once WebSocket is connected
+        // Fetch initial configurations once WebSocket is connected
+        initializeMasterConfig(); // Load master config (server first, then local)
+        fetchFullServerConfig();     // Then fetch live server state (runtime MQTT settings etc)
     };
     ws.value.onmessage = (event) => {
+        console.log('[WebSocket] RAW onmessage event received. Data:', event.data); // Log raw event data
         try {
             const message = JSON.parse(event.data);
+            console.log('[WebSocket] PARSED message object:', message); // Log parsed message
+
             if (message.type === 'initial_state') {
-                trackers.value = message.data || {};
+                console.log('[WebSocket] Processing initial_state. Current isMqttEffectivelyEnabled:', isMqttEffectivelyEnabled.value, 'Data:', message.data);
+                if (isMqttEffectivelyEnabled.value) {
+                    trackers.value = message.data || {};
+                } else {
+                    trackers.value = {};
+                }
             } else if (message.type === 'tracker_update') {
-                const updatedTrackerId = Object.keys(message.data)[0];
-                if (updatedTrackerId) {
-                     trackers.value = { ...trackers.value, [updatedTrackerId]: message.data[updatedTrackerId] };
+                console.log('[WebSocket] Processing tracker_update. Data:', message.data);
+                if (isMqttEffectivelyEnabled.value) { // Or isMqttConnected.value if more direct
+                    const updatedTrackerId = Object.keys(message.data)[0];
+                    if (updatedTrackerId && message.data[updatedTrackerId]) {
+                        const newTrackerData = message.data[updatedTrackerId];
+                        console.log(`[WebSocket] Updating tracker ${updatedTrackerId} with (raw incoming):`, newTrackerData);
+                        
+                        // Create a new object with deep copies of nested structures
+                        const trackerInstanceData = {
+                            trackerId: newTrackerData.trackerId,
+                            position: newTrackerData.position ? { 
+                                x: newTrackerData.position.x, 
+                                y: newTrackerData.position.y, 
+                                accuracy: newTrackerData.position.accuracy // Will be undefined if not present, that's fine
+                            } : null,
+                            timestamp: newTrackerData.timestamp,
+                            last_detected_beacons: newTrackerData.last_detected_beacons 
+                                ? newTrackerData.last_detected_beacons.map(b => ({ ...b })) 
+                                : [],
+                            position_history: newTrackerData.position_history 
+                                ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry) 
+                                : []
+                            // Ensure all fields expected by the template are initialized here
+                        };
+
+                        if (!trackers.value[updatedTrackerId]) {
+                            // If tracker is new, add it by creating new trackers object to ensure root reactivity
+                            trackers.value = { ...trackers.value, [updatedTrackerId]: trackerInstanceData };
+                        } else {
+                            // If tracker exists, replace its instance to trigger update
+                            trackers.value[updatedTrackerId] = trackerInstanceData;
+                        }
+                        
+                        // Force Vue to process updates and then log the state.
+                        nextTick(() => {
+                            if (trackers.value[updatedTrackerId]) {
+                                console.log(`[Vue Reactive State AFTER nextTick] Tracker ${updatedTrackerId} .position is now:`, trackers.value[updatedTrackerId].position);
+                                console.log(`[Vue Reactive State AFTER nextTick] Tracker ${updatedTrackerId} .timestamp is now:`, trackers.value[updatedTrackerId].timestamp);
+                            } else {
+                                console.warn(`[Vue Reactive State AFTER nextTick] Tracker ${updatedTrackerId} missing after update.`);
+                            }
+                        });
+                    }
                 }
             } else if (message.type === 'mqtt_status_update') { 
+                console.log('[WebSocket] Processing mqtt_status_update. Data:', message.data);
                 if (message.data && typeof message.data.status === 'string') {
                     liveMqttStatusForServerSettings.value = message.data.status;
                     // If MQTT becomes disabled via WebSocket, ensure our currentServerConfig reflects this if it was enabled
@@ -244,8 +328,12 @@ const connectWebSocket = () => {
                          if(currentServerConfig.value) currentServerConfig.value.mqtt.enabled = false;
                     }
                 }
+            } else {
+                console.log('[WebSocket] Received unhandled message type:', message.type, 'Data:', message.data);
             }
-        } catch (error) { console.error('TrackerModeConfigView: WebSocket message parse error:', error); }
+        } catch (error) {
+            console.error('[WebSocket] FATAL: Error parsing WebSocket message or in handler. Raw data:', event.data, 'Error:', error);
+        }
     };
     ws.value.onerror = (error) => { wsStatus.value = 'error'; console.error('TrackerModeConfigView: WebSocket error:', error); };
     ws.value.onclose = () => { wsStatus.value = 'disconnected'; };
@@ -280,6 +368,7 @@ const handleImportMasterConfigJson = async () => {
         };
         saveConfigToLocalStorage(CONFIG_STORAGE_KEY, currentFullConfig.value);
         jsonInputForImport.value = ''; // Clear textarea
+        isMasterConfigSectionVisible.value = false; // Collapse after successful import
       } catch (serverError) {
         console.error("Error saving configuration to server:", serverError);
         showStatus(`Failed to save configuration to server: ${serverError.response?.data?.detail || serverError.message || 'Unknown server error'}. Local configuration not updated.`, 'error');
@@ -292,86 +381,167 @@ const handleImportMasterConfigJson = async () => {
   }
 };
 
-const loadMasterConfig = () => {
+// Function to load master config from server, with localStorage fallback
+async function initializeMasterConfig() {
+  showStatus('Loading master configuration...', 'info');
+  try {
+    const serverMasterConfig = await loadWebConfiguration(); // from configApiService
+    if (serverMasterConfig && serverMasterConfig.map && Array.isArray(serverMasterConfig.beacons)) {
+      currentFullConfig.value = { 
+        map: serverMasterConfig.map, 
+        beacons: serverMasterConfig.beacons, 
+        settings: { ...initialMasterConfig().settings, ...serverMasterConfig.settings } 
+      };
+      saveConfigToLocalStorage(CONFIG_STORAGE_KEY, currentFullConfig.value);
+      showStatus('Master configuration loaded from server.', 'success');
+      isMasterConfigSectionVisible.value = false; // Collapse if loaded from server
+      return; // Successfully loaded from server
+    } else {
+      // No valid config from server, or server returned empty/default
+      showStatus('No master configuration found on server. Checking local storage...', 'info');
+      loadMasterConfigFromStorage(); // Fallback to local storage
+    }
+  } catch (error) {
+    console.error('Error loading master configuration from server:', error);
+    showStatus(`Failed to load master config from server: ${error.message || 'Unknown error'}. Trying local storage.`, 'error');
+    loadMasterConfigFromStorage(); // Fallback on error
+    // isMasterConfigSectionVisible remains true if server load fails, to allow user input
+  }
+}
+
+const loadMasterConfigFromStorage = () => {
   const loaded = loadConfigFromLocalStorage(CONFIG_STORAGE_KEY);
-  if (loaded && loaded.map) { currentFullConfig.value = loaded; showStatus('Tracker mode master configuration loaded.'); }
-  else { showStatus('No Tracker mode master configuration found. Please import one.'); currentFullConfig.value = initialMasterConfig(); }
+  if (loaded && loaded.map) { 
+    currentFullConfig.value = loaded; 
+    showStatus('Tracker mode master configuration loaded from local storage.'); 
+    isMasterConfigSectionVisible.value = false; // Collapse if loaded from local storage
+  }
+  else { 
+    // showStatus('No Tracker mode master configuration found in local storage. Please import one.'); // Can be noisy if server load is primary
+    currentFullConfig.value = initialMasterConfig(); 
+    isMasterConfigSectionVisible.value = true; // Expand if no config found anywhere
+  }
 };
-
-const loadTrackerSettings = () => {
-  const loaded = loadConfigFromLocalStorage(TRACKER_SETTINGS_STORAGE_KEY);
-  if (loaded) trackerSettings.value = { ...trackerSettings.value, ...loaded };
-};
-
-const saveTrackerSettings = () => { saveConfigToLocalStorage(TRACKER_SETTINGS_STORAGE_KEY, trackerSettings.value); };
-const saveTrackerSettingsDebounced = () => { clearTimeout(saveSettingsTimeout); saveSettingsTimeout = setTimeout(saveTrackerSettings, 500); };
 
 const clearTrackerConfig = () => {
   if (confirm('Clear Tracker Mode master configuration?')) {
     clearConfigFromLocalStorage(CONFIG_STORAGE_KEY);
     currentFullConfig.value = initialMasterConfig();
     showStatus('Tracker Mode master configuration cleared.');
+    isMasterConfigSectionVisible.value = true; // Expand after clearing
   }
 };
 
 const fetchFullServerConfig = async () => {
+  if (wsStatus.value !== 'connected') {
+    // console.warn("[TrackerMode] Skipping fetchFullServerConfig as WebSocket is not connected.");
+    return;
+  }
+  // statusMessage.value = 'Fetching current server configuration...'; // Can be too noisy
   try {
-    statusMessage.value = "Loading server runtime configuration...";
     const config = await loadServerConfiguration();
-    currentServerConfig.value = config;
-    statusMessage.value = "Server runtime configuration loaded.";
-    // Update liveMqttStatusForServerSettings based on fetched config if needed, though WebSocket is primary
-    if (config && config.mqtt && !config.mqtt.enabled && liveMqttStatusForServerSettings.value !== 'disabled') {
-        // liveMqttStatusForServerSettings.value = 'disabled'; // Or let WebSocket update this
+    if (config) {
+      currentServerConfig.value = config;
+      // DO NOT set liveMqttStatusForServerSettings here. It should ONLY be updated by WebSocket.
+      // liveMqttStatusForServerSettings.value = config.mqtt?.status || 'unknown'; // <--- REMOVE THIS LINE
+      // statusMessage.value = 'Server configuration loaded.'; // Can be too noisy
+    } else {
+      // statusMessage.value = 'Could not fetch server configuration.';
+      console.warn('[TrackerMode] Failed to load server configuration or server returned empty.');
     }
   } catch (error) {
-    console.error("Failed to fetch full server config:", error);
-    statusMessage.value = `Error loading server runtime config: ${error.message}`;
-    currentServerConfig.value = null; // Ensure it's null on error
+    // statusMessage.value = `Error fetching server configuration: ${error.message}`;
+    console.error('[TrackerMode] Error fetching server configuration:', error);
   }
+  // setTimeout(() => { if (statusMessage.value.includes('Fetching') || statusMessage.value.includes('loaded') || statusMessage.value.includes('Could not fetch')) statusMessage.value = ''; }, 3000);
 };
 
-const connectMqtt = async () => {
-  if (!currentServerConfig.value) {
-    showStatus('Server configuration not loaded. Cannot enable MQTT.', 'error');
-    await fetchFullServerConfig(); // Attempt to load it
-    if (!currentServerConfig.value) return;
-  }
-  isConnectingMqtt.value = true;
-  showStatus('Attempting to enable and connect MQTT...', 'info');
-  try {
-    const configToSave = JSON.parse(JSON.stringify(currentServerConfig.value));
-    configToSave.mqtt.enabled = true;
-    await saveServerConfiguration(configToSave);
-    currentServerConfig.value = configToSave; // Update local state
-    showStatus('MQTT enabled. Server will attempt to connect. Monitor status via WebSocket.', 'success');
-    // Live status will update via WebSocket
-  } catch (error) {
-    showStatus(`Error enabling MQTT: ${error.message}`, 'error');
-  } finally {
-    isConnectingMqtt.value = false;
-  }
-};
+const toggleMqttConnection = async () => {
+  // The button's :disabled attribute already checks for !currentFullConfig.map
+  // if (!currentFullConfig.map) { 
+  //   showStatus('Master configuration not loaded. Please import a configuration before connecting to MQTT.', 'error');
+  //   return;
+  // }
 
-const disconnectMqtt = async () => {
-  if (!currentServerConfig.value) {
-    showStatus('Server configuration not loaded. Cannot disable MQTT.', 'error');
-    await fetchFullServerConfig(); // Attempt to load it
-    if (!currentServerConfig.value) return;
+  // Guard for server config, operation in progress, or WebSocket disconnected still relevant
+  if (!currentServerConfig.value || !currentServerConfig.value.mqtt || isMqttToggleInProgress.value || wsStatus.value !== 'connected') {
+    showStatus('Cannot toggle MQTT: Server config not loaded, operation in progress, or WebSocket disconnected. Or master config missing.', 'error');
+    return;
   }
-  isDisconnectingMqtt.value = true;
-  showStatus('Attempting to disable MQTT...', 'info');
+  isMqttToggleInProgress.value = true;
+  
+  let action;
+  const intendedToBeEnabled = currentServerConfig.value.mqtt.enabled;
+  const liveStatus = liveMqttStatusForServerSettings.value;
+
+  if (intendedToBeEnabled) {
+    if (liveStatus === 'connected') {
+      action = 'disable'; // Currently connected, so action is to disable
+    } else {
+      action = 'enable';  
+    }
+  } else {
+    action = 'enable';    // Configured to be off, so action is to enable
+  }
+
   try {
-    const configToSave = JSON.parse(JSON.stringify(currentServerConfig.value));
-    configToSave.mqtt.enabled = false;
-    await saveServerConfiguration(configToSave);
-    currentServerConfig.value = configToSave; // Update local state
-    showStatus('MQTT disabled. Server will disconnect if connected.', 'success');
-    // Live status will update via WebSocket, likely to 'disabled' or 'disconnected'
+    const serverResponseJson = await requestMqttAction(action); // Assume this is the parsed JSON response on HTTP success
+
+    let msgToShow = serverResponseJson?.message || `MQTT ${action} action acknowledged. Status will update.`;
+    let msgType = 'success'; // Default to success for 200 OK responses with a message
+
+    if (action === 'enable') {
+      if (liveStatus === 'connected' && serverResponseJson?.current_status === 'connected') {
+        // If trying to connect when client already thought it was connected, and server confirms.
+        msgToShow = 'MQTT is already connected.';
+        msgType = 'info';
+      } else if (serverResponseJson?.current_status === 'connected') {
+        // If an 'enable' action resulted in 'connected' status (or confirmed it was already connected)
+        // Use server message if available, otherwise a generic success message.
+        msgToShow = serverResponseJson?.message || 'MQTT connection successful.';
+        // msgType remains 'success'
+      } else if (serverResponseJson?.message) {
+        // General case for 'enable' action if not definitively connected by this response, use server message.
+        msgToShow = serverResponseJson.message; 
+      }
+    } else if (action === 'disable') {
+      // For 'disable' action, use server message or a generic acknowledgement.
+      msgToShow = serverResponseJson?.message || `MQTT disconnection request acknowledged.`;
+    }
+    
+    showStatus(msgToShow, msgType);
+
+    // Optimistically update local server config state's 'enabled' flag
+    if (currentServerConfig.value.mqtt) {
+      currentServerConfig.value.mqtt.enabled = (action === 'enable');
+    }
+
+    // Explicitly update live status if server's API response confirms the state post-action
+    if (action === 'enable' && serverResponseJson?.current_status === 'connected') {
+      liveMqttStatusForServerSettings.value = 'connected';
+    } else if (action === 'disable' && serverResponseJson?.current_status === 'disconnected') {
+      liveMqttStatusForServerSettings.value = 'disconnected';
+    }
+    // For other statuses like 'connecting', 'error', 'misconfigured' from serverResponseJson.current_status,
+    // we can also update liveMqttStatusForServerSettings.value if it provides more immediate feedback
+    // than waiting for a potential WebSocket message, especially if the WebSocket message might be delayed or not sent
+    // if the state didn't fundamentally change from the server Paho client's perspective.
+    else if (serverResponseJson?.current_status && 
+             ['connecting', 'error', 'misconfigured', 'disabled'].includes(serverResponseJson.current_status)) {
+      liveMqttStatusForServerSettings.value = serverResponseJson.current_status;
+    }
+
+    // Server will send mqtt_status_update via WebSocket for general updates.
+    // Re-fetch to get the latest full server config (NOT for live MQTT status, but for other settings like broker details if they changed)
+    await fetchFullServerConfig(); 
   } catch (error) {
-    showStatus(`Error disabling MQTT: ${error.message}`, 'error');
+    const errorMessage = error.response?.data?.detail || // FastAPI HTTPException detail
+                         error.message ||                 // General error message
+                         'Unknown error';
+    showStatus(`Error during MQTT ${action} request: ${errorMessage}`, 'error');
+    console.error(`Error MQTT ${action}:`, error);
   } finally {
-    isDisconnectingMqtt.value = false;
+    isMqttToggleInProgress.value = false;
   }
 };
 
@@ -382,27 +552,52 @@ const toggleServerSettingsPanel = () => {
   }
 };
 
-const handleServerSettingsApplied = () => {
-    showStatus('Server runtime settings applied. Fetching latest to ensure consistency.', 'info');
-    fetchFullServerConfig(); // Refetch to update currentServerConfig after ServerSettings saves
-    // MQTT status will update via WebSocket based on new settings saved by ServerSettings.vue
+const handleServerSettingsApplied = async (settingsToApply) => {
+  statusMessage.value = 'Applying server settings...';
+  try {
+    const result = await saveServerConfiguration(settingsToApply);
+    if (result && result.success) {
+      statusMessage.value = result.message || 'Server settings applied successfully! Status will update via WebSocket.';
+      // Update local currentServerConfig with what was applied, then wait for WebSocket for live status
+      currentServerConfig.value = JSON.parse(JSON.stringify(settingsToApply));
+      // Optionally, hide panel after successful save
+      // isServerSettingsPanelVisible.value = false; 
+    } else {
+      statusMessage.value = result.message || 'Failed to apply server settings.';
+    }
+  } catch (error) {
+    statusMessage.value = `Error applying settings: ${error.message}`;
+  }
+  setTimeout(() => { statusMessage.value = ''; }, 7000);
 };
 
-watch(trackerSettings, saveTrackerSettingsDebounced, { deep: true });
+const toggleMasterConfigSection = () => {
+  isMasterConfigSectionVisible.value = !isMasterConfigSectionVisible.value;
+};
 
 onMounted(() => { 
-    loadMasterConfig(); 
-    loadTrackerSettings(); 
+    // loadMasterConfigFromStorage(); // Now handled by initializeMasterConfig via ws.onopen
+    // loadTrackerSettings(); // Filter and its settings are removed
     connectWebSocket(); 
-    // fetchFullServerConfig(); // Moved to on WebSocket open for better timing
 });
-onUnmounted(() => { if (ws.value) { ws.value.onclose = null; ws.value.close(); } clearTimeout(saveSettingsTimeout); });
+onUnmounted(() => { if (ws.value) { ws.value.onclose = null; ws.value.close(); } /* clearTimeout(saveSettingsTimeout); // saveSettingsTimeout no longer exists */ });
 
 </script>
 
 <style scoped>
-.page-container { padding: 1.5rem; width: 100%; max-width: 1200px; margin: 0 auto; box-sizing: border-box; }
-.page-title { font-size: 1.8rem; color: var(--primary-color-dark); margin-bottom: 1rem; border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; }
+/* Remove scoped .page-container or .page-content-wrapper if present */
+
+/* .page-title style is now global in style.css */
+/*
+.page-title {
+  font-size: 1.6rem; 
+  color: var(--text-color); 
+  margin-bottom: 1.5rem; 
+  padding-bottom: 0; 
+  font-weight: 600; 
+}
+*/
+
 .config-management, .tracker-specific-settings, .map-display-tracker { margin-bottom: 1.5rem; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .card-header h2 { margin: 0; font-size: 1.2rem; color: var(--text-color-dark); }
@@ -442,9 +637,21 @@ onUnmounted(() => { if (ws.value) { ws.value.onclose = null; ws.value.close(); }
 .tracker-list-aside ul { list-style-type: none; padding: 0; margin: 0;}
 .tracker-item { padding: 0.5rem 0.2rem; border-bottom: 1px solid #eee; font-size: 0.9em;}
 .tracker-item:last-child { border-bottom: none; }
-.tracker-pos { font-size: 0.85em; color: #333; display: block; margin-top: 2px;}
-.tracker-pos-na { font-size: 0.85em; color: #888; font-style: italic; display: block; margin-top: 2px;}
-.tracker-meta { font-size: 0.8em; color: #555; margin-top: 1px;}
+.tracker-pos { font-size: 0.85em; color: #333; display: block; margin-top: 2px; margin-bottom: 4px;}
+.tracker-pos-na { font-size: 0.85em; color: #888; font-style: italic; display: block; margin-top: 2px; margin-bottom: 4px;}
+
+.tracker-meta-group { 
+  font-size: 0.8em; 
+  color: #555; 
+  margin-top: 3px; 
+}
+.tracker-meta-item { 
+  display: block; /* Ensure each meta item is on a new line if not already */
+  margin-bottom: 2px; 
+}
+.tracker-meta-item:last-child {
+  margin-bottom: 0;
+}
 
 .map-placeholder { text-align: center; padding: 2rem; color: #666;}
 .status-connected { color: var(--success-text-color, green); font-weight: bold;}
@@ -488,6 +695,18 @@ onUnmounted(() => { if (ws.value) { ws.value.onclose = null; ws.value.close(); }
     margin-bottom: 1rem;
     border: 0;
     border-top: 1px solid var(--border-color-light);
+}
+
+/* New style for the button group */
+.action-buttons-group {
+  display: flex;
+  align-items: center; /* Align items vertically if they have different heights */
+  gap: 0.5rem; /* Space between buttons */
+  margin-bottom: 0.75rem; /* Space below the button group */
+}
+/* Ensure buttons within the group don't have excessive bottom margin from global styles if not needed */
+.action-buttons-group button {
+  margin-bottom: 0; 
 }
 
 </style>

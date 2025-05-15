@@ -3,6 +3,11 @@ import { createRouter, createWebHistory } from 'vue-router';
 import MasterConfigView from '@/views/MasterConfigView.vue'; // New Master Config
 import LocalModeConfigView from '@/views/LocalModeConfigView.vue'; // Renamed from PersonalModeConfigView
 import TrackerModeConfigView from '@/views/TrackerModeConfigView.vue'; // Import the new view
+// import HomeView from '@/views/HomeView.vue';
+// import ConfigurationView from '@/views/ConfigurationView.vue'; // Old, to be removed or reworked
+import ConfigurationSuiteView from '@/views/ConfigurationSuiteView.vue'; // Import the main config view
+// import LiveDataView from '@/views/LiveDataView.vue';
+// import DeviceTrackingView from '@/views/DeviceTrackingView.vue';
 
 const routes = [
   // {
@@ -30,6 +35,21 @@ const routes = [
     name: 'TrackerModeConfig', // This is the specific path for Tracker Mode if not default
     component: TrackerModeConfigView, // Use the new component
   },
+  {
+    path: '/config',
+    name: 'Configuration',
+    component: ConfigurationSuiteView, 
+  },
+  // {
+  //   path: '/live-data',
+  //   name: 'LiveData',
+  //   component: LiveDataView,
+  // },
+  // {
+  //   path: '/device-tracking',
+  //   name: 'DeviceTracking',
+  //   component: DeviceTrackingView,
+  // },
   // {
   //   path: '/config', // Old path, decide if to keep, redirect, or remove
   //   name: 'Configuration',

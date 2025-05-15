@@ -1,20 +1,22 @@
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
 
 :root {
-  --primary-color: #007bff;
-  --primary-color-dark: #0056b3;
-  --secondary-color: #6c757d;
-  --success-color: #28a745;
-  --danger-color: #dc3545;
-  --warning-color: #ffc107;
-  --info-color: #17a2b8;
-  --light-color: #f8f9fa;
-  --dark-color: #343a40;
-  --text-color: #212529;
-  --background-color: #eef2f7; /* Light grayish blue background */
-  --card-background: #ffffff;
-  --border-color: #dee2e6;
-  --border-radius: 0.3rem;
+  --primary-color: #73C74D; /* More yellow-ish Green */
+  --primary-color-dark: #5EAE3E; /* Darker shade of new Green */
+  --secondary-color: #5F6368; /* Medium Gray for secondary text/elements */
+  --success-color: #73C74D; /* Using primary green for success */
+  --danger-color: #F56C6C; /* SenseCraft Danger Red */
+  --warning-color: #E6A23C; /* SenseCraft Warning Orange */
+  --info-color: #5F6368; /* Using secondary gray for info text */
+  --info-bg-color: #e7f3ff; /* Background for info banners */
+  --light-blue-accent-color: #AED6F1; /* Light blue for specific accent buttons */
+  --light-color: #f4f4f5; /* Light gray, similar to SenseCraft background */
+  --dark-color: #303133;  /* Dark Header/Text (kept dark gray for contrast if needed elsewhere) */
+  --text-color: #303133; /* Dark gray for general text */
+  --background-color: #f4f4f5; /* Page Background */
+  --card-background: #FFFFFF; /* White cards */
+  --border-color: #DCDFE6; /* Lighter gray borders */
+  --border-radius: 0.5rem; /* Increased border-radius for more rounded elements */
   --box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
 
   /* Default font settings from original style.css, can be adjusted */
@@ -106,6 +108,14 @@ body {
 }
 */
 
+/* Global Page Title Style */
+.page-title {
+  font-size: 1.6rem;
+  color: var(--text-color);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
 /* General Card Styling */
 .card {
   background-color: var(--card-background);
@@ -120,15 +130,16 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.8rem 1.2rem;
-  background-color: #f7f9fc; 
+  background-color: var(--card-background); /* Match card body background (white) */
   border-bottom: 1px solid var(--border-color);
-  border-top-left-radius: var(--border-radius);
-  border-top-right-radius: var(--border-radius);
+  border-top-left-radius: var(--border-radius); /* Keep for top card edge */
+  border-top-right-radius: var(--border-radius); /* Keep for top card edge */
 }
 .card-header h2, .card-header h3 { /* Include h3 for consistency */
   margin: 0;
-  font-size: 1.2rem;
-  color: var(--primary-color-dark);
+  font-size: 1.1rem; /* Slightly adjusted font size for card headers */
+  color: var(--text-color); /* Standard dark gray text */
+  font-weight: 600; /* Make header text bold like SenseCraft */
 }
 .card-header h2 .fas, .card-header h3 .fas {
   margin-right: 0.5rem;
@@ -140,7 +151,8 @@ button,
 .button-primary, 
 .button-secondary, 
 .button-success, 
-.button-danger {
+.button-danger,
+.button-default {
   padding: 0.5rem 1rem;
   border: 1px solid transparent; /* Default border */
   border-radius: var(--border-radius);
@@ -154,7 +166,7 @@ button,
   gap: 0.4rem; 
   text-decoration: none; 
   color: white; /* Default text color for colored buttons */
-  background-color: var(--primary-color); /* Default to primary */
+  background-color: var(--primary-color); /* Default to primary (green) */
 }
 
 button:hover,
@@ -162,7 +174,8 @@ button:hover,
 .button-primary:hover, 
 .button-secondary:hover, 
 .button-success:hover, 
-.button-danger:hover {
+.button-danger:hover,
+.button-default:hover {
   opacity: 0.9; /* Keep opacity for colored ones */
   /* border-color: var(--primary-color-dark); /* Darken border on hover for default */
   box-shadow: 0 2px 5px rgba(0,0,0,0.15);
@@ -178,6 +191,19 @@ button:disabled, .button:disabled {
 .button-secondary { background-color: var(--secondary-color); border-color: var(--secondary-color); color: white; }
 .button-success { background-color: var(--success-color); border-color: var(--success-color); color: white; }
 .button-danger { background-color: var(--danger-color); border-color: var(--danger-color); color: white; }
+.button-default { background-color: var(--primary-color); border-color: var(--primary-color); color: white; } /* Explicitly style .button-default */
+
+/* New button style for light blue accent */
+.button-light-blue {
+  background-color: var(--light-blue-accent-color);
+  border-color: var(--light-blue-accent-color);
+  color: var(--text-color); /* Dark text for contrast on light blue */
+}
+.button-light-blue:hover {
+  background-color: #97c5e6; /* Slightly darker blue on hover */
+  border-color: #97c5e6;
+  color: var(--text-color);
+}
 
 /* Button that looks like a link */
 .button-link {
@@ -276,4 +302,15 @@ html, body {
     min-height: 100%;
     display: flex; /* If App.vue's root is intended to be flex container */
     flex-direction: column; /* If App.vue's root is intended to be flex container */
+}
+
+/* Added for page width unification */
+.page-content-wrapper {
+  max-width: 1200px; /* Adjust as needed, this is a common desktop width */
+  margin: 20px auto; /* Adds some top/bottom margin and centers the content */
+  padding: 1.5rem; /* Consistent padding inside the wrapper */
+  width: 100%; /* Ensures it's responsive within its max-width */
+  background-color: var(--card-background); /* Optional: if pages should have a card-like background */
+  border-radius: var(--border-radius); /* Optional: if using background-color */
+  box-shadow: var(--box-shadow); /* Optional: if using background-color */
 }

@@ -8,9 +8,11 @@
         <p class="info">This value affects RSSI to distance conversion. Common range: Free space approx. 2.0, indoor environments may range from 1.8 to 4.0.</p>
       </div>
       <!-- More general settings can be added here -->
-      <button type="submit">Apply & Update Settings</button>
+      <div class="form-actions">
+        <button type="submit" class="button-primary">Apply & Update Settings</button>
+        <button type="button" @click="resetToOriginals" class="button-light-blue">Reset to Initially Loaded Values</button>
+      </div>
     </form>
-    <button @click="resetToOriginals">Reset to Initially Loaded Values</button>
   </div>
 </template>
 
@@ -74,39 +76,31 @@ defineExpose({ loadSettings });
 </script>
 
 <style scoped>
-.general-settings-tab div {
-  margin-bottom: 10px;
+.general-settings-tab div:not(.form-actions) {
+  margin-bottom: 1rem;
 }
 .general-settings-tab label {
-  margin-right: 10px;
   font-weight: bold;
+  display: block;
+  margin-bottom: 0.3rem;
 }
 .general-settings-tab input[type="number"] {
   padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 100px;
-}
-.general-settings-tab button {
-  margin-top:10px;
-  margin-right: 10px;
-  padding: 8px 15px;
-  border: none;
-  border-radius: 4px;
-  background-color: #007bff;
-  color: white;
-  cursor: pointer;
-}
-.general-settings-tab button[type="submit"] {
-  background-color: #28a745; /* Green for save/apply */
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  width: 120px;
+  box-sizing: border-box;
 }
 
-.general-settings-tab button:hover {
-  opacity: 0.9;
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
+
 .info {
   font-size: 0.85em;
   color: #555;
-  margin-top: 3px;
+  margin-top: 0.5rem;
 }
 </style> 

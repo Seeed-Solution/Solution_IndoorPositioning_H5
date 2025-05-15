@@ -1,7 +1,7 @@
-import * as webBluetoothService from './webBluetoothService.js';
+// import localBeaconService from './webBluetoothService.js'; // DELETED FILE - This service now manages its own WebSocket connection for local positioning.
 import {
   calculateDistance,
-  setSignalFactor as setCalcSignalFactor, // Alias to avoid conflict if this module has its own setSignalFactor
+  setSignalFactor as setCalcSignalFactor,
   // Import other necessary calculation functions if directly used, e.g., trilateration, leastSquaresPositioning
 } from '../utils/positioning/positionCalculator.js';
 import {
@@ -25,8 +25,52 @@ const SIGHTING_TIMEOUT_MS = 5000; // Consider a beacon sighting stale after 5 se
 let positionCalculationInterval = null;
 const CALCULATION_INTERVAL_MS = 1500; // Calculate position every 1.5 seconds
 
-// Placeholder for 2D Kalman Filter if we decide to implement/use one directly here
-// let kfInstance = null;
+let serviceStatusCallbackForPositioning = null;
+
+/**
+ * Handles status updates from the LocalBeaconService, specifically for scans initiated by positioning.
+ * @param {object} status - The status object (e.g., { type: 'error', message: '...' })
+ */
+function handlePositioningServiceStatusUpdate(status) {
+  console.log('[LocalPositioningService] Status from LocalBeaconService:', status);
+  if (status.type === 'error') {
+    console.error(`[LocalPositioningService] Error during scan: ${status.message}`);
+    // If scan failed to start or a critical error occurred, stop positioning attempts for this session.
+    if (isPositioningActive && (status.message.includes('Failed to start scan') || status.message.includes('Bluetooth adapter not ready'))) {
+      console.warn('[LocalPositioningService] Scan failed to start via local service. Stopping positioning.');
+      // Effectively stop the positioning part, as scan won't run.
+      // The localBeaconService itself might try to reconnect if it's a connection issue.
+      if (positionCalculationInterval) clearInterval(positionCalculationInterval);
+      isPositioningActive = false; // Mark as inactive as scan isn't running
+       // Optionally notify UI through a dedicated callback if this service needs to report critical errors upwards
+      if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('error', 'Failed to start beacon scanning for positioning.');
+    }
+  } else if (status.type === 'info') {
+    if (status.message === 'Scanning started.') {
+      console.log('[LocalPositioningService] Confirmed: Scan started via local service for positioning.');
+      // The isPositioningActive flag is already true if we reached here after a successful startScan call.
+      // We could use this point to be absolutely sure.
+    } else if (status.message === 'Scanning stopped.') {
+      console.log('[LocalPositioningService] Confirmed: Scan stopped via local service for positioning.');
+      // isPositioningActive should be false if stopLocalPositioning was called.
+    }
+  }
+  // Also handle 'disconnected' from the main service connection if it affects positioning
+  // This might be better handled by a global status listener set in initialize.
+}
+
+/**
+ * Global status handler for the LocalBeaconService connection itself.
+ */
+function handleGlobalServiceStatus(status) {
+    console.log('[LocalPositioningService] Global LocalBeaconService Status:', status.type, status.message);
+    if (status.type === 'disconnected' && isPositioningActive) {
+        console.warn('[LocalPositioningService] LocalBeaconService disconnected while positioning was active. Stopping scan and calculation.');
+        stopLocalPositioning(); // This will call localBeaconService.stopScan()
+        if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('error', 'Beacon scanning service disconnected.');
+    }
+    // Could also inform UI if connection is lost and not re-established, affecting ability to start positioning.
+}
 
 /**
  * Initializes the local positioning service with the current configuration
@@ -34,9 +78,10 @@ const CALCULATION_INTERVAL_MS = 1500; // Calculate position every 1.5 seconds
  * @param {object} webUIConfig - The current WebUIConfig object (map, beacons, settings).
  * @param {function} positionUpdateCb - Callback function (newPosition) => { ... }
  */
-export function initialize(webUIConfig, positionUpdateCb) {
+export function initialize(webUIConfig, positionUpdateCb, statusCb) {
   currentWebUIConfig = JSON.parse(JSON.stringify(webUIConfig)); // Deep copy
   onPositionUpdateCallback = positionUpdateCb;
+  serviceStatusCallbackForPositioning = statusCb; // Callback to inform UI about positioning-specific status/errors
   
   if (currentWebUIConfig && currentWebUIConfig.settings) {
     setCalcSignalFactor(currentWebUIConfig.settings.signalPropagationFactor);
@@ -48,6 +93,16 @@ export function initialize(webUIConfig, positionUpdateCb) {
       onPositionUpdateCallback(latestPosition);
     }
   });
+
+  // Connect to localBeaconService if not already connected by another part of the app.
+  // The service itself is a singleton and handles multiple connect calls.
+  // Pass a global status handler that can react to disconnections affecting positioning.
+  // if (!localBeaconService.isConnected()) { // Temporarily comment out
+  //     console.log('[LocalPositioningService] Attempting to connect to LocalBeaconService during initialization.');
+  //     localBeaconService.connect(handleGlobalServiceStatus, null); // No dedicated beacon handler here, scan will set its own
+  // } else {
+  //     console.log('[LocalPositioningService] LocalBeaconService already connected.');
+  // }
   console.log('LocalPositioningService initialized.');
 }
 
@@ -63,6 +118,13 @@ function handleBeaconFound(beaconData) {
   const configuredBeacons = currentWebUIConfig.beacons;
   // const settings = currentWebUIConfig.settings; // settings.signalPropagationFactor is already set by setCalcSignalFactor
 
+  // beaconData is now the adapted format from localBeaconService
+  // { id, name, rssi, uuid, major, minor, txPower, type, deviceId, deviceName }
+  if (beaconData.type !== 'ibeacon' || !beaconData.uuid) {
+      // console.log('[LocalPositioningService] Received non-iBeacon or iBeacon without UUID, skipping:', beaconData.id);
+      return;
+  }
+
   const matchedConfiguredBeacon = configuredBeacons.find(cb => 
     cb.uuid.toLowerCase() === beaconData.uuid.toLowerCase() &&
     cb.major === beaconData.major &&
@@ -70,62 +132,44 @@ function handleBeaconFound(beaconData) {
   );
 
   if (matchedConfiguredBeacon) {
-    const distance = calculateDistance(beaconData.rssi, matchedConfiguredBeacon.txPower);
+    // Use beaconData.txPower which is txPowerCalibrated from the iBeacon advertisement
+    const distance = calculateDistance(beaconData.rssi, beaconData.txPower);
     
     if (distance !== null && distance > 0) {
       const beaconId = `${beaconData.uuid}-${beaconData.major}-${beaconData.minor}`;
       latestBeaconSightings.set(beaconId, {
-        ...matchedConfiguredBeacon, // Includes x, y, txPower, displayName, etc.
+        ...matchedConfiguredBeacon,
         rssi: beaconData.rssi,
         distance: distance,
-        timestamp: Date.now() // Timestamp of this sighting
+        timestamp: Date.now()
       });
-      // console.log(`Sighting updated for ${beaconId}, distance: ${distance}`);
-    } else {
-      // console.log(`Invalid distance for beacon ${beaconData.uuid}, RSSI: ${beaconData.rssi}, Tx: ${matchedConfiguredBeacon.txPower}`);
-    }
-  } else {
-    // console.log('Scanned beacon not in configured list:', beaconData.uuid);
-  }
+    } 
+  } 
 }
 
 /**
  * Collects recent beacon sightings and triggers position calculation.
  */
 function calculateCurrentPositionFromSightings() {
-  if (!isPositioningActive || latestBeaconSightings.size === 0) {
-    // console.log('Skipping position calculation: not active or no sightings.');
-    return;
-  }
+  if (!isPositioningActive) return;
 
+  const activeSightings = [];
   const now = Date.now();
-  const beaconsForPositioning = [];
-
   for (const [beaconId, sighting] of latestBeaconSightings.entries()) {
-    if (now - sighting.timestamp < SIGHTING_TIMEOUT_MS) {
-      beaconsForPositioning.push({
-        uuid: sighting.uuid, // Or some unique ID from sighting if needed by manager
-        major: sighting.major,
-        minor: sighting.minor,
-        x: sighting.x,
-        y: sighting.y,
-        distance: sighting.distance,
-        // positionManager might also want txPower, rssi for its own debugging or advanced logic
-      });
+    if ((now - sighting.timestamp) < SIGHTING_TIMEOUT_MS) {
+      activeSightings.push(sighting);
     } else {
-      // Remove stale sighting
-      latestBeaconSightings.delete(beaconId);
-      // console.log(`Removed stale sighting for ${beaconId}`);
+      latestBeaconSightings.delete(beaconId); 
     }
   }
 
-  if (beaconsForPositioning.length > 0) { // positionManager's updatePosition will check if there are enough (e.g. >=3)
-    // console.log('Attempting to update position with sightings:', beaconsForPositioning.length, beaconsForPositioning);
-    updatePosManagerPosition(beaconsForPositioning); // This will call the onPositionUpdateCallback via initPositionManager
+  if (activeSightings.length > 0) {
+    // Pass { x, y, distance } for each beacon
+    const beaconPositionsForCalc = activeSightings.map(s => ({ x: s.x, y: s.y, distance: s.distance }));
+    updatePosManagerPosition(beaconPositionsForCalc, currentWebUIConfig.settings);
   } else {
-    // console.log('No fresh beacon sightings to calculate position.');
-    // Optionally, if no beacons are fresh, we could set latestPosition to null or a special state
-    // and notify the Vue component. For now, positionManager will handle not updating if no valid calculation.
+    // No active beacons, maybe send a null position or last known?
+    // updatePosManagerPosition([], currentWebUIConfig.settings); // Clears position if no beacons
   }
 }
 
@@ -135,6 +179,7 @@ function calculateCurrentPositionFromSightings() {
 export async function startLocalPositioning() {
   if (!currentWebUIConfig) {
     console.error('LocalPositioningService: Configuration not set. Call initialize first.');
+    if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('error', 'Configuration not set.');
     return false;
   }
   if (isPositioningActive) {
@@ -142,20 +187,33 @@ export async function startLocalPositioning() {
     return true;
   }
 
+  // if (!localBeaconService.isConnected()) { // Temporarily comment out
+  //   console.warn('LocalPositioningService: LocalBeaconService is not connected. Attempting to connect...');
+  //   if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('info', 'Connecting to beacon service...');
+  //   localBeaconService.connect(handleGlobalServiceStatus, null);
+  //   await new Promise(resolve => setTimeout(resolve, 1000)); 
+
+  //   if (!localBeaconService.isConnected()) {
+  //       console.error('LocalPositioningService: Failed to connect to LocalBeaconService. Cannot start positioning.');
+  //       if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('error', 'Failed to connect to beacon scanning service.');
+  //       return false;
+  //   }
+  // }
+
   try {
-    // TODO: Add options to scan for specific UUIDs if possible/performant
-    // For iBeacons, service UUID is usually 0xFEAA (Eddystone) or vendor specific for iBeacon.
-    // The webBluetoothService.scanForIBeacons handles filtering by iBeacon structure.
-    await webBluetoothService.scanForIBeacons(handleBeaconFound, currentWebUIConfig.beacons.map(b => b.uuid));
+    // await localBeaconService.startScan(handleBeaconFound, handlePositioningServiceStatusUpdate); // Temporarily comment out
+    console.log('[LocalPositioningService] Skipping localBeaconService.startScan for now.');
     isPositioningActive = true;
-    latestBeaconSightings.clear(); // Clear any old sightings
+    latestBeaconSightings.clear();
     if (positionCalculationInterval) clearInterval(positionCalculationInterval);
     positionCalculationInterval = setInterval(calculateCurrentPositionFromSightings, CALCULATION_INTERVAL_MS);
-    console.log('LocalPositioningService started.');
+    console.log('LocalPositioningService: Start scan command sent. Waiting for server confirmation.');
+    if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('info', 'Positioning started. Scanning for beacons...');
     return true;
   } catch (error) {
-    console.error('Error starting local positioning scan:', error);
+    console.error('LocalPositioningService: Error sending startScan command to local service:', error);
     isPositioningActive = false;
+    if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('error', `Failed to start beacon scan: ${error.message}`);
     return false;
   }
 }
@@ -164,18 +222,22 @@ export async function startLocalPositioning() {
  * Stops the local positioning process.
  */
 export function stopLocalPositioning() {
-  if (!isPositioningActive) {
-    return;
-  }
-  webBluetoothService.stopScan();
+  // if (!isPositioningActive && !localBeaconService.isScanActive()) { // Temporarily comment out
+  //   console.log('LocalPositioningService: Not active or scan not running on service.');
+  //   return;
+  // }
+  
+  // localBeaconService.stopScan(); // Temporarily comment out
+  console.log('[LocalPositioningService] Skipping localBeaconService.stopScan for now.');
+  
   if (positionCalculationInterval) {
     clearInterval(positionCalculationInterval);
     positionCalculationInterval = null;
   }
-  isPositioningActive = false;
-  console.log('LocalPositioningService stopped.');
-  // latestBeaconSightings.clear(); // Optionally clear sightings on stop
-  // latestPosition = null; // Optionally clear last known position
+  isPositioningActive = false; // Mark as inactive immediately
+  console.log('LocalPositioningService: Stop scan command sent.');
+  if (serviceStatusCallbackForPositioning) serviceStatusCallbackForPositioning('info', 'Positioning stopped.');
+  // latestBeaconSightings.clear(); // Optionally clear sightings
 }
 
 /**

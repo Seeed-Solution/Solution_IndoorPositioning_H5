@@ -15,28 +15,30 @@
     </div>
 
     <div class="tabs-navigation">
-      <button @click="activeTab = 'beacons'" :class="{ active: activeTab === 'beacons' }">信标管理</button>
       <button @click="activeTab = 'map'" :class="{ active: activeTab === 'map' }">地图编辑</button>
+      <button @click="activeTab = 'beacons'" :class="{ active: activeTab === 'beacons' }">信标管理</button>
       <button @click="activeTab = 'settings'" :class="{ active: activeTab === 'settings' }">通用设置</button>
     </div>
 
     <div class="tab-content card">
       <div class="card-content">
-        <BeaconManagerTab 
-          v-if="activeTab === 'beacons'" 
+        <BeaconManagerTab
+          v-if="activeTab === 'beacons'"
           ref="beaconManagerTabRef"
           :initial-beacons="currentConfiguration.beacons"
+          :current-map-layout="currentConfiguration.map"
           @beacons-updated="handleBeaconsUpdated"
           @beacon-selected-for-placement="handleBeaconSelectedForPlacement"
         />
         <MapEditorTab 
           v-if="activeTab === 'map'" 
           ref="mapEditorTabRef"
+          :initial-map-data="currentConfiguration.map"
           :configured-beacons="currentConfiguration.beacons"
           :selected-beacon-for-placement="selectedBeaconForPlacement"
-          :current-local-device-position="localDevicePosition" 
-          @map-loaded="handleMapLoaded"
-          @config-updated="handleConfigUpdated"
+          :current-local-device-position="localDevicePosition"
+          :process-uploaded-map-config="updateConfigFromMapEditor"
+          @beacon-coordinates-updated="handleBeaconCoordinatesUpdated"
           @request-beacon-selection="handleRequestBeaconSelection"
         />
         <GeneralSettingsTab 
@@ -112,6 +114,12 @@ const selectedBeaconForPlacement = ref(null); // { uuid, major, minor, ... }
 const isLocalPositioningRunning = ref(false);
 const localDevicePosition = ref(null); // Will store { x, y, accuracy, method, etc. }
 
+watch(() => currentConfiguration.value.map, (newMap, oldMap) => {
+  console.log('[ConfigurationSuiteView] Watcher: currentConfiguration.map changed.',
+              'New map name:', newMap ? newMap.name : 'null',
+              'Old map name:', oldMap ? oldMap.name : 'null',
+              'New map object:', JSON.parse(JSON.stringify(newMap)));
+}, { deep: true });
 
 // --- Event Handlers from Child Components ---
 
@@ -124,79 +132,49 @@ const handleBeaconSelectedForPlacement = (beacon) => {
   selectedBeaconForPlacement.value = beacon;
   activeTab.value = 'map'; // Switch to map tab automatically
   if (beacon) {
-    alert(`信标 "${beacon.displayName}" 已选定，请在地图上点击以放置。`);
+    configStatusMessage.value = `信标 "${beacon.displayName}" 已选定。请切换到"地图编辑"标签页，然后在地图上点击以放置该信标。`;
+    setTimeout(() => { configStatusMessage.value = '' }, 7000); // Clear message after 7 seconds
   }
 };
 
-const handleMapLoaded = (loadedConfig) => { // This event comes from MapEditorTab when it loads a *full* config
-  if (loadedConfig && loadedConfig.map && loadedConfig.beacons && loadedConfig.settings) {
-    currentConfiguration.value.map = JSON.parse(JSON.stringify(loadedConfig.map));
-    currentConfiguration.value.beacons = JSON.parse(JSON.stringify(loadedConfig.beacons));
-    currentConfiguration.value.settings = JSON.parse(JSON.stringify(loadedConfig.settings));
+const updateConfigFromMapEditor = (configData) => {
+  console.log("[ConfigurationSuiteView] updateConfigFromMapEditor function called with:", JSON.parse(JSON.stringify(configData)));
+  if (configData && configData.map && Array.isArray(configData.beacons) && typeof configData.settings === 'object') {
+    // Update properties individually for potentially better reactivity propagation
+    currentConfiguration.value.map = JSON.parse(JSON.stringify(configData.map));
+    currentConfiguration.value.beacons = JSON.parse(JSON.stringify(configData.beacons));
+    currentConfiguration.value.settings = JSON.parse(JSON.stringify(configData.settings));
     
-    selectedBeaconForPlacement.value = null; // Reset placement selection
+    console.log("[ConfigurationSuiteView] Updated currentConfiguration.value properties via updateConfigFromMapEditor. New map name:", currentConfiguration.value.map ? currentConfiguration.value.map.name : "null");
+    selectedBeaconForPlacement.value = null;
 
-    // Ensure child components are updated with the new full configuration
     nextTick(() => {
-      if (beaconManagerTabRef.value && beaconManagerTabRef.value.loadConfiguredBeacons) {
+      if (beaconManagerTabRef.value?.loadConfiguredBeacons) {
         beaconManagerTabRef.value.loadConfiguredBeacons(currentConfiguration.value.beacons);
       }
-      // MapEditorTab's loadConfiguration would have been called by itself or via its own prop watcher for configuredBeacons
-      // but we can also explicitly call it if needed, though its internal 'mapLoaded' already set its state.
-      // If mapEditorTabRef.value?.loadConfiguration exists, it would be for external calls.
-      // Its current 'mapLoaded' emitter implies it manages its own state upon successful file upload.
-      // What we need is to ensure *its* `configuredBeacons` prop is updated if we load a full config here.
-
-      if (mapEditorTabRef.value && mapEditorTabRef.value.loadConfiguration) { // If mapEditorTab has a method to take the whole config
-         mapEditorTabRef.value.loadConfiguration(currentConfiguration.value); // Pass the whole thing
-      } else if (mapEditorTabRef.value && mapEditorTabRef.value.redrawMap) { // Or at least tell it to redraw if map changed
-         mapEditorTabRef.value.redrawMap();
-      }
-
-
-      if (generalSettingsTabRef.value && generalSettingsTabRef.value.loadSettings) {
+      if (generalSettingsTabRef.value?.loadSettings) {
         generalSettingsTabRef.value.loadSettings(currentConfiguration.value.settings);
       }
     });
-    console.log("ConfigurationSuiteView: Full configuration loaded/updated.", currentConfiguration.value);
-  } else {
-    console.error("ConfigurationSuiteView: mapLoaded event did not provide a valid full configuration.", loadedConfig);
-  }
-};
 
-const handleConfigUpdated = (updateDetail) => { // Primarily for beacon coordinate updates from MapEditorTab
-  if (updateDetail.type === 'beaconUpdateCoordinates') {
-    const { beaconIdentifier, newCoordinates } = updateDetail;
-    const beaconIndex = currentConfiguration.value.beacons.findIndex(b => 
-      b.uuid === beaconIdentifier.uuid && 
-      b.major === beaconIdentifier.major && 
-      b.minor === beaconIdentifier.minor &&
-      // Handle cases where macAddress might be null or undefined consistently
-      (b.macAddress || null) === (beaconIdentifier.macAddress || null)
-    );
-
-    if (beaconIndex !== -1) {
-      currentConfiguration.value.beacons[beaconIndex].x = newCoordinates.x;
-      currentConfiguration.value.beacons[beaconIndex].y = newCoordinates.y;
-      console.log(`ConfigurationSuiteView: Beacon ${currentConfiguration.value.beacons[beaconIndex].displayName} coordinates updated.`);
-      // Deselect beacon after placement
-      selectedBeaconForPlacement.value = null; 
-      // The map tab should redraw automatically due to prop changes.
-    } else {
-      console.warn("ConfigurationSuiteView: Beacon to update coordinates for not found.", beaconIdentifier);
+    configStatusMessage.value = '配置已成功从地图编辑器加载并应用 (via prop function).';
+    if (currentPositioningMode.value === 'local') {
+      saveConfigToLocalStorage(currentConfiguration.value);
+      if (typeof localPositioningService.updateConfiguration === 'function') {
+         localPositioningService.updateConfiguration(currentConfiguration.value);
+      }
     }
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  } else {
+    console.error("[ConfigurationSuiteView] updateConfigFromMapEditor: Invalid config.", configData);
+    configStatusMessage.value = '错误：从地图编辑器加载的配置数据格式无效 (via prop function)。';
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
   }
-  // Potentially handle other 'configUpdated' types here
 };
 
 const handleSettingsUpdated = (newSettings) => {
   currentConfiguration.value.settings = JSON.parse(JSON.stringify(newSettings));
   console.log("ConfigurationSuiteView: Settings updated", currentConfiguration.value.settings);
-};
-
-const handleRequestBeaconSelection = () => {
-  alert("请先从'信标管理'标签页选择一个信标，然后才能在地图上放置。");
-  activeTab.value = 'beacons';
 };
 
 // --- Global Actions ---
@@ -350,8 +328,10 @@ const handleModeChange = async () => {
 onMounted(async () => {
   // Default to 'external' and load from server initially.
   // User can then switch to 'local' if they wish.
+  activeTab.value = 'map'; // Start on Map Editor tab
   currentPositioningMode.value = 'external'; // Explicitly set default
-  await fetchServerConfiguration(); // Load configuration from server when component mounts
+  await fetchServerConfiguration(); // Re-enabled
+  console.log("[ConfigurationSuiteView] Mounted. Server fetch re-enabled.");
 
   // If, for some reason, an app was previously in 'local' mode, this ensures it starts there.
   // However, standard flow is external first. This could be a setting itself.
@@ -392,11 +372,16 @@ watch(currentConfiguration, (newConfig) => {
 
 // Unified function to apply a loaded configuration (from file import or server)
 const applyFullConfiguration = (configData) => {
+  console.log("[ConfigurationSuiteView] applyFullConfiguration called with:", JSON.parse(JSON.stringify(configData)));
   if (configData && configData.map && Array.isArray(configData.beacons) && configData.settings) {
     currentConfiguration.value.map = JSON.parse(JSON.stringify(configData.map));
     currentConfiguration.value.beacons = JSON.parse(JSON.stringify(configData.beacons));
     currentConfiguration.value.settings = JSON.parse(JSON.stringify(configData.settings));
     
+    console.log('[ConfigurationSuiteView] applyFullConfiguration: currentConfiguration.map updated. Name:', 
+                currentConfiguration.value.map ? currentConfiguration.value.map.name : 'null',
+                'Width:', currentConfiguration.value.map ? currentConfiguration.value.map.width : 'N/A');
+
     selectedBeaconForPlacement.value = null;
 
     nextTick(() => {
@@ -437,6 +422,79 @@ const processAndApplyFullConfig = (loadedConfig, sourceMessage = '配置已成�
   }
   // Clear message after a few seconds
   setTimeout(() => { configStatusMessage.value = '' }, 5000);
+};
+
+const handleBeaconCoordinatesUpdated = (updatedBeacon) => {
+  if (!updatedBeacon || typeof updatedBeacon.x !== 'number' || typeof updatedBeacon.y !== 'number') {
+    console.warn("ConfigurationSuiteView: Invalid beacon data received for coordinate update.", updatedBeacon);
+    return;
+  }
+
+  console.log("--- [CSV] Attempting to Update Beacon Coordinates --- ");
+  console.log("[CSV] TARGET Beacon (from map click):", JSON.parse(JSON.stringify(updatedBeacon)));
+  
+  const currentBeaconList = currentConfiguration.value.beacons;
+  console.log("[CSV] SEARCH LIST (currentConfiguration.beacons at time of search):", JSON.parse(JSON.stringify(currentBeaconList)));
+
+  if (!currentBeaconList || currentBeaconList.length === 0) {
+    console.warn("[CSV] The SEARCH LIST (currentConfiguration.value.beacons) is EMPTY. Cannot find the target beacon.");
+  }
+
+  const beaconToUpdateUUID = updatedBeacon.uuid ? String(updatedBeacon.uuid).toUpperCase() : null;
+  const beaconToUpdateMajor = updatedBeacon.major;
+  const beaconToUpdateMinor = updatedBeacon.minor;
+  // const beaconToUpdateDeviceId = updatedBeacon.deviceId || updatedBeacon.macAddress; // For reference if needed later
+
+  const beaconIndex = currentConfiguration.value.beacons.findIndex((b, index) => {
+    console.log(`[CSV - findIndex] Comparing with beacon at index ${index} in list:`, JSON.parse(JSON.stringify(b)));
+    const listBeaconUUID = b.uuid ? String(b.uuid).toUpperCase() : null;
+    
+    console.log(`  Target (from map click): UUID=${beaconToUpdateUUID}, Major=${beaconToUpdateMajor}, Minor=${beaconToUpdateMinor}`);
+    console.log(`  List item (index ${index}):   UUID=${listBeaconUUID}, Major=${b.major}, Minor=${b.minor}`);
+
+    const canCompareByFullIBProperties = 
+      beaconToUpdateUUID && typeof beaconToUpdateMajor === 'number' && typeof beaconToUpdateMinor === 'number' &&
+      listBeaconUUID && typeof b.major === 'number' && typeof b.minor === 'number';
+
+    console.log(`  Can compare by full iBeacon properties? ${canCompareByFullIBProperties}`);
+
+    if (canCompareByFullIBProperties) {
+      const isMatch = listBeaconUUID === beaconToUpdateUUID &&
+                      b.major === beaconToUpdateMajor &&
+                      b.minor === beaconToUpdateMinor;
+      console.log(`  Full iBeacon properties match result: ${isMatch}`);
+      return isMatch;
+    }
+    
+    console.log('  Comparison by full iBeacon properties skipped (incomplete data on one or both sides).');
+    return false;
+  });
+
+  console.log(`[CSV] Result of findIndex on SEARCH LIST: ${beaconIndex}`);
+  console.log("--- [CSV] Finished Attempt to Update Beacon Coordinates --- ");
+
+  if (beaconIndex !== -1) {
+    currentConfiguration.value.beacons[beaconIndex].x = updatedBeacon.x;
+    currentConfiguration.value.beacons[beaconIndex].y = updatedBeacon.y;
+    console.log(`ConfigurationSuiteView: Beacon '${currentConfiguration.value.beacons[beaconIndex].displayName || updatedBeacon.deviceId || updatedBeacon.uuid}' coordinates updated to (X: ${updatedBeacon.x}, Y: ${updatedBeacon.y}).`);
+    selectedBeaconForPlacement.value = null; 
+    activeTab.value = 'beacons'; 
+    configStatusMessage.value = `信标 '${currentConfiguration.value.beacons[beaconIndex].displayName || updatedBeacon.deviceId || updatedBeacon.uuid}' 位置已更新。`;
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  } else {
+    console.warn(
+        "[CSV] Beacon to update coordinates for NOT FOUND in the list.",
+        "Target Beacon (from map click):", JSON.parse(JSON.stringify(updatedBeacon)),
+        "Searched List (currentConfiguration.beacons at time of search):", JSON.parse(JSON.stringify(currentConfiguration.value.beacons))
+    );
+    configStatusMessage.value = "错误：尝试更新位置的信标未找到。请检查控制台中的 '[CSV - findIndex]' 日志以获取详细比较步骤。";
+    setTimeout(() => { configStatusMessage.value = '' }, 7000); // Slightly longer timeout for this more detailed error message
+  }
+};
+
+const handleRequestBeaconSelection = () => {
+  alert("请先从'信标管理'标签页选择一个信标，然后才能在地图上放置。");
+  activeTab.value = 'beacons';
 };
 
 </script>

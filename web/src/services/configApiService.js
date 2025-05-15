@@ -75,4 +75,22 @@ export const saveServerConfiguration = async (configData) => {
   }
 };
 
+// Function to request MQTT action (enable/disable)
+export const requestMqttAction = async (action) => { // action should be 'enable' or 'disable'
+  const endpoint = action === 'enable' ? '/mqtt/connect' : '/mqtt/disconnect'; // Adjusted to match common patterns like connect/disconnect
+  try {
+    const response = await apiClient.post(endpoint, {}); // Sending an empty JSON object as payload, adjust if backend expects specific data
+    return response.data; // Expecting { success: true, message: "..." } or similar
+  } catch (error) {
+    console.error(`Error requesting MQTT action (${action}):`, error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}) while requesting MQTT ${action}: ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error(`Network error: Could not connect to server to request MQTT ${action}.`);
+    } else {
+      throw new Error(`Failed to request MQTT ${action}: ${error.message}`);
+    }
+  }
+};
+
 // You might add other API calls related to configuration here later. 
