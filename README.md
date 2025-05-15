@@ -82,15 +82,15 @@ This guide helps you get the system running, especially using the provided start
 **3. Using the Web Application:**
 
    *   Access the main web application (this might be hosted, or run locally by a developer).
-   *   **"Map & Beacon Configuration" view:**
-      *   Create/Import a map and beacon setup (JSON). Define map, place beacons, ensure MAC addresses & TxPower are correct. Export this "master configuration" JSON.
-   *   **"Personal Mode Configuration" view:**
-      *   Import the master configuration JSON.
-      *   Ensure the Local Beacon Service (Step 2) is running.
-      *   Click "Start Local Positioning". Your device's position should appear on the map.
-   *   **"Tracker Mode Configuration" view (for tracking other devices via a central server):**
-      *   Import a master configuration JSON (updates the central server).
-      *   Configure server/MQTT settings if necessary. Trackers will appear on the map if publishing data.
+   *   **Map & Beacon Configuration:**
+         *   Create/Import a map and beacon setup (JSON). Define map, place beacons, ensure MAC addresses & TxPower are correct. Export this "master configuration" JSON.
+   *   **Personal Mode Configuration:**
+         *   Import the master configuration JSON.
+         *   Ensure the Local Beacon Service (Step 2) is running.
+         *   Click "Start Local Positioning". Your device's position should appear on the map.
+   *   **Tracker Mode Configuration (for locating tracker devices):**
+         *   Import a master configuration JSON (updates the central server).
+         *   Configure server/MQTT settings if necessary. Trackers will appear on the map if publishing data.
 
 ## Developer Guide
 
@@ -162,9 +162,9 @@ uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
 
 **d. Initial Setup via Web UI (Development):**
    *   Open the Web Frontend (e.g., `http://localhost:5173`).
-   *   **"Tracker Mode Configuration"**: Configure server runtime settings, import map/beacon JSON.
-   *   **"Map & Beacon Configuration"**: Create/edit/export master JSON configurations.
-   *   **"Personal Mode Configuration"**: Import master JSON, start local positioning (ensure local service is running).
+   *   **Tracker Mode Configuration**: Configure server runtime settings, import map/beacon JSON.
+   *   **Map & Beacon Configuration**: Create/edit/export master JSON configurations.
+   *   **Personal Mode Configuration**: Import master JSON, start local positioning (ensure local service is running).
 
 ## Key Files & Logic (for Developers)
 
