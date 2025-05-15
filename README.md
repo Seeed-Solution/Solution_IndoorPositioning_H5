@@ -128,7 +128,7 @@ This guide is for setting up the development environment.
 
 **4. Configuration Files (Backend - Tracker Mode):**
 
-   Located in `server/`:\
+   Located in `server/`:
    *   `web_config.json`: Map/beacon layout for server-side positioning. Updated via UI import in "Tracker Mode".
    *   `server_runtime_config.json`: MQTT, server port, Kalman parameters. Managed via UI or manual edit.
 
