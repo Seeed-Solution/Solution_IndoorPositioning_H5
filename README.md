@@ -114,56 +114,57 @@ This guide is for setting up the development environment.
 
 **2. Web Frontend Setup (`web/`):**
 
-   ```bash
-   cd /path/to/beacon_posistion_r1000/web
-   npm install
-   ```
+```bash
+cd /path/to/beacon_posistion_r1000/web
+npm install
+```
 
 **3. Local Beacon Service Setup (`local-beacon-service/`):**
 
-   ```bash
-   cd /path/to/beacon_posistion_r1000/local-beacon-service
-   npm install
-   ```
+```bash
+cd /path/to/beacon_posistion_r1000/local-beacon-service
+npm install
+```
 
 **4. Configuration Files (Backend - Tracker Mode):**
 
-   Located in `server/`:
-   *   `web_config.json`: Map/beacon layout for server-side positioning. Updated via UI import in "Tracker Mode".
-   *   `server_runtime_config.json`: MQTT, server port, Kalman parameters. Managed via UI or manual edit.
+Located in `server/`:
+*   `web_config.json`: Map/beacon layout for server-side positioning. Updated via UI import in "Tracker Mode".
+*   `server_runtime_config.json`: MQTT, server port, Kalman parameters. Managed via UI or manual edit.
 
 **5. Running the System (Development):**
 
-   Run each component in a separate terminal.
+Run each component in a separate terminal.
 
-   **a. Backend Server (Recommended: `uv run`):**
-      ```bash
-      # In project root. Assumes 'uv' is installed and Python environment is set up
-      # (e.g., by running start.sh once, or by manual venv activation).
-      # Replace <port> with port from server_runtime_config.json (e.g., 8022, 8000).
-      # 'uv run' will manage the execution within the project's environment.
-      uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
-      # Note: Avoid Uvicorn's --reload for stable MQTT/WebSocket. Restart manually if needed.
-      ```
+**a. Backend Server (Recommended: `uv run`):**
 
-   **b. Frontend Development Server:**
-      ```bash
-      cd web
-      npm run dev 
-      # Access at http://localhost:5173 (or as shown by Vite)
-      ```
+```bash
+# In project root. Assumes 'uv' is installed and Python environment is set up
+# (e.g., by running start.sh once, or by manual venv activation).
+# Replace <port> with port from server_runtime_config.json (e.g., 8022, 8000).
+# 'uv run' will manage the execution within the project's environment.
+uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
+# Note: Avoid Uvicorn's --reload for stable MQTT/WebSocket. Restart manually if needed.
+```
 
-   **c. Local Beacon Service (for testing Personal Mode):**
-      ```bash
-      cd local-beacon-service
-      node service.js # Or ./start_service.sh
-      ```
-   
-   **d. Initial Setup via Web UI (Development):**
-      *   Open the Web Frontend (e.g., `http://localhost:5173`).
-      *   **"Tracker Mode Configuration"**: Configure server runtime settings, import map/beacon JSON.
-      *   **"Map & Beacon Configuration"**: Create/edit/export master JSON configurations.
-      *   **"Personal Mode Configuration"**: Import master JSON, start local positioning (ensure local service is running).
+**b. Frontend Development Server:**
+   ```bash
+   cd web
+   npm run dev 
+   # Access at http://localhost:5173 (or as shown by Vite)
+   ```
+
+**c. Local Beacon Service (for testing Personal Mode):**
+   ```bash
+   cd local-beacon-service
+   node service.js # Or ./start_service.sh
+   ```
+
+**d. Initial Setup via Web UI (Development):**
+   *   Open the Web Frontend (e.g., `http://localhost:5173`).
+   *   **"Tracker Mode Configuration"**: Configure server runtime settings, import map/beacon JSON.
+   *   **"Map & Beacon Configuration"**: Create/edit/export master JSON configurations.
+   *   **"Personal Mode Configuration"**: Import master JSON, start local positioning (ensure local service is running).
 
 ## Key Files & Logic (for Developers)
 
