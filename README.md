@@ -136,12 +136,14 @@ This guide is for setting up the development environment.
 
    Run each component in a separate terminal.
 
-   **a. Backend Server:**
+   **a. Backend Server (Recommended: `uv run`):**
       ```bash
-      # In project root, with venv activated
-      # Replace <port> with port from server_runtime_config.json (e.g., 8000)
-      uvicorn server.main:app --host 0.0.0.0 --port <port>
-      # Note: Avoid --reload for stable MQTT/WebSocket.
+      # In project root. Assumes 'uv' is installed and Python environment is set up
+      # (e.g., by running start.sh once, or by manual venv activation).
+      # Replace <port> with port from server_runtime_config.json (e.g., 8022, 8000).
+      # 'uv run' will manage the execution within the project's environment.
+      uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
+      # Note: Avoid Uvicorn's --reload for stable MQTT/WebSocket. Restart manually if needed.
       ```
 
    **b. Frontend Development Server:**
@@ -174,4 +176,3 @@ This guide is for setting up the development environment.
 *   **UI Views:** `web/src/views/` (MasterConfigView, PersonalModeConfigView, TrackerModeConfigView)
 *   **Map Component:** `web/src/components/MapView.vue`
 
-(Screenshots/GIFs of the UI in action are highly recommended here)
