@@ -10,3 +10,4 @@ wheels/
 .venv
 beacon_position
 server/server_runtime_config copy.json
+local-beacon-service/node_modules

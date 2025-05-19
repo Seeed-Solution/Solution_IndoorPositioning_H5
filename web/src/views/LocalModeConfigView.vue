@@ -4,34 +4,75 @@
     <p class="info-banner status-display info" v-if="statusMessage">{{ statusMessage }}</p>
 
     <div class="config-management card">
-      <div class="card-header"><h2>Configuration Management</h2></div>
+      <div class="card-header">
+        <h2>Configuration Management</h2>
+        <div class="header-buttons">
+          <button @click="loadDefaultTestConfig" class="button-link load-default-btn" title="Load a predefined test configuration from the server">
+            <i class="fas fa-cogs"></i> Load Default Test Config
+          </button>
+          <button @click="isJsonInputAreaVisible = !isJsonInputAreaVisible" class="button-link toggle-json-input-btn">
+            <i :class="isJsonInputAreaVisible ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i> 
+            {{ isJsonInputAreaVisible ? 'Hide JSON Input' : 'Show JSON Input' }}
+          </button>
+        </div>
+      </div>
       <div class="card-content">
-        <label for="jsonImportLocal">Paste Master Configuration JSON here:</label>
-        <textarea id="jsonImportLocal" v-model="jsonInputForImport" rows="8" 
-                  :placeholder="jsonPlaceholderText"></textarea>
-        <button @click="handleImportMasterConfigJson" class="button-primary">Import & Save Configuration (from Textarea)</button>
+        <div v-if="isJsonInputAreaVisible" class="json-input-collapsible-area">
+            <label for="jsonImportLocal">Paste Master Configuration JSON here:</label>
+            <div class="textarea-button-row">
+                <textarea id="jsonImportLocal" v-model="jsonInputForImport" rows="8" 
+                          :placeholder="jsonPlaceholderText"></textarea>
+                <button @click="handleImportMasterConfigJson" class="button-primary import-json-btn">Import & Save<br>Configuration</button>
+            </div>
+        </div>
 
-        <p v-if="!currentFullConfig.map" class="status-display warning">Please import a master configuration file first by pasting its JSON, or configure one on the "Map & Beacon Configuration" page and export it.</p>
-        <p v-else class="status-display success">
-          Current configuration loaded: {{ currentFullConfig.map.name || 'Unnamed Map' }}.
-          (Beacons: {{ currentFullConfig.beacons.length }}, Map Entities: {{ currentFullConfig.map.entities?.length || 0 }})
-        </p>
-        <button @click="clearLocalConfig" v-if="currentFullConfig.map" class="button-danger button-small">Clear This Configuration from Local Storage</button>
+        <p v-if="!currentFullConfig.map && !isJsonInputAreaVisible" class="status-display warning">Please import a master configuration file first by showing and using the JSON input area above, or configure one on the "Map & Beacon Configuration" page and export it.</p>
+        <p v-if="!currentFullConfig.map && isJsonInputAreaVisible" class="status-display info">Paste your JSON above and click 'Import & Save'.</p>
+        
+        <div class="loaded-config-actions" v-if="currentFullConfig.map">
+          <p class="status-display success loaded-config-text">
+            Current configuration loaded: {{ currentFullConfig.map.name || 'Unnamed Map' }}.
+            (Beacons: {{ currentFullConfig.beacons.length }}, Map Entities: {{ currentFullConfig.map.entities?.length || 0 }})
+          </p>
+          <button @click="clearLocalConfig" class="button-danger button-small">Clear This Configuration from Local Storage</button>
+        </div>
       </div>
     </div>
 
     <div v-if="currentFullConfig.map" class="local-positioning card">
       <div class="card-header"><h2>Local Positioning Control</h2></div>
       <div class="card-content">
-        <button @click="toggleLocalPositioning" :disabled="!currentFullConfig.beacons || currentFullConfig.beacons.length < 1 || !isWebSocketConnected">
-          {{ isLocalPositioningRunning ? 'Stop Local Positioning' : (isWebSocketConnected ? 'Start Local Positioning' : 'Local Service Offline') }}
-        </button>
-        <div v-if="isLocalPositioningRunning && (!currentFullConfig.beacons || currentFullConfig.beacons.length < 1)" class="status-display warning">
-          There are no beacons in the current configuration. Please ensure the imported configuration includes beacons, or add beacons via the Master Configuration page.
+        
+        <div class="position-control-merged-display">
+            <div class="position-text-merged-area">
+                <div v-if="isLocalPositioningRunning && (!currentFullConfig.beacons || currentFullConfig.beacons.length < 1)" class="status-display warning" style="margin-bottom: 5px; padding: 5px; font-size: 0.9em;">
+                    There are no beacons in the current configuration. Please ensure the imported configuration includes beacons, or add beacons via the Master Configuration page.
+                </div>
+                <div v-if="localDevicePositionDisplay" class="local-position-text">
+                    <strong>Local Device Position:</strong> {{ localDevicePositionDisplay }}
+                </div>
+                <div v-if="!localDevicePositionDisplay && isLocalPositioningRunning && currentFullConfig.beacons && currentFullConfig.beacons.length > 0" class="local-position-text">
+                    <i>Waiting for position data...</i>
+                </div>
+                 <div v-if="!localDevicePositionDisplay && !isLocalPositioningRunning && isWebSocketConnected" class="local-position-text">
+                    <i>Service connected. Click 'Start Local Positioning' to begin.</i>
+                </div>
+                 <div v-if="!isWebSocketConnected" class="local-position-text">
+                    <i>Service disconnected. Click 'Connect to Local Service' to attempt connection.</i>
+                </div>
+            </div>
+            <button 
+              @click="isWebSocketConnected ? toggleLocalPositioning() : connectWebSocket()"
+              :disabled="isWebSocketConnected && (!currentFullConfig.beacons || currentFullConfig.beacons.length < 1)"
+              class="button-local-positioning-control">
+              {{ 
+                !isWebSocketConnected 
+                  ? 'Connect to Local Service' 
+                  : (isLocalPositioningRunning ? 'Stop Local Positioning' : 'Start Local Positioning') 
+              }}
+            </button>
         </div>
-        <div v-if="localDevicePositionDisplay" class="local-position-display">
-          <strong>Local Device Position:</strong> {{ localDevicePositionDisplay }}
-        </div>
+
          <p v-if="statusMessageLocalPositioning" :class="['status-display', localPositioningStatusType]">{{statusMessageLocalPositioning}}</p>
       </div>
     </div>
@@ -56,11 +97,20 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import MapView from '@/components/MapView.vue'; // Changed from MapEditorTab
 import { loadConfigFromLocalStorage, saveConfigToLocalStorage, clearConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { calculatePosition, calculateDistance, setSignalFactor } from '@/utils/positioning/positionCalculator.js';
+import { loadServerConfiguration } from '@/services/configApiService.js'; // Example, might not be the right one
 
 const CONFIG_STORAGE_KEY = 'localModeConfig';
 
 const jsonInputForImport = ref('');
-// const localMapRef = ref(null); // No longer needed if MapView handles its own loading via props
+const initialLocalConfig = () => ({
+  map: null,
+  beacons: [],
+  settings: { signalPropagationFactor: 2.5, positioningAlgorithm: 'trilateration', showTrails: false } 
+});
+const currentFullConfig = ref(initialLocalConfig()); 
+
+// Initialize based on the initial state of currentFullConfig.map
+const isJsonInputAreaVisible = ref(!currentFullConfig.value.map);
 
 const jsonPlaceholderText = `Paste your full configuration JSON here (map, beacons, settings). Example structure:
 {
@@ -72,13 +122,6 @@ const jsonPlaceholderText = `Paste your full configuration JSON here (map, beaco
 const statusMessage = ref('');
 const statusMessageLocalPositioning = ref('Attempting to connect to local beacon service...');
 const localPositioningStatusType = ref('info'); 
-
-const initialLocalConfig = () => ({
-  map: null,
-  beacons: [],
-  settings: { signalPropagationFactor: 2.5, positioningAlgorithm: 'trilateration', showTrails: false } // Added showTrails default
-});
-const currentFullConfig = ref(initialLocalConfig()); 
 
 const isLocalPositioningRunning = ref(false);
 const localDevicePosition = ref(null); // { x, y, accuracy, method }
@@ -287,7 +330,6 @@ const handleImportMasterConfigJson = () => {
       setSignalFactor(currentFullConfig.value.settings.signalPropagationFactor);
       showStatus('Master configuration successfully imported and saved to local storage.', 'success');
       // MapView will react to prop changes, no explicit loadConfiguration call needed on localMapRef
-      jsonInputForImport.value = ''; 
     } else {
       showStatus('Invalid JSON structure. Ensure it has map, beacons, and settings properties.', 'error');
     }
@@ -300,11 +342,12 @@ const loadConfig = () => {
   const loaded = loadConfigFromLocalStorage(CONFIG_STORAGE_KEY);
   if (loaded) {
     currentFullConfig.value = { map: loaded.map || null, beacons: loaded.beacons || [], settings: { ...initialLocalConfig().settings, ...(loaded.settings || {}) } };
+    // isJsonInputAreaVisible.value = false; // Set by onMounted after this call
     setSignalFactor(currentFullConfig.value.settings.signalPropagationFactor); 
     showStatus('Local mode configuration loaded from local storage.');
-    // MapView reacts to prop changes
     return true;
   }
+  // isJsonInputAreaVisible.value = true; // Set by onMounted after this call
   showStatus('No local mode configuration found. Please import a master configuration.');
   return false;
 };
@@ -351,8 +394,23 @@ const toggleLocalPositioning = async () => {
 // Removed handleLocalMapReady as MapView manages its own drawing based on props
 
 onMounted(() => {
-  if (loadConfig()) { /* Factor set by loadConfig */ } 
-  else { setSignalFactor(initialLocalConfig().settings.signalPropagationFactor); }
+  if (loadConfig()) { 
+    isJsonInputAreaVisible.value = false; // Collapse if config was successfully loaded
+  } else {
+    isJsonInputAreaVisible.value = true;  // Expand if no config was loaded
+  }
+  // setSignalFactor is called within loadConfig or based on initialLocalConfig if loadConfig fails.
+  // If loadConfig calls currentFullConfig.value setter, signal factor is set there.
+  // If loadConfig returns false, we might need to ensure factor is set from initial.
+  // However, setSignalFactor is already in loadConfig and handled if it returns false by prior logic block in original onMounted.
+  // Re-evaluating the setSignalFactor placement. It's in loadConfig() and in the else block of onMounted in original code.
+  // Let's ensure factor is set correctly based on loaded/initial config.
+  if (currentFullConfig.value && currentFullConfig.value.settings) {
+      setSignalFactor(currentFullConfig.value.settings.signalPropagationFactor);
+  } else {
+      setSignalFactor(initialLocalConfig().settings.signalPropagationFactor); // Fallback
+  }
+
   connectWebSocket();
 });
 
@@ -371,6 +429,27 @@ const handleTrailsToggled = (newTrailState) => {
   if (currentFullConfig.value && currentFullConfig.value.settings) {
     currentFullConfig.value.settings.showTrails = newTrailState;
     saveConfigToStorage(); // Save when toggled via map
+  }
+};
+
+const loadDefaultTestConfig = async () => {
+  showStatus('Loading default test configuration from server...', 'info');
+  try {
+    // Make sure the server is running and this endpoint is available
+    const response = await fetch('/api/default-test-config'); 
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+    }
+    const configText = await response.text(); // Assuming server sends plain text JSON
+    jsonInputForImport.value = configText;
+    isJsonInputAreaVisible.value = true; // Ensure the input area is visible
+    showStatus('Default test configuration loaded into textarea. Click Import & Save to apply.', 'info');
+    // Optionally, directly import it:
+    // handleImportMasterConfigJson(); 
+    // showStatus('Default test configuration loaded and imported.', 'success');
+  } catch (error) {
+    console.error('Failed to load default test configuration:', error);
+    showStatus(`Failed to load default config: ${error.message}`, 'error');
   }
 };
 
@@ -396,9 +475,11 @@ const handleTrailsToggled = (newTrailState) => {
   margin-bottom: 1.5rem;
 }
 
+/* .card-content padding is now global
 .card-content {
   padding: 1rem;
 }
+*/
 .card-content button {
   margin-right: 0.5rem;
   margin-bottom: 0.5rem;
@@ -410,6 +491,29 @@ const handleTrailsToggled = (newTrailState) => {
   background-color: #f0f2f5;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
+  font-size: 0.95em;
+}
+
+.position-control-merged-display {
+  display: flex;
+  align-items: center; 
+  background-color: #f0f2f5; 
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 0.75rem;
+  margin-bottom: 10px; 
+}
+
+.button-local-positioning-control {
+  margin-left: 15px;
+  flex-shrink: 0;
+}
+
+.position-text-merged-area {
+  flex-grow: 1; 
+}
+
+.local-position-text { /* Style for the actual position text */
   font-size: 0.95em;
 }
 
@@ -430,6 +534,113 @@ const handleTrailsToggled = (newTrailState) => {
   justify-content: center; /* Center MapView horizontally */
   align-items: center; /* Center MapView vertically */
   overflow: hidden; /* If MapView canvas tries to be too large */
+}
+
+.config-management .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 10px; /* Space between buttons in the header */
+}
+
+.load-default-btn,
+.toggle-json-input-btn {
+  font-size: 0.9em;
+  padding: 5px 8px; 
+}
+
+.json-input-collapsible-area {
+  margin-bottom: 15px; 
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  background-color: #fdfdfd;
+}
+
+.textarea-button-row {
+  display: flex;
+  align-items: flex-start; /* Align items to the top */
+  gap: 10px;
+}
+
+.textarea-button-row textarea {
+  flex-grow: 1;
+  /* Ensure textarea does not shrink if button text is long */
+  min-width: 0; 
+}
+
+.import-json-btn {
+  flex-shrink: 0; /* Prevent button from shrinking */
+  /* Allow button text to wrap if needed, adjust padding as necessary */
+  white-space: normal;
+  text-align: center;
+  padding: 10px; /* Adjust padding for better appearance with wrapped text */
+  line-height: 1.2;
+}
+
+.loaded-config-actions {
+  display: flex;
+  align-items: center; /* Vertically align items in the middle */
+  justify-content: space-between; /* Puts space between the text and the button */
+  padding: 0.75rem;
+  background-color: #e6ffed; /* Light green background for success */
+  border: 1px solid #b7ebc0; /* Green border - specific success state */
+  border-radius: var(--border-radius); /* Use var for consistency */
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.loaded-config-text { /* Style for the p tag containing the loaded config text */
+  margin: 0; /* Remove default paragraph margins */
+  flex-grow: 1; /* Allow text to take up available space */
+  padding-right: 10px; /* Add some space to the right of the text, before the button */
+  text-align: left; /* Ensure text is left-aligned */
+}
+
+.loaded-config-actions .button-danger {
+  flex-shrink: 0; /* Prevent the button from shrinking */
+}
+
+.toggle-json-input-btn {
+  margin-left: 10px; /* Add some space between the buttons in the header */
+}
+
+.load-default-btn {
+  /* Styles for the load default button if any specific are needed */
+}
+
+.json-input-collapsible-area {
+  margin-bottom: 15px; /* Add space below the JSON input area when visible */
+}
+
+.textarea-button-row {
+  display: flex;
+  align-items: flex-start; /* Align textarea top with button top */
+  gap: 10px; /* Space between textarea and button */
+  margin-bottom:10px; /* Space below this row */
+}
+
+.textarea-button-row textarea {
+  flex-grow: 1; /* Textarea takes available space */
+  /* min-height: 100px; Ensure a decent minimum height */
+}
+
+.textarea-button-row .import-json-btn {
+  flex-shrink: 0; /* Prevent button from shrinking */
+  white-space: normal; /* Allow button text to wrap */
+  text-align: center;
+  padding: 8px 12px; /* Adjust padding if needed */
+  /* max-width: 150px; /* Optional: constrain button width */
+}
+
+/* General Card Styling - already moved to global, ensure it's not duplicated or conflicting if still here */
+/* Specific styles for LocalModeConfigView */
+.local-mode-config-view {
+  padding-bottom: 20px; /* Add some padding at the bottom */
 }
 
 </style> 

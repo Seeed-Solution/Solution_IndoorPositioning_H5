@@ -83,6 +83,7 @@ class MqttServerConfig(BaseModel): # Renamed from MqttConfig to avoid clash if o
     topicPattern: str  # e.g., "/device_sensor_data/{ApplicationID}/+/+/+/+"
     clientID: Optional[str] = Field(default=None, validation_alias=AliasChoices('clientID', 'clientId'))
     enabled: bool = Field(default=True, description="Enable or disable MQTT client")
+    live_mqtt_status: Optional[str] = Field(default=None, description="Live MQTT connection status, not saved to file")
 
 class WebServerConfig(BaseModel): # Renamed from ServerConfig
     port: int = Field(default=8000, description="Port for the FastAPI web server")

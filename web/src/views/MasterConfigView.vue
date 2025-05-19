@@ -482,9 +482,16 @@ onMounted(() => {
   margin-bottom: 1.5rem;
 }
 .card-header { /* Re-style if needed, or use global card styles */ }
+
+/* .card-content padding is now global 
 .card-content { padding: 1rem; }
+*/
+
 .card-content button:not(:last-child) { margin-right: 0.5rem; }
-.info-banner { margin-top: 0.5rem; } /* Global info banner styles are in style.css */
+
+/* .info-banner margin is handled by global .status-display 
+.info-banner { margin-top: 0.5rem; } 
+*/
 
 
 .tabs-navigation {

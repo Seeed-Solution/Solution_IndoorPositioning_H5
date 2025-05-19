@@ -1,6 +1,6 @@
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 import json
 import paho.mqtt.client as mqtt
@@ -21,7 +21,7 @@ from .models import ( # Grouped imports for models
 from .positioning import KalmanFilter2D
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO) # Keep level INFO for now, but will reduce specific log.info calls
 log = logging.getLogger(__name__)
 
 # Add asyncio import if not already present globally, for create_task
@@ -31,6 +31,13 @@ app = FastAPI()
 
 # Define the path for the web configuration file
 WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "web_config.json")
+
+# Path to the default test configuration file
+# Assuming 'test/config2.json' is relative to the project root where server/main.py might be, or a sibling to 'server' directory.
+# Adjust the path as per your actual project structure.
+# If main.py is in server/, and test/ is a sibling of server/, then ../test/config2.json
+DEFAULT_TEST_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "config2.json")
+MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "map1.json") # New path for map1.json
 
 # Mount static files (for serving the client-side HTML/JS)
 # Make sure the client directory exists relative to where uvicorn is run (usually project root)
@@ -91,7 +98,7 @@ async def broadcast_mqtt_status():
     """Helper to broadcast the current MQTT status via WebSocket."""
     global mqtt_connection_status, main_event_loop, manager
     if main_event_loop and main_event_loop.is_running():
-        log.info(f"Broadcasting MQTT status: {mqtt_connection_status}")
+        # log.info(f"Broadcasting MQTT status: {mqtt_connection_status}") # Reduced verbosity
         asyncio.run_coroutine_threadsafe(
             manager.broadcast({"type": "mqtt_status_update", "data": {"status": mqtt_connection_status}}),
             main_event_loop
@@ -103,7 +110,7 @@ def on_connect(client, userdata, flags, rc):
     """Callback when connected to MQTT Broker."""
     global runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
     if rc == 0:
-        log.info("MQTT Broker: Connected!") # Restored log message
+        log.info("MQTT Broker: Connected!") 
         mqtt_connection_status = "connected"
         is_mqtt_intentionally_disconnected = False # Clear flag on successful connect
         # RESTORED SUBSCRIPTION LOGIC:
@@ -164,7 +171,7 @@ def parse_sensecap_payload(device_eui: str, payload_bytes: bytes) -> Optional[Tr
     """
     try:
         data = json.loads(payload_bytes.decode('utf-8'))
-        log.debug(f"Raw SenseCAP MQTT data for {device_eui}: {data}")
+        # log.debug(f"Raw SenseCAP MQTT data for {device_eui}: {data}") # DEBUG
 
         payload_timestamp = data.get("timestamp")
         if payload_timestamp is None:
@@ -185,7 +192,7 @@ def parse_sensecap_payload(device_eui: str, payload_bytes: bytes) -> Optional[Tr
         detected_beacons_list = []
         for beacon_data in beacon_values:
             if not isinstance(beacon_data, dict):
-                log.debug(f"Skipping non-dict item in 'value' list for {device_eui}: {beacon_data}")
+                # log.debug(f"Skipping non-dict item in 'value' list for {device_eui}: {beacon_data}") # DEBUG
                 continue
 
             mac_address = beacon_data.get("mac")
@@ -203,10 +210,12 @@ def parse_sensecap_payload(device_eui: str, payload_bytes: bytes) -> Optional[Tr
                 except (ValueError, TypeError) as conv_err:
                     log.warning(f"Could not convert beacon data for {device_eui}: {beacon_data} - {conv_err}")
             else:
-                log.debug(f"Skipping beacon entry for {device_eui} due to missing mac or rssi: {beacon_data}")
+                # log.debug(f"Skipping beacon entry for {device_eui} due to missing mac or rssi: {beacon_data}") # DEBUG
+                pass # Keep it quiet
 
         if not detected_beacons_list:
-            log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.")
+            # log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.") # Can be noisy
+            pass
 
         return TrackerReport(
             trackerId=device_eui,
@@ -255,7 +264,7 @@ def _connect_mqtt_client():
     if not runtime_cfg or not runtime_cfg.mqtt or not mqtt_client:
         log.warning("MQTT client or configuration not ready for connection.")
         if runtime_cfg and runtime_cfg.mqtt and not mqtt_client:
-             log.info("Attempting to re-initialize MQTT client...")
+             # log.info("Attempting to re-initialize MQTT client...") # Can be noisy
              mqtt_client = _initialize_mqtt_client()
              if not mqtt_client:
                   mqtt_connection_status = "error"
@@ -278,11 +287,11 @@ def _connect_mqtt_client():
         return False
 
     if mqtt_connection_status == "connected" or mqtt_connection_status == "connecting":
-        log.info(f"MQTT client already {mqtt_connection_status}. No action needed.")
+        # log.info(f"MQTT client already {mqtt_connection_status}. No action needed.") # Can be noisy
         return True
 
     try:
-        log.info(f"Attempting to connect MQTT client to {mqtt_cfg.brokerHost}...")
+        # log.info(f"Attempting to connect MQTT client to {mqtt_cfg.brokerHost}...") # Reduced verbosity
         is_mqtt_intentionally_disconnected = False # Clear flag before attempting connection
         mqtt_connection_status = "connecting"
         if main_event_loop and main_event_loop.is_running():
@@ -309,7 +318,7 @@ def disconnect_mqtt_client(broadcast=True):
     is_mqtt_intentionally_disconnected = True
     if mqtt_client:
         try:
-            log.info("Disconnecting MQTT client...")
+            # log.info("Disconnecting MQTT client...") # Reduced verbosity
             # Stop the loop first to prevent immediate auto-reconnect attempts by Paho
             # Paho's disconnect might also trigger on_disconnect, where status is set.
             mqtt_client.loop_stop() 
@@ -323,7 +332,7 @@ def disconnect_mqtt_client(broadcast=True):
                         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
                     else:
                         log.warning("disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
-            log.info("MQTT client disconnect initiated.")
+            # log.info("MQTT client disconnect initiated.") # Reduced verbosity
 
         except Exception as e:
             log.error(f"Error disconnecting MQTT client: {e}", exc_info=True)
@@ -365,7 +374,7 @@ def setup_mqtt(force_reconnect: bool = False):
             log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status for no mqtt_cfg.")
         return
         
-    log.info(f"MQTT setup called. Proceeding with setup for {runtime_cfg.mqtt.brokerHost if runtime_cfg.mqtt.brokerHost else 'No Broker Host'}.")
+    # log.info(f"MQTT setup called. Proceeding with setup for {runtime_cfg.mqtt.brokerHost if runtime_cfg.mqtt.brokerHost else 'No Broker Host'}.") # Can be noisy
 
     if is_mqtt_intentionally_disconnected and not force_reconnect:
         log.info("MQTT was intentionally disconnected. Not reconnecting automatically unless forced.")
@@ -396,7 +405,7 @@ def on_message(client, userdata, msg):
     """Callback for when a PUBLISH message is received from the server."""
     global main_event_loop # Access the main event loop
 
-    log.info(f"MQTT Message Received: Topic: {msg.topic}")
+    # log.info(f"MQTT Message Received: Topic: {msg.topic}") # Can be very noisy
     topic_parts = msg.topic.split('/')
     if not msg.topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
         log.warning(f"Received message on unexpected or incomplete topic structure: {msg.topic}")
@@ -406,10 +415,10 @@ def on_message(client, userdata, msg):
     measurement_id = topic_parts[6]
 
     if measurement_id != "5002":
-        log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.")
+        # log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.") # DEBUG
         return
 
-    log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})")
+    # log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})") # Can be noisy
     report = parse_sensecap_payload(device_eui, msg.payload)
 
     if report:
@@ -442,7 +451,7 @@ async def process_tracker_report(report: TrackerReport):
     # Prepare position history from last state
     current_position_history = list(last_state.position_history) if last_state and last_state.position_history else []
 
-    log.info(f"Processing report for {tracker_id} with {len(report.detectedBeacons)} beacons.")
+    # log.info(f"Processing report for {tracker_id} with {len(report.detectedBeacons)} beacons.") # Can be noisy
 
     calculated_position = positioning.calculate_position(
         detected_beacons=report.detectedBeacons,
@@ -454,7 +463,7 @@ async def process_tracker_report(report: TrackerReport):
     kf = kalman_filters.get(tracker_id)
 
     if calculated_position:
-        log.info(f"Calculated position for {tracker_id}: {calculated_position}")
+        # log.info(f"Calculated position for {tracker_id}: {calculated_position}") # Can be noisy
         if kf:
             kf.predict(dt)
             kf.update(calculated_position)
@@ -465,10 +474,10 @@ async def process_tracker_report(report: TrackerReport):
                 measurement_variance=runtime_cfg.kalman.measurementVariance
             )
             kalman_filters[tracker_id] = kf
-            log.info(f"Initialized Kalman filter for {tracker_id} with PV:{runtime_cfg.kalman.processVariance}, MV:{runtime_cfg.kalman.measurementVariance}")
+            # log.info(f"Initialized Kalman filter for {tracker_id} with PV:{runtime_cfg.kalman.processVariance}, MV:{runtime_cfg.kalman.measurementVariance}") # Can be noisy
 
         filtered_position = kf.get_position()
-        log.info(f"Filtered position for {tracker_id}: {filtered_position}")
+        # log.info(f"Filtered position for {tracker_id}: {filtered_position}") # Can be noisy
         
         # Add new position to history
         if filtered_position:
@@ -477,7 +486,7 @@ async def process_tracker_report(report: TrackerReport):
     elif kf: # No new calculation, but KF might have predicted
         kf.predict(dt)
         filtered_position = kf.get_position()
-        log.info(f"Position prediction (no new measurement) for {tracker_id}: {filtered_position}")
+        # log.info(f"Position prediction (no new measurement) for {tracker_id}: {filtered_position}") # Can be noisy
         # Optionally, decide if predicted-only positions should go into history.
         # For now, let's assume only measurement-updated or KF-initialized positions go to history via the block above.
         # If you want to add predicted positions too, uncomment and adjust:
@@ -605,14 +614,16 @@ async def startup_event():
     if not miniprogram_cfg:
         log.warning("Miniprogram configuration (map_beacon_config.json) not found or failed to load. Positioning may be affected.")
     else:
-        log.info("Miniprogram configuration (map_beacon_config.json) loaded.")
+        # log.info("Miniprogram configuration (map_beacon_config.json) loaded.") # Reduced verbosity
+        pass
 
     # Load Web UI configuration
     web_ui_cfg = load_web_ui_config() # This will create a default if not found
     if not web_ui_cfg:
         log.warning("Web UI configuration (web_config.json) not found or failed to load. Web UI may not function as expected initially.")
     else:
-        log.info("Web UI configuration (web_config.json) loaded/initialized.")
+        # log.info("Web UI configuration (web_config.json) loaded/initialized.") # Reduced verbosity
+        pass
 
     if runtime_cfg and runtime_cfg.mqtt.enabled:
         setup_mqtt() # Initialize and connect MQTT client
@@ -656,7 +667,7 @@ async def upload_miniprogram_config(config_content: MiniprogramConfig, response:
        The request body should be the JSON content matching MiniprogramConfig model.
     """
     global miniprogram_cfg
-    log.info("Received request to upload miniprogram configuration.")
+    # log.info("Received request to upload miniprogram configuration.") # Reduced verbosity
     try:
         # config_content is already parsed by FastAPI into MiniprogramConfig model
         if config_manager.save_miniprogram_config(config_content):
@@ -690,30 +701,27 @@ async def get_trackers():
 
 @app.get("/api/server-runtime-config", response_model=Optional[config_manager.ServerRuntimeConfig])
 async def get_api_server_runtime_config():
-    # Ensure runtime_cfg is loaded or reloaded if necessary
-    # For simplicity, assume it's loaded by startup or other means
-    # Could add a reload here: runtime_cfg = config_manager.load_server_runtime_config()
-    global runtime_cfg # Ensure we're using the global
+    global runtime_cfg, mqtt_connection_status # Ensure mqtt_connection_status is accessible
+    # Ensure runtime_cfg is loaded
     if runtime_cfg is None:
-        log.info("Runtime config not yet loaded, attempting to load from disk.")
-        runtime_cfg = config_manager.load_server_runtime_config() # Load if not already
+        config_manager.load_server_runtime_config() # Attempt to load if not already loaded by startup
     
     if runtime_cfg:
-        # ADDING LOG HERE to check the password value before sending
-        if runtime_cfg.mqtt:
-            log.info(f"[SERVER_DEBUG] Password value in runtime_cfg.mqtt before sending: '{runtime_cfg.mqtt.password}'")
-        else:
-            log.info("[SERVER_DEBUG] runtime_cfg.mqtt is None before sending")
-        return runtime_cfg 
-    else:
-        log.warning("Runtime config is None even after attempting to load.")
-        return None
+        # Create a copy to avoid modifying the global cache directly with transient status
+        config_to_send = runtime_cfg.model_copy(deep=True)
+        if config_to_send.mqtt:
+            config_to_send.mqtt.live_mqtt_status = mqtt_connection_status
+            # Mask password before sending to client
+            if config_to_send.mqtt.password:
+                 config_to_send.mqtt.password = config_manager.PASSWORD_PLACEHOLDER
+        return config_to_send
+    return None
 
 @app.post("/api/server-runtime-config", status_code=200)
 async def update_api_server_runtime_config(config_payload: config_manager.ServerRuntimeConfig):
     global runtime_cfg, mqtt_client, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
     try:
-        log.info("Received request to update server runtime configuration.")
+        # log.info("Received request to update server runtime configuration.") # Reduced verbosity
         
         # Determine if MQTT settings that require a reconnect have changed
         mqtt_reconnect_needed = False
@@ -767,7 +775,8 @@ async def update_api_server_runtime_config(config_payload: config_manager.Server
                     is_mqtt_intentionally_disconnected = False # Clear this flag as we intend to connect
                     setup_mqtt(force_reconnect=True) 
                 else:
-                    log.info("MQTT settings updated, but no immediate reconnect needed (e.g. only Kalman params changed or MQTT already aligned).")
+                    # log.info("MQTT settings updated, but no immediate reconnect needed (e.g. only Kalman params changed or MQTT already aligned).") # Reduced verbosity
+                    pass
             return {"message": "Server runtime configuration updated successfully."}
         else:
             log.error("Failed to save server runtime configuration to file.")
@@ -783,7 +792,7 @@ async def get_mqtt_connection_status():
 @app.post("/api/mqtt/connect", status_code=200)
 async def api_mqtt_connect():
     global runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
-    log.info("API call to connect MQTT.")
+    # log.info("API call to connect MQTT.") # Reduced verbosity
     
     # Reload runtime_cfg to ensure latest settings are used for connection attempt
     current_runtime_cfg = config_manager.load_server_runtime_config()
@@ -813,7 +822,7 @@ async def api_mqtt_connect():
 @app.post("/api/mqtt/disconnect", status_code=200)
 async def api_mqtt_disconnect():
     global mqtt_connection_status
-    log.info("API call to disconnect MQTT.")
+    # log.info("API call to disconnect MQTT.") # Reduced verbosity
     disconnect_mqtt_client() # This function sets is_mqtt_intentionally_disconnected = True
     # Give a slight delay for disconnection to reflect
     await asyncio.sleep(0.1) 
@@ -826,7 +835,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            log.info(f"WebSocket received: {data}")
+            # log.info(f"WebSocket received: {data}") # Can be noisy
             try:
                 message = json.loads(data)
                 command = message.get("command")
@@ -865,7 +874,7 @@ async def upload_web_ui_config(config_content: WebUIConfig, response: Response):
     try:
         if save_web_ui_config(config_content):
             web_ui_cfg = config_content # Update in-memory cache
-            log.info("Web UI configuration successfully received and saved.")
+            # log.info("Web UI configuration successfully received and saved.") # Reduced verbosity
             return {"message": "Web UI configuration saved successfully."}
         else:
             raise HTTPException(status_code=500, detail="Failed to save Web UI configuration to file.")
@@ -879,7 +888,7 @@ async def get_web_ui_config():
     global web_ui_cfg
     # Ensure it's loaded on first request if not already by startup (though startup should handle it)
     if web_ui_cfg is None:
-        log.info("Web UI config not in memory, attempting to load from file for GET request.")
+        # log.info("Web UI config not in memory, attempting to load from file for GET request.") # Reduced verbosity
         load_web_ui_config() # Attempt to load it if somehow missed by startup or cleared
     
     if web_ui_cfg:
@@ -887,6 +896,33 @@ async def get_web_ui_config():
     else:
         log.warning("GET /api/configuration/web: No Web UI configuration available after load attempt.")
         return WebUIConfig(map=None, beacons=[], settings=WebUISettings()) # Use direct model name
+
+@app.get("/api/default-test-config")
+async def get_default_test_config():
+    if not os.path.exists(DEFAULT_TEST_CONFIG_PATH):
+        log.error(f"Default test config file not found at: {DEFAULT_TEST_CONFIG_PATH}")
+        raise HTTPException(status_code=404, detail="Default test configuration file not found.")
+    try:
+        with open(DEFAULT_TEST_CONFIG_PATH, 'r') as f:
+            config_content = f.read()
+        # Return as plain text, as the frontend expects to parse it as JSON string
+        return PlainTextResponse(content=config_content)
+    except Exception as e:
+        log.error(f"Error reading default test config file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to read default test configuration: {str(e)}")
+
+@app.get("/api/map-example-format") # New endpoint
+async def get_map_example_format():
+    if not os.path.exists(MAP_EXAMPLE_FORMAT_PATH):
+        log.error(f"Map example format file not found at: {MAP_EXAMPLE_FORMAT_PATH}")
+        raise HTTPException(status_code=404, detail="Map example format file not found.")
+    try:
+        with open(MAP_EXAMPLE_FORMAT_PATH, 'r') as f:
+            config_content = f.read()
+        return PlainTextResponse(content=config_content)
+    except Exception as e:
+        log.error(f"Error reading map example format file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to read map example format: {str(e)}")
 
 # --- Main Execution ---
 if __name__ == "__main__":

@@ -15,6 +15,7 @@
   --text-color: #303133; /* Dark gray for general text */
   --background-color: #f4f4f5; /* Page Background */
   --card-background: #FFFFFF; /* White cards */
+  --card-header-background: #f7f7f7; /* Gray for card headers */
   --border-color: #DCDFE6; /* Lighter gray borders */
   --border-radius: 0.5rem; /* Increased border-radius for more rounded elements */
   --box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
@@ -129,11 +130,11 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.8rem 1.2rem;
-  background-color: var(--card-background); /* Match card body background (white) */
-  border-bottom: 1px solid var(--border-color);
-  border-top-left-radius: var(--border-radius); /* Keep for top card edge */
-  border-top-right-radius: var(--border-radius); /* Keep for top card edge */
+  padding: 10px 15px; /* Adjusted from 0.8rem 1.2rem */
+  background-color: var(--card-header-background); /* Changed from var(--card-background) */
+  border-bottom: 1px solid var(--border-color); /* var(--border-color) is #DCDFE6, similar to #ddd */
+  border-top-left-radius: var(--border-radius); /* Keep using var for consistency, 0.5rem is ~8px */
+  border-top-right-radius: var(--border-radius); /* Keep using var for consistency */
 }
 .card-header h2, .card-header h3 { /* Include h3 for consistency */
   margin: 0;
@@ -143,6 +144,10 @@ body {
 }
 .card-header h2 .fas, .card-header h3 .fas {
   margin-right: 0.5rem;
+}
+
+.card-content {
+  padding: 1rem; /* Standardized padding for card content areas */
 }
 
 /* General Button Styling - Overriding Vite defaults */

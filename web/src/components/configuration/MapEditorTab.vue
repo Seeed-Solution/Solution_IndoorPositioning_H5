@@ -1,30 +1,47 @@
 <template>
   <div class="map-editor-tab">
-    <h3>Map File & Editing</h3>
-    <div class="upload-section">
-      <label for="mapFile">Upload Configuration File (JSON) - includes map, beacons, and settings:</label>
-      <input type="file" id="mapFile" @change="handleFullConfigFileUpload" accept=".json" />
-      <!-- <p class="info">When you upload a full configuration file here, it will update the application's current master configuration.</p> -->
-    </div>
-
-    <div v-if="currentMapLayout">
-      <p>
-        Map: {{ currentMapLayout.name || 'Unnamed' }} 
-        ({{ currentMapLayout.width ? currentMapLayout.width.toFixed(1) : 'N/A' }}m x 
-        {{ currentMapLayout.height ? currentMapLayout.height.toFixed(1) : 'N/A' }}m)
-      </p>
-      <canvas ref="mapCanvasRef" width="600" height="400" @click="handleMapClick"></canvas>
-      
-      <div v-if="showPlacementConfirmation && selectedBeaconForPlacement && pendingPlacementCoordinates" class="placement-confirmation">
-        <p>Place beacon '{{ selectedBeaconForPlacement.displayName }}' at X: {{ pendingPlacementCoordinates.x.toFixed(2) }}, Y: {{ pendingPlacementCoordinates.y.toFixed(2) }}?</p>
-        <button @click="confirmBeaconPlacement">Confirm</button>
-        <button @click="cancelBeaconPlacement">Cancel</button>
+    <div class="card"> 
+      <div class="card-header">
+        <h3>Map File & Editing</h3>
       </div>
+      <div class="card-content">
+        <div class="upload-section">
+          <label for="mapFile">Upload Configuration File (JSON) - includes map, beacons, and settings:</label>
+          <input type="file" id="mapFile" @change="handleFullConfigFileUpload" accept=".json" />
+          <!-- <p class="info">When you upload a full configuration file here, it will update the application's current master configuration.</p> -->
+        </div>
+        
+        <div class="map-format-example-section">
+          <label for="mapFormatExample">Example Map Object Format (read-only):</label>
+          <textarea id="mapFormatExample" :value="mapFormatExampleText" rows="10" readonly class="example-textarea"></textarea>
+        </div>
 
-      <p class="info">Hint: {{ selectedBeaconForPlacement ? (showPlacementConfirmation ? 'Confirm or cancel the pending placement above.' : 'Click on the map to place beacon: ' + selectedBeaconForPlacement.displayName) : 'Select a beacon from the Beacon Management tab, then click on the map here to place it.'.trim() }}</p>
+      </div>
     </div>
-    <p v-else>
-      <!-- Please upload a valid JSON configuration file, or ensure a configuration is loaded from the server. -->
+
+    <div v-if="currentMapLayout" class="card"> 
+       <div class="card-header">
+         <h3>Map Preview</h3>
+       </div>
+       <div class="card-content">
+          <p>
+            Map: {{ currentMapLayout.name || 'Unnamed' }} 
+            ({{ currentMapLayout.width ? currentMapLayout.width.toFixed(1) : 'N/A' }}m x 
+            {{ currentMapLayout.height ? currentMapLayout.height.toFixed(1) : 'N/A' }}m)
+          </p>
+          <canvas ref="mapCanvasRef" width="600" height="400" @click="handleMapClick"></canvas>
+          
+          <div v-if="showPlacementConfirmation && selectedBeaconForPlacement && pendingPlacementCoordinates" class="placement-confirmation">
+            <p>Place beacon '{{ selectedBeaconForPlacement.displayName }}' at X: {{ pendingPlacementCoordinates.x.toFixed(2) }}, Y: {{ pendingPlacementCoordinates.y.toFixed(2) }}?</p>
+            <button @click="confirmBeaconPlacement">Confirm</button>
+            <button @click="cancelBeaconPlacement">Cancel</button>
+          </div>
+    
+          <p class="info">Hint: {{ selectedBeaconForPlacement ? (showPlacementConfirmation ? 'Confirm or cancel the pending placement above.' : 'Click on the map to place beacon: ' + selectedBeaconForPlacement.displayName) : 'Select a beacon from the Beacon Management tab, then click on the map here to place it.'.trim() }}</p>
+        </div>
+    </div>
+    <p v-else class="status-text warning-text" style="margin-top: 20px;">
+      Map data is not loaded. Please upload a configuration file or ensure one is provided by the server.
     </p>
     <!-- <p class="info">Hint: Full configuration import/export is available in the main action bar of the parent configuration page.</p> -->
   </div>
@@ -436,10 +453,24 @@ watch(() => props.initialSettings, (newSettings) => {
   console.log("MapEditorTab: initialSettings prop changed.", newSettings);
 }, { deep: true });
 
-onMounted(async () => { // Make onMounted async
-  // initialMapData watcher with immediate:true handles initial map layout setup.
-  // We wait for the next tick to ensure the canvas element is definitely in the DOM and
-  // other reactive dependencies like currentMapLayout (set by initialMapData watcher) are settled.
+const mapFormatExampleText = ref('Loading map format example...');
+
+const fetchMapFormatExample = async () => {
+  try {
+    const response = await fetch('/api/map-example-format');
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+    const text = await response.text();
+    mapFormatExampleText.value = text;
+  } catch (error) {
+    console.error('Failed to fetch map format example:', error);
+    mapFormatExampleText.value = 'Could not load map format example. Please ensure server is running and endpoint is correct.';
+  }
+};
+
+onMounted(async () => { 
+  fetchMapFormatExample(); // Fetch the example on mount
   await nextTick(); 
   if (mapCanvasRef.value) { // Also ensure canvas is available
     if (currentMapLayout.value) {
@@ -488,16 +519,19 @@ canvas {
   color: #555;
   margin-top: 0.5rem;
 }
+
+/* General button margin removed - apply specifically if needed
 button {
     margin-top: 10px;
 }
+*/
 
 .placement-confirmation {
   margin-top: 10px;
   padding: 10px;
   background-color: #e7f3fe;
   border: 1px solid #d0eaff;
-  border-radius: 4px;
+  border-radius: var(--border-radius); /* Use var for consistency */
 }
 .placement-confirmation p {
   margin-top: 0;
@@ -505,5 +539,28 @@ button {
 }
 .placement-confirmation button {
   margin-right: 8px;
+}
+
+.map-format-example-section {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.map-format-example-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.example-textarea {
+  width: 100%;
+  background-color: #f8f9fa; /* Slightly different background for readonly */
+  color: #495057;
+  border: 1px solid #ced4da;
+  border-radius: var(--border-radius);
+  padding: 0.5rem;
+  font-family: monospace;
+  font-size: 0.85em;
+  resize: vertical; /* Allow vertical resize if content is too long, though scroll is default */
 }
 </style> 

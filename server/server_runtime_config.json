@@ -1,12 +1,12 @@
 {
   "mqtt": {
-    "brokerHost": "sensecap-openstream.seeed.cc",
+    "brokerHost": "your-mqtt-broker-host",
     "brokerPort": 1883,
-    "username": "org-234166764559872",
-    "password": "319DDCA2EE844E43820F77513AD2F1ABA7D4DE4148C0446281FF059E55A58B1B",
-    "applicationID": "234166764559872",
+    "username": "your-mqtt-username",
+    "password": "your-mqtt-password",
+    "applicationID": "your-application-id",
     "topicPattern": "/device_sensor_data/{ApplicationID}/+/+/+/+",
-    "clientID": "org-234166764559872-123x",
+    "clientID": "your-client-id",
     "enabled": true
   },
   "server": {
