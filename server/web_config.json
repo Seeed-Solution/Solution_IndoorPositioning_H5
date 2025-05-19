@@ -1,0 +1,83 @@
+{
+    "map": {
+        "name": null,
+        "width": 9.0,
+        "height": 5.0,
+        "entities": [
+            {
+                "type": "polyline",
+                "points": [
+                    [
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        9.0,
+                        0.0
+                    ],
+                    [
+                        9.0,
+                        5.0
+                    ],
+                    [
+                        0.0,
+                        5.0
+                    ],
+                    [
+                        0.0,
+                        0.0
+                    ]
+                ],
+                "closed": true,
+                "strokeColor": null,
+                "lineWidth": null,
+                "fillColor": null
+            }
+        ]
+    },
+    "beacons": [
+        {
+            "uuid": "74278BDA-B644-4520-8F0C-720EAF059939",
+            "major": 10001,
+            "minor": 19641,
+            "x": 6.89,
+            "y": 3.06,
+            "txPower": -59,
+            "displayName": "MBeaco5",
+            "macAddress": ""
+        },
+        {
+            "uuid": "74278BDA-B644-4520-8F0C-720EAF059938",
+            "major": 10001,
+            "minor": 19641,
+            "x": 6.96,
+            "y": 1.19,
+            "txPower": -59,
+            "displayName": "MBeaco4",
+            "macAddress": ""
+        },
+        {
+            "uuid": "74278BDA-B644-4520-8F0C-720EAF059937",
+            "major": 10001,
+            "minor": 19641,
+            "x": 0.83,
+            "y": 2.04,
+            "txPower": -59,
+            "displayName": "MBeaco3",
+            "macAddress": ""
+        },
+        {
+            "uuid": "74278BDA-B644-4520-8F0C-720EAF059935",
+            "major": 10001,
+            "minor": 19641,
+            "x": 1.56,
+            "y": 4.24,
+            "txPower": -59,
+            "displayName": "MBeaco1",
+            "macAddress": ""
+        }
+    ],
+    "settings": {
+        "signalPropagationFactor": 2.5
+    }
+}

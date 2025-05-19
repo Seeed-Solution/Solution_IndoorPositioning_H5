@@ -1,11 +1,32 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
+
 :root {
+  --primary-color: #73C74D; /* More yellow-ish Green */
+  --primary-color-dark: #5EAE3E; /* Darker shade of new Green */
+  --secondary-color: #5F6368; /* Medium Gray for secondary text/elements */
+  --success-color: #73C74D; /* Using primary green for success */
+  --danger-color: #F56C6C; /* SenseCraft Danger Red */
+  --warning-color: #E6A23C; /* SenseCraft Warning Orange */
+  --info-color: #5F6368; /* Using secondary gray for info text */
+  --info-bg-color: #e7f3ff; /* Background for info banners */
+  --light-blue-accent-color: #AED6F1; /* Light blue for specific accent buttons */
+  --light-color: #f4f4f5; /* Light gray, similar to SenseCraft background */
+  --dark-color: #303133;  /* Dark Header/Text (kept dark gray for contrast if needed elsewhere) */
+  --text-color: #303133; /* Dark gray for general text */
+  --background-color: #f4f4f5; /* Page Background */
+  --card-background: #FFFFFF; /* White cards */
+  --border-color: #DCDFE6; /* Lighter gray borders */
+  --border-radius: 0.5rem; /* Increased border-radius for more rounded elements */
+  --box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+
+  /* Default font settings from original style.css, can be adjusted */
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  
+  color-scheme: light; /* Forcing light scheme based on these variables */
+  /* color: var(--text-color); /* Set default text color */
+  /* background-color: var(--background-color); /* Set default background color */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,67 +34,283 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* More specific font from app */
+  margin: 0;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6; /* From app styles */
+  font-size: 16px; /* From app styles */
+  display: block; /* Override vite default flex for body */
+  /* place-items: initial; */ /* Override vite default */
+  min-width: initial; /* Override vite default */
 }
 
-body {
-  margin: 0;
+#app { /* Styles for the main app container div */
+  /* max-width: 1280px; /* Can retain or adjust if needed */
+  /* margin: 0 auto; */ /* Can retain or adjust */
+  /* padding: 0; /* Remove Vite default padding if layout is handled by App.vue */
+  /* text-align: left; /* Override Vite default center */
+}
+
+
+/* Global App Structure - if #app-container is consistently used */
+/* These were in LiveMapView, making them global if desired */
+/*
+#app-container {
   display: flex;
-  place-items: center;
-  min-width: 320px;
+  flex-direction: column;
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+.app-header-global { 
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.app-header-global .logo-title {
+  display: flex;
+  align-items: center;
+}
+.app-header-global .logo-icon {
+  height: 40px;
+  margin-right: 10px;
+}
+.app-header-global h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.app-header-global .header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.main-content-global {
+  flex-grow: 1;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; 
 }
 
-.card {
-  padding: 2em;
-}
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+.app-footer-global {
+  background-color: var(--dark-color);
+  color: var(--light-color);
   text-align: center;
+  padding: 0.8rem;
+  font-size: 0.85rem;
+}
+*/
+
+/* Global Page Title Style */
+.page-title {
+  font-size: 1.6rem;
+  color: var(--text-color);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* General Card Styling */
+.card {
+  background-color: var(--card-background);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem; /* Add some default bottom margin to cards */
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1.2rem;
+  background-color: var(--card-background); /* Match card body background (white) */
+  border-bottom: 1px solid var(--border-color);
+  border-top-left-radius: var(--border-radius); /* Keep for top card edge */
+  border-top-right-radius: var(--border-radius); /* Keep for top card edge */
+}
+.card-header h2, .card-header h3 { /* Include h3 for consistency */
+  margin: 0;
+  font-size: 1.1rem; /* Slightly adjusted font size for card headers */
+  color: var(--text-color); /* Standard dark gray text */
+  font-weight: 600; /* Make header text bold like SenseCraft */
+}
+.card-header h2 .fas, .card-header h3 .fas {
+  margin-right: 0.5rem;
+}
+
+/* General Button Styling - Overriding Vite defaults */
+button, 
+.button, /* Generic button class */
+.button-primary, 
+.button-secondary, 
+.button-success, 
+.button-danger,
+.button-default {
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent; /* Default border */
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit; /* Inherit from body */
+  font-weight: 500; /* Match Vite button style */
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem; 
+  text-decoration: none; 
+  color: white; /* Default text color for colored buttons */
+  background-color: var(--primary-color); /* Default to primary (green) */
+}
+
+button:hover,
+.button:hover,
+.button-primary:hover, 
+.button-secondary:hover, 
+.button-success:hover, 
+.button-danger:hover,
+.button-default:hover {
+  opacity: 0.9; /* Keep opacity for colored ones */
+  /* border-color: var(--primary-color-dark); /* Darken border on hover for default */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+button:disabled, .button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  /* background-color: #ccc; /* Optional: specific disabled background */
+  /* color: #777; */
+}
+
+.button-primary { background-color: var(--primary-color); border-color: var(--primary-color); color: white; }
+.button-secondary { background-color: var(--secondary-color); border-color: var(--secondary-color); color: white; }
+.button-success { background-color: var(--success-color); border-color: var(--success-color); color: white; }
+.button-danger { background-color: var(--danger-color); border-color: var(--danger-color); color: white; }
+.button-default { background-color: var(--primary-color); border-color: var(--primary-color); color: white; } /* Explicitly style .button-default */
+
+/* New button style for light blue accent */
+.button-light-blue {
+  background-color: var(--light-blue-accent-color);
+  border-color: var(--light-blue-accent-color);
+  color: var(--text-color); /* Dark text for contrast on light blue */
+}
+.button-light-blue:hover {
+  background-color: #97c5e6; /* Slightly darker blue on hover */
+  border-color: #97c5e6;
+  color: var(--text-color);
+}
+
+/* Button that looks like a link */
+.button-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 5px;
+  font-size: 0.9em;
+}
+.button-link:hover {
+  color: var(--primary-color-dark);
+  background-color: transparent; /* Ensure no background on hover */
+  box-shadow: none;
+}
+
+
+.button-small {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+/* Status Message Styling (used in config views) */
+.status-display { /* Renamed for clarity from config-status-display */
+  padding: 0.8rem 1.2rem;
+  margin: 0.8rem 0; /* Adjusted margin to be applied where used, not globally to all cards content */
+  border-radius: var(--border-radius);
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.status-display.success { background-color: #e6ffed; border-left: 4px solid var(--success-color); color: #1d6c32; }
+.status-display.info { background-color: #e7f3ff; border-left: 4px solid var(--info-color); color: #0c5460; }
+.status-display.error { background-color: #fff3f3; border-left: 4px solid var(--danger-color); color: #721c24; }
+.status-display.warning { background-color: #fff8e1; border-left: 4px solid var(--warning-color); color: #665120; }
+
+
+/* MQTT Status Indicator specific styles (from LiveMapView) */
+.mqtt-status-indicator {
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--border-radius);
+  font-size: 0.85rem;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.mqtt-status-indicator.success { background-color: var(--success-color); }
+.mqtt-status-indicator.warn { background-color: var(--warning-color); color: #333; } 
+.mqtt-status-indicator.error { background-color: var(--danger-color); }
+.mqtt-status-indicator.info { background-color: var(--info-color); }
+
+/* Connection status text (used in LiveMapView WS status) */
+.status-connected { color: var(--success-color); font-weight: bold; }
+.status-disconnected { color: var(--danger-color); font-weight: bold; }
+
+/* General form styling */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+textarea,
+select {
+  width: calc(100% - 18px); /* Account for padding and border */
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem; /* Default spacing below inputs */
+  box-sizing: border-box;
+}
+textarea {
+  min-height: 100px;
+  font-family: monospace;
+}
+label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* Utility classes */
+.text-danger { color: var(--danger-color); }
+.text-success { color: var(--success-color); }
+.text-warning { color: var(--warning-color); }
+.text-info { color: var(--info-color); }
+
+/* Ensure html and body take full height for flex layouts if #app is main container */
+html, body {
+  height: 100%;
+}
+#app { /* If #app is the direct child of body and root of Vue app */
+    min-height: 100%;
+    display: flex; /* If App.vue's root is intended to be flex container */
+    flex-direction: column; /* If App.vue's root is intended to be flex container */
+}
+
+/* Added for page width unification */
+.page-content-wrapper {
+  max-width: 1200px; /* Adjust as needed, this is a common desktop width */
+  margin: 20px auto; /* Adds some top/bottom margin and centers the content */
+  padding: 1.5rem; /* Consistent padding inside the wrapper */
+  width: 100%; /* Ensures it's responsive within its max-width */
+  background-color: var(--card-background); /* Optional: if pages should have a card-like background */
+  border-radius: var(--border-radius); /* Optional: if using background-color */
+  box-shadow: var(--box-shadow); /* Optional: if using background-color */
 }

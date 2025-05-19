@@ -2,7 +2,7 @@
 <template>
   <div class="map-container">
     <div class="map-controls">
-      <button @click="localShowTrails = !localShowTrails" class="button-secondary map-trail-toggle-btn">
+      <button @click="toggleTrails" class="button-secondary map-trail-toggle-btn">
         <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? 'Hide' : 'Show' }} Trails
       </button>
     </div>
@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, defineEmits } from 'vue';
 
 const props = defineProps({
   config: {
@@ -28,13 +28,29 @@ const props = defineProps({
   trackers: {
     type: Array,
     default: () => []
+  },
+  initialShowTrails: {
+    type: Boolean,
+    default: false
   }
 });
+
+const emit = defineEmits(['trails-toggled']);
 
 const mapCanvas = ref(null);
 const canvasWidth = ref(800); // Default canvas width
 const canvasHeight = ref(600); // Default canvas height
-const localShowTrails = ref(false); // Local state for showing trails
+const localShowTrails = ref(props.initialShowTrails); // Initialize with prop
+
+// Watch for prop changes to update localShowTrails
+watch(() => props.initialShowTrails, (newValue) => {
+  localShowTrails.value = newValue;
+});
+
+const toggleTrails = () => {
+  localShowTrails.value = !localShowTrails.value;
+  emit('trails-toggled', localShowTrails.value);
+};
 
 const drawMap = (ctx) => {
   if (!props.config || !props.config.map || !ctx) {
@@ -126,7 +142,7 @@ const drawMap = (ctx) => {
     ctx.save();
     ctx.translate(beaconX, beaconY);
     ctx.scale(1, -1); // Flip text back
-    ctx.fillText(beacon.name || `B(${beacon.major},${beacon.minor})`, 8, 4);
+    ctx.fillText(beacon.displayName || `B(${beacon.major},${beacon.minor})`, 8, 4);
     ctx.restore();
   });
 

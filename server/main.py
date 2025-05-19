@@ -8,12 +8,17 @@ import logging
 import datetime
 import time
 from typing import List, Dict, Optional, Any, Tuple
+import os # Keep one os import
 
 # Import project modules
 from . import config_manager
 from . import positioning
-from .models import DetectedBeacon, TrackerReport, TrackerState, MiniprogramConfig # Added MiniprogramConfig for type hint
-from .positioning import KalmanFilter2D # Import KalmanFilter
+from .models import ( # Grouped imports for models
+    DetectedBeacon, TrackerReport, TrackerState, 
+    MiniprogramConfig, WebUIConfig, 
+    WebUISettings # Import WebUISettings directly
+)
+from .positioning import KalmanFilter2D
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +28,9 @@ log = logging.getLogger(__name__)
 import asyncio
 
 app = FastAPI()
+
+# Define the path for the web configuration file
+WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "web_config.json")
 
 # Mount static files (for serving the client-side HTML/JS)
 # Make sure the client directory exists relative to where uvicorn is run (usually project root)
@@ -37,6 +45,7 @@ except RuntimeError:
 # --- Global State ---
 # Replace single current_config with two separate config holders
 miniprogram_cfg: Optional[MiniprogramConfig] = None
+web_ui_cfg: Optional[WebUIConfig] = None # Added for web UI config
 runtime_cfg: Optional[config_manager.ServerRuntimeConfig] = None # Use qualified name to avoid circular import if ServerRuntimeConfig is also defined here
 main_event_loop: Optional[asyncio.AbstractEventLoop] = None # Added for thread-safe coroutine scheduling
 mqtt_connection_status: str = "disconnected" # Added for live MQTT status
@@ -415,10 +424,10 @@ def on_message(client, userdata, msg):
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global miniprogram_cfg, runtime_cfg, tracker_states, kalman_filters
+    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters
 
-    if not miniprogram_cfg or not miniprogram_cfg.beacons:
-        log.warning("Miniprogram configuration (beacons) not loaded, cannot process tracker report.")
+    if not web_ui_cfg or not web_ui_cfg.beacons:
+        log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
         return
     if not runtime_cfg:
         log.warning("Server runtime configuration not loaded, cannot process tracker report for Kalman params.")
@@ -437,8 +446,8 @@ async def process_tracker_report(report: TrackerReport):
 
     calculated_position = positioning.calculate_position(
         detected_beacons=report.detectedBeacons,
-        miniprogram_config=miniprogram_cfg, # Pass the whole miniprogram_cfg
-        # signal_propagation_factor is inside miniprogram_cfg.settings
+        miniprogram_config=web_ui_cfg,
+        # signal_propagation_factor is inside web_ui_cfg.settings
     )
 
     filtered_position: Optional[Tuple[float, float]] = None
@@ -491,40 +500,129 @@ async def process_tracker_report(report: TrackerReport):
     )
     tracker_states[tracker_id] = new_state
 
-    update_data = {tracker_id: new_state.model_dump()} # Use model_dump for Pydantic v2+
-    await manager.broadcast({"type": "tracker_update", "data": update_data})
+    # Prepare data for WebSocket broadcast
+    position_payload = None
+    if new_state.x is not None and new_state.y is not None:
+        position_payload = {"x": new_state.x, "y": new_state.y}
+        # Add accuracy if available and needed by frontend, e.g.:
+        # if kf and hasattr(kf, 'get_accuracy_somehow'): 
+        #    position_payload['accuracy'] = kf.get_accuracy_somehow()
+
+    # Construct the data payload for the specific tracker_id
+
+    enriched_detected_beacons = []
+    if new_state.last_detected_beacons and web_ui_cfg and web_ui_cfg.beacons:
+        configured_beacons_map = {b.macAddress: b for b in web_ui_cfg.beacons if b.macAddress} # Create a map for quick lookup by MAC
+        for detected_b in new_state.last_detected_beacons:
+            enriched_b_data = detected_b.model_dump() # Start with macAddress, rssi, etc. from DetectedBeacon
+            configured_b = configured_beacons_map.get(detected_b.macAddress)
+            if configured_b:
+                enriched_b_data['txPower'] = configured_b.txPower
+                enriched_b_data['name'] = configured_b.displayName
+                enriched_b_data['configured_x'] = configured_b.x
+                enriched_b_data['configured_y'] = configured_b.y
+            else:
+                # If no matching configured beacon by MAC, fill with None or defaults for consistency if needed
+                enriched_b_data['txPower'] = None 
+                enriched_b_data['name'] = 'Unknown Beacon'
+                enriched_b_data['configured_x'] = None
+                enriched_b_data['configured_y'] = None
+            enriched_detected_beacons.append(enriched_b_data)
+    else:
+        # Fallback if no web_ui_cfg.beacons or no detected_beacons, send basic detected beacon info
+        enriched_detected_beacons = [b.model_dump() for b in new_state.last_detected_beacons] if new_state.last_detected_beacons else []
+
+    tracker_data_payload = {
+        "trackerId": new_state.trackerId,
+        "timestamp": new_state.last_update_time, 
+        "position": position_payload, 
+        "last_detected_beacons": enriched_detected_beacons, # Use the enriched list
+        "position_history": new_state.position_history
+    }
+
+    await manager.broadcast({
+        "type": "tracker_update", 
+        "data": {tracker_id: tracker_data_payload}
+    })
+
+# --- Configuration Loading for Web UI ---
+def load_web_ui_config() -> Optional[WebUIConfig]:
+    global web_ui_cfg
+    if not os.path.exists(WEB_CONFIG_FILE_PATH):
+        log.info(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH}. Initializing with defaults.")
+        # Initialize with default if file doesn't exist
+        default_settings = WebUISettings() # Use direct model name
+        web_ui_cfg = WebUIConfig(map=None, beacons=[], settings=default_settings)
+        save_web_ui_config(web_ui_cfg) # Save the initial default config
+        return web_ui_cfg
+    try:
+        with open(WEB_CONFIG_FILE_PATH, 'r') as f:
+            data = json.load(f)
+            web_ui_cfg = WebUIConfig(**data)
+            log.info(f"Web UI configuration loaded successfully from {WEB_CONFIG_FILE_PATH}.")
+            return web_ui_cfg
+    except FileNotFoundError:
+        log.warning(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
+        return None # Should not happen if check above is correct
+    except json.JSONDecodeError as e:
+        log.error(f"Error decoding JSON from Web UI config file {WEB_CONFIG_FILE_PATH}: {e}")
+        return None
+    except Exception as e:
+        log.error(f"Failed to load Web UI configuration from {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
+        return None
+
+def save_web_ui_config(config_data: WebUIConfig) -> bool:
+    try:
+        with open(WEB_CONFIG_FILE_PATH, 'w') as f:
+            json.dump(config_data.model_dump(mode='json'), f, indent=4)
+        log.info(f"Web UI configuration saved successfully to {WEB_CONFIG_FILE_PATH}.")
+        return True
+    except Exception as e:
+        log.error(f"Failed to save Web UI configuration to {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
+        return False
 
 # --- FastAPI Event Handlers ---
 @app.on_event("startup")
 async def startup_event():
     """Runs on application startup. Loads both configurations and sets up MQTT."""
-    global miniprogram_cfg, runtime_cfg, main_event_loop
+    global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg
     
     # Capture the running event loop for thread-safe calls from MQTT callback
     main_event_loop = asyncio.get_running_loop()
     
-    log.info("Application startup: Loading configurations...")
+    log.info("Server startup sequence initiated.")
     
-    # Load configurations using the config_manager (which caches them)
-    miniprogram_cfg = config_manager.get_miniprogram_config()
-    runtime_cfg = config_manager.get_server_runtime_config()
-
-    if not miniprogram_cfg:
-        log.warning("Miniprogram configuration could not be loaded. Features depending on map/beacons may fail.")
+    # Load server runtime configuration first as it might be needed by other components
+    runtime_cfg = config_manager.load_server_runtime_config()
     if not runtime_cfg:
-        log.error("Server runtime configuration could not be loaded. MQTT and server settings might be missing. Critical error.")
-    # REMOVED: Auto MQTT setup on startup
-    # else:
-    #     # Setup MQTT if enabled in the loaded runtime_cfg
-    #     if runtime_cfg.mqtt and runtime_cfg.mqtt.enabled and runtime_cfg.mqtt.brokerHost:
-    #         log.info("Proceeding with MQTT setup based on runtime configuration.")
-    #         setup_mqtt()
-    #     elif runtime_cfg.mqtt and not runtime_cfg.mqtt.enabled:
-    #         log.info("MQTT client is disabled in server_runtime_config.json.")
-    #     else:
-    #         log.warning("MQTT brokerHost not configured or MQTT config section missing in server_runtime_config.json. Skipping MQTT setup.")
-            
-    log.info("Application startup complete. MQTT will not connect automatically. Use API to connect.")
+        log.error("Critical: Server runtime configuration could not be loaded. MQTT and other services might not start.")
+        # Depending on desired behavior, could raise an exception or proceed with limited functionality
+    else:
+        log.info(f"Server runtime configuration loaded. MQTT enabled: {runtime_cfg.mqtt.enabled}")
+
+    # Load miniprogram configuration
+    miniprogram_cfg = config_manager.load_miniprogram_config()
+    if not miniprogram_cfg:
+        log.warning("Miniprogram configuration (map_beacon_config.json) not found or failed to load. Positioning may be affected.")
+    else:
+        log.info("Miniprogram configuration (map_beacon_config.json) loaded.")
+
+    # Load Web UI configuration
+    web_ui_cfg = load_web_ui_config() # This will create a default if not found
+    if not web_ui_cfg:
+        log.warning("Web UI configuration (web_config.json) not found or failed to load. Web UI may not function as expected initially.")
+    else:
+        log.info("Web UI configuration (web_config.json) loaded/initialized.")
+
+    if runtime_cfg and runtime_cfg.mqtt.enabled:
+        setup_mqtt() # Initialize and connect MQTT client
+    else:
+        log.info("MQTT client is disabled in server runtime configuration. Skipping MQTT setup.")
+        global mqtt_connection_status
+        mqtt_connection_status = "disabled"
+        await broadcast_mqtt_status() # Inform clients that MQTT is disabled
+    
+    log.info("Server startup complete.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -544,7 +642,6 @@ async def read_root():
     # Ensure the path is correct relative to where the server is run
     client_html_path = "../client/index.html"
     # Check if file exists? Better handled by StaticFiles mount, but good practice.
-    import os
     if os.path.exists(client_html_path):
          return FileResponse(client_html_path)
     else:
@@ -649,7 +746,7 @@ async def update_api_server_runtime_config(config_payload: config_manager.Server
             # Handle MQTT client based on changes
             if config_payload.mqtt:
                 # If MQTT settings are present in payload, but it's marked as not enabled (e.g. checkbox was there and unchecked)
-                # OR if the intention is to disable (though we removed the explicit checkbox for enabled)
+                # OR if the intention is to disable (though we removed the explicit 'enabled' flag check for disconnection here.
                 # For now, removing the direct 'enabled' flag check for disconnection here.
                 # Disconnection will be handled by manual API call or if essential config (like broker) is removed.
                 # if not config_payload.mqtt.enabled: <--- REMOVED THIS CONDITION
@@ -727,25 +824,69 @@ async def websocket_endpoint(websocket: WebSocket):
     """Handles WebSocket connections."""
     await manager.connect(websocket)
     try:
-        # Send initial state upon connection?
-        initial_state = {tid: ts.model_dump() for tid, ts in tracker_states.items()}
-        await websocket.send_json({"type": "initial_state", "data": initial_state})
-
         while True:
-            # Keep connection alive, wait for messages (though we mostly broadcast)
-            # You could add handling for client->server messages here if needed
             data = await websocket.receive_text()
-            log.debug(f"Received message from WebSocket client {websocket.client}: {data}")
-            # Example: client could request resync
-            if data == "request_sync":
-                 full_state = {tid: ts.model_dump() for tid, ts in tracker_states.items()}
-                 await websocket.send_json({"type": "full_state", "data": full_state})
+            log.info(f"WebSocket received: {data}")
+            try:
+                message = json.loads(data)
+                command = message.get("command")
+
+                if command == "startScan":
+                    log.info("Start scan command received.")
+                    # TODO: Implement actual Bluetooth scanning logic here
+                    # For now, send a confirmation that scan started.
+                    await manager.broadcast({"type": "info", "message": "Scanning started."})
+                elif command == "stopScan":
+                    log.info("Stop scan command received.")
+                    # TODO: Implement logic to stop Bluetooth scanning here
+                    # For now, send a confirmation that scan stopped.
+                    await manager.broadcast({"type": "info", "message": "Scanning stopped."})
+                elif message.get("action") == "request_initial_data": # Example action, kept for now
+                    # Send initial data if needed
+                    await manager.broadcast({"type": "initial_data", "payload": "some_initial_state"})
+                else:
+                    log.warning(f"Unknown command/action received: {message}")
+                    await manager.broadcast({"type": "error", "message": "Unknown command"})
+
+            except json.JSONDecodeError:
+                log.error(f"Error decoding JSON from WebSocket: {data}")
+                await manager.broadcast({"type": "error", "message": "Error decoding JSON"})
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
         log.error(f"WebSocket error for client {websocket.client}: {e}", exc_info=True)
         manager.disconnect(websocket) # Ensure disconnect on error
+
+# --- Web UI Configuration Endpoints ---
+@app.post("/api/configuration/web", status_code=200)
+async def upload_web_ui_config(config_content: WebUIConfig, response: Response):
+    global web_ui_cfg
+    try:
+        if save_web_ui_config(config_content):
+            web_ui_cfg = config_content # Update in-memory cache
+            log.info("Web UI configuration successfully received and saved.")
+            return {"message": "Web UI configuration saved successfully."}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save Web UI configuration to file.")
+    except Exception as e:
+        log.error(f"Error processing uploaded Web UI configuration: {e}", exc_info=True)
+        # It's good practice to re-raise HTTPException or return a proper error response
+        raise HTTPException(status_code=500, detail=f"Internal server error while saving Web UI configuration: {str(e)}")
+
+@app.get("/api/configuration/web", response_model=Optional[WebUIConfig])
+async def get_web_ui_config():
+    global web_ui_cfg
+    # Ensure it's loaded on first request if not already by startup (though startup should handle it)
+    if web_ui_cfg is None:
+        log.info("Web UI config not in memory, attempting to load from file for GET request.")
+        load_web_ui_config() # Attempt to load it if somehow missed by startup or cleared
+    
+    if web_ui_cfg:
+        return web_ui_cfg
+    else:
+        log.warning("GET /api/configuration/web: No Web UI configuration available after load attempt.")
+        return WebUIConfig(map=None, beacons=[], settings=WebUISettings()) # Use direct model name
 
 # --- Main Execution ---
 if __name__ == "__main__":
