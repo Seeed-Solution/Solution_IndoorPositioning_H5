@@ -35,15 +35,30 @@ FRONTEND_PID=$!
 echo "Waiting for frontend to start..."
 sleep 10
 
-# Open browser - Using chromium-browser which is common on Raspberry Pi
+# Open browser based on OS
 echo "Opening browser..."
-DISPLAY=:0 chromium-browser --start-fullscreen http://localhost:5173 &
-BROWSER_PID=$!
+OS=$(uname -s)
+case "$OS" in
+    Darwin)
+        # macOS
+        open http://localhost:5173 &
+        ;;
+    Linux)
+        # Linux
+        xdg-open http://localhost:5173 &
+        ;;
+    MINGW*|CYGWIN*)
+        # Windows (Git Bash/Cygwin)
+        start http://localhost:5173 &
+        ;;
+    *)
+        echo "Unknown OS: $OS. Cannot automatically open browser. Please navigate to http://localhost:5173 manually."
+        ;;
+esac
 
 # Function to handle script termination
 cleanup() {
     echo "Shutting down services..."
-    kill $BROWSER_PID 2>/dev/null
     kill $FRONTEND_PID 2>/dev/null
     kill $BACKEND_PID 2>/dev/null
     exit 0

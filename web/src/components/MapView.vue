@@ -142,7 +142,7 @@ const drawMap = (ctx) => {
     ctx.save();
     ctx.translate(beaconX, beaconY);
     ctx.scale(1, -1); // Flip text back
-    ctx.fillText(beacon.name || `B(${beacon.major},${beacon.minor})`, 8, 4);
+    ctx.fillText(beacon.displayName || `B(${beacon.major},${beacon.minor})`, 8, 4);
     ctx.restore();
   });
 
