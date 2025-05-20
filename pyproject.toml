@@ -13,3 +13,6 @@ dependencies = [
     "uvicorn[standard]>=0.34.2",
     "websockets>=15.0.1",
 ]
+
+[tool.uv.workspace]
+members = ["bleak_service"]
