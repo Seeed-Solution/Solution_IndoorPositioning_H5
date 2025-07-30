@@ -100,7 +100,7 @@
            <div>
             <label>MAC Address / Device ID:</label>
             <input type="text" v-model="editingBeacon.deviceId" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
-            <small>This is typically the Bluetooth device ID from the scan. For some beacons, it might be a MAC address if known.</small>
+            <small>This is the physical MAC address (Device ID) from the scan. This is the ONLY identifier used to detect duplicate devices. UUID/Major/Minor can be the same for devices from the same manufacturer.</small>
           </div>
 
           <div v-if="beaconModalMode === 'edit' || (beaconModalMode === 'add' && editingBeacon.uuid)" class="form-actions coordinate-actions">
@@ -470,13 +470,13 @@ const attemptStartScan = async () => {
     return;
   }
 
-  // Get MAC addresses of already configured beacons
+  // Get Device IDs (MAC addresses) of already configured beacons
   const currentConfiguredBeacons = props.initialBeacons || [];
   const ignoredMacAddresses = currentConfiguredBeacons
-    .map(b => b.macAddress) // Use macAddress field
+    .map(b => b.deviceId) // Use deviceId field (physical MAC address)
     .filter(mac => mac && typeof mac === 'string' && mac.trim() !== ''); // Filter out invalid/empty MACs
 
-  console.log("[BeaconManagerTab] Attempting to start scan, ignoring MACs:", ignoredMacAddresses);
+  console.log("[BeaconManagerTab] Attempting to start scan, ignoring Device IDs:", ignoredMacAddresses);
 
   scanResults.value = []; 
   scanStatusMessage.value = 'Sending start scan command to local service...';
@@ -568,15 +568,16 @@ const saveBeacon = () => {
 
   if (beaconModalMode.value === 'add') {
     const alreadyExists = configuredBeacons.value.some(
-        b => b.uuid.toUpperCase() === beaconDataToSave.uuid.toUpperCase() &&
-             b.major === beaconDataToSave.major &&
-             b.minor === beaconDataToSave.minor &&
-             ((b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId) ||
-              (!b.deviceId && !beaconDataToSave.deviceId))
+        b => {
+          // 只基于物理MAC地址（deviceId）检测重复
+          // UUID、Major、Minor相同没关系，可能是同一厂商的多个设备
+          const deviceIdMatch = (b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId);
+          return deviceIdMatch;
+        }
     );
 
     if (alreadyExists) {
-        scanStatusMessage.value = "Error: A beacon with the same UUID, Major, Minor, and Device ID already exists.";
+        scanStatusMessage.value = "Error: A beacon with the same Device ID (MAC address) already exists.";
         scanStatusType.value = 'error';
         setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
         return; 
@@ -600,14 +601,15 @@ const saveBeacon = () => {
     if (editingBeaconIndex.value > -1 && editingBeaconIndex.value < configuredBeacons.value.length) {
       const otherBeacons = configuredBeacons.value.filter((_, i) => i !== editingBeaconIndex.value);
       const alreadyExistsOnEdit = otherBeacons.some(
-        b => b.uuid.toUpperCase() === beaconDataToSave.uuid.toUpperCase() &&
-             b.major === beaconDataToSave.major &&
-             b.minor === beaconDataToSave.minor &&
-             ((b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId) ||
-              (!b.deviceId && !beaconDataToSave.deviceId))
+        b => {
+          // 只基于物理MAC地址（deviceId）检测重复
+          // UUID、Major、Minor相同没关系，可能是同一厂商的多个设备
+          const deviceIdMatch = (b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId);
+          return deviceIdMatch;
+        }
       );
       if (alreadyExistsOnEdit) {
-        scanStatusMessage.value = "Error: Editing this beacon would create a duplicate (same UUID, Major, Minor, Device ID) of another existing beacon.";
+        scanStatusMessage.value = "Error: Editing this beacon would create a duplicate (same Device ID (MAC address)) of another existing beacon.";
         scanStatusType.value = 'error';
         setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
         return;
@@ -645,19 +647,9 @@ const isBeaconAlreadyConfigured = (scannedBeacon) => {
   // console.log('[BeaconManagerTab] Checking if beacon is already configured. Scanned beacon ID:', scannedBeacon.id, 'UUID:', scannedBeacon.uuid);
   const result = configuredBeacons.value.some(
     b => {
-      const uuidMatch = b.uuid && scannedBeacon.uuid && b.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase();
-      const majorMatch = b.major === scannedBeacon.major;
-      const minorMatch = b.minor === scannedBeacon.minor;
+      // 只基于物理MAC地址（deviceId）检测重复
+      // UUID、Major、Minor相同没关系，可能是同一厂商的多个设备
       const deviceIdMatch = (b.deviceId && scannedBeacon.id && b.deviceId === scannedBeacon.id);
-      
-      if (scannedBeacon.uuid && scannedBeacon.uuid !== 'N/A' && scannedBeacon.major !== 'N/A' && scannedBeacon.minor !== 'N/A') {
-        const configuredIsSimilarIBeacon = b.uuid && b.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase() &&
-                                       b.major === scannedBeacon.major &&
-                                       b.minor === scannedBeacon.minor;
-        if (configuredIsSimilarIBeacon) {
-            return true; 
-        }
-      }
       return deviceIdMatch;
     }
   );

@@ -53,6 +53,7 @@ import { ref, watch, onMounted, computed, nextTick } from 'vue';
 const padding = 20; // Define padding here
 const mapPixelWidth = ref(0); // Define as ref
 const mapPixelHeight = ref(0); // Define as ref
+const mapOriginOffset = ref({ x: 0, y: 0 }); // To store the calculated offset
 
 const pendingPlacementCoordinates = ref(null); // {x, y} in map meters
 const showPlacementConfirmation = ref(false);
@@ -103,11 +104,40 @@ const validateFullConfigStructure = (jsonData) => {
          typeof jsonData.settings.signalPropagationFactor === 'number';
 };
 
+const calculateMapOffset = (mapLayout) => {
+  if (!mapLayout || !mapLayout.entities || !Array.isArray(mapLayout.entities) || mapLayout.entities.length === 0) {
+    mapOriginOffset.value = { x: 0, y: 0 };
+    return;
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+
+  mapLayout.entities.forEach(entity => {
+    if (entity.type === 'polyline' && entity.points && Array.isArray(entity.points)) {
+      entity.points.forEach(point => {
+        if (Array.isArray(point) && point.length >= 2) {
+            if (point[0] < minX) minX = point[0];
+            if (point[1] < minY) minY = point[1];
+        }
+      });
+    }
+  });
+
+  if (minX !== Infinity && minY !== Infinity) {
+    mapOriginOffset.value = { x: minX, y: minY };
+  } else {
+    mapOriginOffset.value = { x: 0, y: 0 };
+  }
+  console.log('Calculated map offset:', mapOriginOffset.value);
+};
+
 // This function is called when the PARENT (ConfigurationSuiteView) loads a full configuration
 // and pushes it down to this component.
 const loadConfiguration = (fullConfig) => {
   if (validateFullConfigStructure(fullConfig)) {
     currentMapLayout.value = JSON.parse(JSON.stringify(fullConfig.map));
+    calculateMapOffset(currentMapLayout.value);
     // props.configuredBeacons will be updated by the parent, which displayBeacons uses.
     // props.settings are handled by GeneralSettingsTab, but map might use some display settings from it if needed.
     // The settings relevant to map rendering (like scale, if any) should be part of currentMapLayout or directly from fullConfig.settings
@@ -232,9 +262,11 @@ const redrawMap = () => {
       if (entity.type === 'polyline' && Array.isArray(entity.points) && entity.points.length > 0) {
         ctx.beginPath();
         entity.points.forEach((point, index) => {
-          const pixelX = mapOffsetX + point.x * mapScale;
+          const translatedX = point[0] - mapOriginOffset.value.x;
+          const translatedY = point[1] - mapOriginOffset.value.y;
+          const pixelX = mapOffsetX + translatedX * mapScale;
           // Y is inverted: map (0,0) is bottom-left, canvas (0,0) is top-left
-          const pixelY = mapOffsetY + (mapMeterHeight - point.y) * mapScale; 
+          const pixelY = mapOffsetY + (mapMeterHeight - translatedY) * mapScale; 
           if (index === 0) ctx.moveTo(pixelX, pixelY);
           else ctx.lineTo(pixelX, pixelY);
         });
@@ -253,8 +285,11 @@ const redrawMap = () => {
   // Draw beacons
   beaconsToDraw.forEach(beacon => {
     if (typeof beacon.x !== 'number' || typeof beacon.y !== 'number') return;
-    const beaconPixelX = mapOffsetX + beacon.x * mapScale;
-    const beaconPixelY = mapOffsetY + (mapMeterHeight - beacon.y) * mapScale;
+    
+    const translatedBeaconX = beacon.x - mapOriginOffset.value.x;
+    const translatedBeaconY = beacon.y - mapOriginOffset.value.y;
+    const beaconPixelX = mapOffsetX + translatedBeaconX * mapScale;
+    const beaconPixelY = mapOffsetY + (mapMeterHeight - translatedBeaconY) * mapScale;
     
     const isSelectedForPlacement = props.selectedBeaconForPlacement && props.selectedBeaconForPlacement.deviceId === beacon.deviceId && props.selectedBeaconForPlacement.uuid === beacon.uuid;
 
@@ -273,8 +308,10 @@ const redrawMap = () => {
 
   // Draw pending placement marker
   if (showPlacementConfirmation.value && pendingPlacementCoordinates.value && props.selectedBeaconForPlacement) {
-    const tempX = mapOffsetX + pendingPlacementCoordinates.value.x * mapScale;
-    const tempY = mapOffsetY + (mapMeterHeight - pendingPlacementCoordinates.value.y) * mapScale;
+    const translatedX = pendingPlacementCoordinates.value.x - mapOriginOffset.value.x;
+    const translatedY = pendingPlacementCoordinates.value.y - mapOriginOffset.value.y;
+    const tempX = mapOffsetX + translatedX * mapScale;
+    const tempY = mapOffsetY + (mapMeterHeight - translatedY) * mapScale;
     ctx.beginPath();
     ctx.arc(tempX, tempY, 9, 0, 2 * Math.PI); // Slightly larger or different style
     ctx.fillStyle = 'rgba(0, 255, 0, 0.6)'; // Green for pending
@@ -295,8 +332,11 @@ const redrawMap = () => {
       typeof props.currentLocalDevicePosition.x === 'number' && 
       typeof props.currentLocalDevicePosition.y === 'number') {
     const pos = props.currentLocalDevicePosition;
-    const pixelX = mapOffsetX + pos.x * mapScale;
-    const pixelY = mapOffsetY + (mapMeterHeight - pos.y) * mapScale;
+
+    const translatedX = pos.x - mapOriginOffset.value.x;
+    const translatedY = pos.y - mapOriginOffset.value.y;
+    const pixelX = mapOffsetX + translatedX * mapScale;
+    const pixelY = mapOffsetY + (mapMeterHeight - translatedY) * mapScale;
 
     ctx.beginPath();
     ctx.arc(pixelX, pixelY, 7, 0, 2 * Math.PI, false);
@@ -351,8 +391,11 @@ const handleMapClick = (event) => {
       bufferPixelY >= mapOffsetY - padding/2 && bufferPixelY <= mapOffsetY + mapPixelHeight.value + padding/2) {
 
     // Convert buffer pixel coordinates to map meter coordinates
-    const mapX = (bufferPixelX - mapOffsetX) / mapScale;
-    const mapY = mapMeterHeight - ((bufferPixelY - mapOffsetY) / mapScale); // Invert Y-axis for map coordinates
+    const relativeMapX = (bufferPixelX - mapOffsetX) / mapScale;
+    const relativeMapY = mapMeterHeight - ((bufferPixelY - mapOffsetY) / mapScale); // Invert Y-axis for map coordinates
+
+    const mapX = relativeMapX + mapOriginOffset.value.x;
+    const mapY = relativeMapY + mapOriginOffset.value.y;
 
     console.log(`Map clicked CSS (X:${cssPixelX.toFixed(2)}, Y:${cssPixelY.toFixed(2)}), Buffer (X:${bufferPixelX.toFixed(2)}, Y:${bufferPixelY.toFixed(2)}), converted to map (X:${mapX.toFixed(2)}, Y:${mapY.toFixed(2)})`);
 
@@ -421,10 +464,12 @@ watch(() => props.initialMapData, (newMapData) => {
   if (newMapData) {
     console.log("MapEditorTab: initialMapData prop changed, updating currentMapLayout.", newMapData);
     currentMapLayout.value = JSON.parse(JSON.stringify(newMapData));
+    calculateMapOffset(currentMapLayout.value);
     redrawMap();
   } else {
     // If initialMapData becomes null (e.g. parent clears config), clear local map display
     currentMapLayout.value = null;
+    calculateMapOffset(null);
     redrawMap(); 
   }
 }, { deep: true, immediate: true }); // immediate: true to run on component mount
