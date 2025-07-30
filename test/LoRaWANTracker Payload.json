@@ -1,0 +1,98 @@
+{
+    "deduplicationId": "b8a177c6-df6b-45d6-85b3-d77ce7ecaab7",
+    "time": "2025-04-24T03:35:04.412879166+00:00",
+    "deviceInfo": {
+        "tenantId": "52f14cd4-c6f1-4fbd-8f87-4025e1d49242",
+        "tenantName": "ChirpStack",
+        "applicationId": "f55580c4-e524-44ff-bd28-43a829d12e5d",
+        "applicationName": "LoRaWAN Tracker",
+        "deviceProfileId": "22567135-0ffa-4322-9e34-0111c2227616",
+        "deviceProfileName": "LoRaWAN Tracker - A",
+        "deviceName": "TrackerD4",
+        "devEui": "2cf7f1c05460045d",
+        "deviceClassEnabled": "CLASS_A",
+        "tags": {}
+    },
+    "devAddr": "0043eb0d",
+    "adr": true,
+    "dr": 5,
+    "fCnt": 17,
+    "fPort": 5,
+    "confirmed": false,
+    "data": "CwAAAABoCbFewwAAPn3vrsMAAD592qnDAAA+feCjIQ==",
+    "object": {
+        "valid": true,
+        "err": 0.0,
+        "payload": "0b000000006809b15ec300003e7defaec300003e7ddaa9c300003e7de0a321",
+        "messages": [
+            [
+                {
+                    "measurementValue": [],
+                    "measurementId": "4200",
+                    "timestamp": 1745465694000.0,
+                    "motionId": 0.0,
+                    "type": "Event Status"
+                },
+                {
+                    "measurementValue": [
+                        {
+                            "rssi": "-82",
+                            "mac": "C3:00:00:3E:7D:EF"
+                        },
+                        {
+                            "mac": "C3:00:00:3E:7D:DA",
+                            "rssi": "-87"
+                        },
+                        {
+                            "rssi": "-93",
+                            "mac": "C3:00:00:3E:7D:E0"
+                        }
+                    ],
+                    "measurementId": "5002",
+                    "type": "BLE Scan",
+                    "timestamp": 1745465694000.0,
+                    "motionId": 0.0
+                },
+                {
+                    "motionId": 0.0,
+                    "type": "Battery",
+                    "timestamp": 1745465694000.0,
+                    "measurementValue": 33.0,
+                    "measurementId": "3000"
+                }
+            ]
+        ]
+    },
+    "rxInfo": [
+        {
+            "gatewayId": "aa555a0000000000",
+            "uplinkId": 25772,
+            "nsTime": "2025-04-24T03:35:04.193120965+00:00",
+            "rssi": -68,
+            "snr": 3.5,
+            "channel": 2,
+            "rfChain": 1,
+            "location": {
+                "latitude": 37.7749,
+                "longitude": -122.4194,
+                "altitude": -122.41940307617188
+            },
+            "context": "qo2DGA==",
+            "metadata": {
+                "region_common_name": "EU868",
+                "region_config_id": "eu868"
+            },
+            "crcStatus": "CRC_OK"
+        }
+    ],
+    "txInfo": {
+        "frequency": 868500000,
+        "modulation": {
+            "lora": {
+                "bandwidth": 125000,
+                "spreadingFactor": 7,
+                "codeRate": "CR_4_5"
+            }
+        }
+    }
+}

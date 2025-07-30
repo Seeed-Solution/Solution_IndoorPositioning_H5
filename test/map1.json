@@ -1,0 +1,38 @@
+{
+  "map": {
+    "width": 9.0,
+    "height": 5.0,
+    "entities": [
+      {
+        "type": "polyline",
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            9.0,
+            0.0
+          ],
+          [
+            9.0,
+            5.0
+          ],
+          [
+            0.0,
+            5.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        "closed": true
+      }
+    ]
+  },
+  "beacons": [],
+  "settings": {
+      "signalPropagationFactor": 2.5
+  }
+}

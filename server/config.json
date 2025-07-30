@@ -1,0 +1,54 @@
+{
+  "mapInfo": {
+    "width": 50.0,
+    "height": 30.0,
+    "entities": [
+      {
+        "type": "wall",
+        "points": [[0,0], [50,0], [50,30], [0,30]],
+        "closed": true,
+        "color": "#333333",
+        "lineWidth": 0.1
+      }
+    ]
+  },
+  "beacons": [
+    {
+      "macAddress": "C3:00:00:3E:7D:EF",
+      "name": "Beacon Near Door",
+      "txPower": -59,
+      "x": 5.5,
+      "y": 10.2
+    },
+    {
+      "macAddress": "C3:00:00:3E:7D:DA",
+      "name": "Beacon Center",
+      "txPower": -61,
+      "x": 25.0,
+      "y": 15.0
+    },
+    {
+      "macAddress": "C3:00:00:3E:7D:E0",
+      "name": "Beacon Corner",
+      "txPower": -60,
+      "x": 45.8,
+      "y": 28.1
+    }
+  ],
+  "settings": {
+    "signalPropagationFactor": 2.8,
+    "kalmanProcessVariance": 0.5,
+    "kalmanMeasurementVariance": 8.0
+  },
+  "mqtt": {
+    "brokerHost": "your_mqtt_broker_address",
+    "brokerPort": 1883,
+    "username": "your_mqtt_username_or_null",
+    "password": "your_mqtt_password_or_null",
+    "applicationID": "f55580c4-e524-44ff-bd28-43a829d12e5d",
+    "topicPattern": "application/{ApplicationID}/device/+/event/up"
+  },
+  "server": {
+    "port": 8081
+  }
+} 
