@@ -2,6 +2,23 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
+// 根据环境变量决定代理目标
+const isProduction = process.env.NODE_ENV === 'production'
+const isRemoteDev = process.env.VITE_USE_REMOTE === 'true'
+
+// 开发环境：默认使用本地服务器，可通过环境变量切换到远程
+const apiTarget = isRemoteDev 
+  ? 'http://indoorpositioning-demo.seeed.cc/config-master:8022'
+  : 'http://localhost:8022'
+
+const wsTarget = isRemoteDev
+  ? 'wss://indoorpositioning-demo.seeed.cc:8022'
+  : 'ws://localhost:8022'
+
+console.log(`[Vite Config] Environment: ${process.env.NODE_ENV || 'development'}`)
+console.log(`[Vite Config] API Target: ${apiTarget}`)
+console.log(`[Vite Config] WebSocket Target: ${wsTarget}`)
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
@@ -16,14 +33,14 @@ export default defineConfig({
     proxy: {
       // Proxy API requests to your FastAPI backend
       '/api': {
-        target: 'http://indoorpositioning-demo.seeed.cc/config-master:8022', // Your FastAPI backend address and port
+        target: apiTarget,
         changeOrigin: true, // Recommended for most cases
         // secure: false, // Uncomment if your backend is HTTPS with self-signed cert
         // rewrite: (path) => path.replace(/^\/api/, '') // Uncomment if your backend API routes don't include /api
       },
       // Proxy WebSocket requests
       '/ws': {
-        target: 'wss://indoorpositioning-demo.seeed.cc:8022', // Your FastAPI backend WebSocket address and port
+        target: wsTarget,
         ws: true,
         changeOrigin: true,
       }

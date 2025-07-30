@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "dev:local": "vite --host",
+    "dev:remote": "VITE_USE_REMOTE=true vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
