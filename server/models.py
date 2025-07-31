@@ -61,7 +61,7 @@ class WebUIBeaconConfig(BaseModel):
     txPower: int = Field(..., description="Measured RSSI at 1m for distance calculation")
     displayName: Optional[str] = Field(default=None, description="User-friendly display name for the beacon")
     macAddress: Optional[str] = Field(default=None, description="Physical MAC address, if known/relevant")
-    # deviceId is not used here as uuid/major/minor are primary keys
+    deviceId: Optional[str] = Field(default=None, description="Device ID for backward compatibility - will be mapped to macAddress")
 
 class WebUISettings(BaseModel):
     signalPropagationFactor: float = Field(default=2.5, ge=1.0, le=6.0, description="Path loss exponent 'n' for RSSI to distance conversion")
@@ -70,6 +70,7 @@ class WebUIConfig(BaseModel):
     map: Optional[WebUIMapInfo] = None # Map can be optional initially
     beacons: List[WebUIBeaconConfig] = []
     settings: WebUISettings
+    is_darwin: Optional[bool] = Field(default=False, description="True if MAC addresses are virtual (server running on macOS)")
 
 
 # --- Models for Server-Side Runtime Configuration (e.g., server_runtime_config.json) ---
@@ -113,12 +114,14 @@ class TrackerReport(BaseModel):
 
 class TrackerState(BaseModel):
     trackerId: str
+    tracker_number: int  # 固定的数字标记
     x: Optional[float] = None
     y: Optional[float] = None
     last_update_time: int # Unix ms timestamp (server time of this update)
     last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
     last_detected_beacons: List[DetectedBeacon] = [] 
     position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
+    used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
 
 # --- Old combined ConfigData and CommonSettings (can be removed after refactoring) ---
 # class OldBeaconConfig(BaseModel):

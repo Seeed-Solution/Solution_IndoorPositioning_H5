@@ -9,6 +9,7 @@
         <input type="file" @change="handleImportFullConfigurationFile" accept=".json" ref="importFileRef" style="display: none;" />
         <button @click="triggerImportFile" :disabled="isLoadingConfig" class="button-primary">Import Configuration from File</button>
         <button @click="exportFullConfiguration" :disabled="!currentConfiguration.map || isLoadingConfig">Export Configuration to Clipboard</button>
+        <button @click="saveConfigurationToServer" :disabled="!currentConfiguration.map || isLoadingConfig" class="save-to-server-btn">保存配置到服务器</button>
         <p class="info-banner info" style="margin-top:10px;">This section is for creating or modifying a complete map and beacon setup. Use 'Export' to copy the configuration, then import it into 'Personal Mode' or 'Tracker Mode'. Changes here are for the current session and are not automatically saved to the server or other modes.</p>
       </div>
     </div>
@@ -61,10 +62,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import BeaconManagerTab from '@/components/configuration/BeaconManagerTab.vue';
 import MapEditorTab from '@/components/configuration/MapEditorTab.vue';
 import GeneralSettingsTab from '@/components/configuration/GeneralSettingsTab.vue';
+import { saveWebConfiguration } from '@/services/configApiService.js';
+import { processBeaconsForPlatform } from '@/utils/platformUtils';
 // Removed: loadWebConfiguration, saveWebConfiguration from configApiService
 
 const SESSION_STORAGE_KEY = 'masterConfigData';
@@ -131,7 +134,16 @@ const handleBeaconsUpdated = (newBeacons) => {
   console.log('  Data received (newBeacons):', JSON.parse(JSON.stringify(newBeacons)));
   console.log('  currentConfiguration.beacons BEFORE update:', JSON.parse(JSON.stringify(currentConfiguration.value.beacons)));
   
-  currentConfiguration.value.beacons = JSON.parse(JSON.stringify(newBeacons));
+  // 确保所有beacon的deviceId字段被映射为macAddress，以便后端识别
+  const mappedBeacons = newBeacons.map(beacon => {
+    const mappedBeacon = JSON.parse(JSON.stringify(beacon));
+    if (mappedBeacon.deviceId && !mappedBeacon.macAddress) {
+      mappedBeacon.macAddress = mappedBeacon.deviceId;
+    }
+    return mappedBeacon;
+  });
+  
+  currentConfiguration.value.beacons = mappedBeacons;
   
   console.log('  currentConfiguration.beacons AFTER update:', JSON.parse(JSON.stringify(currentConfiguration.value.beacons)));
   console.log('  Length of currentConfiguration.beacons AFTER update:', currentConfiguration.value.beacons ? currentConfiguration.value.beacons.length : 'N/A');
@@ -373,17 +385,21 @@ const handleImportFullConfigurationFile = (event) => {
 };
 
 const exportFullConfiguration = () => {
-  if (!currentConfiguration.value.map && currentConfiguration.value.beacons.length === 0) {
-    configStatusMessage.value = 'No configuration data (map or beacons) to export.';
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
-    return;
-  }
   try {
-    const jsonString = JSON.stringify(currentConfiguration.value, null, 2);
+    // 创建配置的深拷贝以避免修改原始数据
+    const configToExport = JSON.parse(JSON.stringify(currentConfiguration.value));
+    
+    // 处理 beacon 的平台兼容性映射
+    if (configToExport.beacons && Array.isArray(configToExport.beacons)) {
+      configToExport.beacons = processBeaconsForPlatform(configToExport.beacons);
+      console.log('[MasterConfigView] 已对导出配置应用平台兼容性处理');
+    }
+    
+    const jsonString = JSON.stringify(configToExport, null, 2);
     navigator.clipboard.writeText(jsonString).then(() => {
-      configStatusMessage.value = 'Configuration copied to clipboard.';
-    }).catch(err => {
-      configStatusMessage.value = 'Failed to copy to clipboard. See console for error. You may need to grant clipboard permissions.';
+      configStatusMessage.value = 'Configuration copied to clipboard (with platform compatibility processing).';
+    }).catch((err) => {
+      configStatusMessage.value = 'Failed to copy to clipboard. Check console for details.';
       console.error('Clipboard write error:', err);
     });
   } catch (e) {
@@ -391,6 +407,26 @@ const exportFullConfiguration = () => {
     console.error('JSON serialization error:', e);
   }
   setTimeout(() => { configStatusMessage.value = '' }, 7000);
+};
+
+const saveConfigurationToServer = async () => {
+  if (!currentConfiguration.value.map) {
+    configStatusMessage.value = '没有地图配置，无法保存到服务器。请先创建或导入地图。';
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    return;
+  }
+  isLoadingConfig.value = true;
+  configStatusMessage.value = '正在保存配置到服务器...';
+  try {
+    const response = await saveWebConfiguration(currentConfiguration.value);
+    configStatusMessage.value = response.message || '配置已成功保存到服务器！';
+    console.log("Save response:", response);
+  } catch (error) {
+    console.error("Failed to save configuration to server:", error);
+    configStatusMessage.value = `保存配置到服务器失败: ${error.message}`;
+  }
+  isLoadingConfig.value = false;
+  setTimeout(() => { configStatusMessage.value = '' }, 5000);
 };
 
 // --- Server-related functions are REMOVED ---
@@ -402,15 +438,23 @@ const exportFullConfiguration = () => {
 const processAndApplyFullConfig = (configData, successMessage) => {
   if (configData && (configData.map || Array.isArray(configData.beacons) || configData.settings) ) {
     // Ensure all parts are at least initialized to prevent errors if some are missing from import
+    let processedConfigData = JSON.parse(JSON.stringify(configData));
+    
+    // 处理 beacon 的平台兼容性映射
+    if (processedConfigData.beacons && Array.isArray(processedConfigData.beacons)) {
+      processedConfigData.beacons = processBeaconsForPlatform(processedConfigData.beacons);
+      console.log('[MasterConfigView] 已对导入配置应用平台兼容性处理');
+    }
+    
     const newConfig = {
-        map: configData.map ? JSON.parse(JSON.stringify(configData.map)) : currentConfiguration.value.map || null,
-        beacons: Array.isArray(configData.beacons) ? JSON.parse(JSON.stringify(configData.beacons)) : currentConfiguration.value.beacons || [],
-        settings: configData.settings ? JSON.parse(JSON.stringify(configData.settings)) : currentConfiguration.value.settings || initialConfiguration().settings,
+        map: processedConfigData.map ? JSON.parse(JSON.stringify(processedConfigData.map)) : currentConfiguration.value.map || null,
+        beacons: Array.isArray(processedConfigData.beacons) ? JSON.parse(JSON.stringify(processedConfigData.beacons)) : currentConfiguration.value.beacons || [],
+        settings: processedConfigData.settings ? JSON.parse(JSON.stringify(processedConfigData.settings)) : currentConfiguration.value.settings || initialConfiguration().settings,
     };
     currentConfiguration.value = newConfig;
     selectedBeaconForPlacement.value = null; 
 
-    configStatusMessage.value = successMessage;
+    configStatusMessage.value = successMessage + ' (with platform compatibility processing)';
     
     nextTick(() => {
       if (beaconManagerTabRef.value?.loadConfiguredBeacons) {
@@ -517,5 +561,34 @@ onMounted(() => {
 .tabs-navigation button:hover:not(.active) {
   /* background-color: var(--hover-bg-color, #f5f5f5); */ /* Removed hover background */
   color: var(--primary-color); /* Green text on hover for inactive tabs */
+}
+
+.page-title {
+  text-align: center;
+}
+
+.actions-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.save-to-server-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.save-to-server-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.save-to-server-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
 }
 </style>
