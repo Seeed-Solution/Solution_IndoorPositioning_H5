@@ -432,6 +432,7 @@ def on_message(client, userdata, msg):
     global main_event_loop # Access the main event loop
 
     # log.info(f"MQTT Message Received: Topic: {msg.topic}") # Can be very noisy
+
     topic_parts = msg.topic.split('/')
     if not msg.topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
         log.warning(f"Received message on unexpected or incomplete topic structure: {msg.topic}")
@@ -446,7 +447,7 @@ def on_message(client, userdata, msg):
 
     # log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})") # Can be noisy
     report = parse_sensecap_payload(device_eui, msg.payload)
-
+    log.info(f"开始进行蓝牙定位计算: eui=>{device_eui}")
     if report:
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
@@ -486,6 +487,7 @@ async def process_tracker_report(report: TrackerReport):
         device_id=tracker_id
         # signal_propagation_factor is inside web_ui_cfg.settings
     )
+
 
     filtered_position: Optional[Tuple[float, float]] = None
     kf = kalman_filters.get(tracker_id)

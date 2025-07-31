@@ -130,7 +130,7 @@ def calculate_position(
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             if distance > 0.1 and distance < 100:
                 beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance))
-                log.info(f"device(id: {device_id}): Using beacon: {beacon_info.name or beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
+                log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:
                 log.warning(f"device(id: {device_id}): Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to invalid calculated distance: {distance:.2f}m (RSSI: {detected.rssi}, Tx: {beacon_info.txPower})")
         elif detected.macAddress:
@@ -149,7 +149,7 @@ def calculate_position(
         # Reverting the previous change of allowing 2 beacons for the least_squares function, 
         # as it's more robust with 3. If only 2 are available, it will be handled by the function itself returning None.
         return None
-
+    log.info(f"device(id: {device_id}) 完成蓝牙测距, beacons_with_coords_dist:{beacons_with_coords_dist}")
     estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
 
     if estimated_position:
