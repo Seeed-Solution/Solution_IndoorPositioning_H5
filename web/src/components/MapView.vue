@@ -166,7 +166,10 @@ const drawMap = (ctx) => {
            // Display first few chars of trackerId inside the circle
            ctx.fillText(tracker.trackerId.substring(0, 3), 0, 0);
            ctx.restore();
+           console.log(`tracker(${tracker.trackerId}) 绘制成功`)
+         return
        }
+       console.log(`tracker(${tracker.trackerId}) 绘制失败, 无定位信息`)
    });
 
   // --- Draw Tracker Trails (if enabled) ---
