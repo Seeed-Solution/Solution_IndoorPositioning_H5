@@ -257,7 +257,8 @@ def _initialize_mqtt_client():
         log.warning("MQTT runtime configuration not available for client initialization.")
         return None
     code = random.randint(100000, 999999)
-    runtime_cfg.mqtt.clientID.format(clientID=code)
+    # runtime_cfg.mqtt.clientID.format(clientID=code)
+    runtime_cfg.mqtt.clientID = runtime_cfg.mqtt.clientID.replace("{clientID}", str(code))
     mqtt_cfg = runtime_cfg.mqtt
     try:
         client_id_to_use = mqtt_cfg.clientID
