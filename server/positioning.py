@@ -109,6 +109,7 @@ def calculate_position(
         if detected.macAddress:
             for cfg_beacon in miniprogram_config.beacons: # Use miniprogram_config.beacons
                 # The macAddress field in MiniprogramBeaconConfig is populated via AliasChoices
+                detected.macAddress = detected.macAddress.replace(":", "")
                 if cfg_beacon.macAddress and cfg_beacon.macAddress.lower() == detected.macAddress.lower():
                     beacon_info = cfg_beacon
                     break
