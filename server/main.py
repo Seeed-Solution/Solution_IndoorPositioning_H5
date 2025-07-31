@@ -9,6 +9,7 @@ import datetime
 import time
 from typing import List, Dict, Optional, Any, Tuple
 import os # Keep one os import
+import random
 
 # Import project modules
 # from . import config_manager
@@ -255,10 +256,12 @@ def _initialize_mqtt_client():
     if not runtime_cfg or not runtime_cfg.mqtt:
         log.warning("MQTT runtime configuration not available for client initialization.")
         return None
-
+    code = random.randint(100000, 999999)
+    runtime_cfg.mqtt.clientID.format(clientID=code)
     mqtt_cfg = runtime_cfg.mqtt
     try:
         client_id_to_use = mqtt_cfg.clientID
+
         if client_id_to_use:
             new_client = mqtt.Client(client_id=client_id_to_use)
         else:
@@ -270,6 +273,7 @@ def _initialize_mqtt_client():
         new_client.on_connect = on_connect
         new_client.on_disconnect = on_disconnect
         new_client.on_message = on_message
+        log.info(f"本次 mqtt-client: {client_id_to_use}")
         return new_client
     except Exception as e:
         log.error(f"Error initializing MQTT client: {e}", exc_info=True)

@@ -6,7 +6,7 @@
     "password": "A3DF22EE57A24818AB036074D2053CAC59A1FE01C19441AF9873048DE6A79835",
     "applicationID": "449120059189248",
     "topicPattern": "/device_sensor_data/{ApplicationID}/+/+/+/+",
-    "clientID": "org-449120059189248-85488915",
+    "clientID": "org-449120059189248-{clientID}",
     "enabled": true
   },
   "server": {
