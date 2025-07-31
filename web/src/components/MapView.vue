@@ -148,8 +148,7 @@ const drawMap = (ctx) => {
 
    // --- Draw Trackers ---
    props.trackers.forEach(tracker => {
-     console.log(`搜到 tracker 信息(${JSON.stringify(tracker)})`)
-       if (tracker.x !== null && tracker.y !== null) {
+       if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
            const trackerX = tracker.x * currentScale;
            const trackerY = tracker.y * currentScale;
            ctx.beginPath();
