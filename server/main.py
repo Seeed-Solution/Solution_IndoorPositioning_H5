@@ -466,6 +466,7 @@ async def process_tracker_report(report: TrackerReport):
     calculated_position = positioning.calculate_position(
         detected_beacons=report.detectedBeacons,
         miniprogram_config=web_ui_cfg,
+        device_id=tracker_id
         # signal_propagation_factor is inside web_ui_cfg.settings
     )
 

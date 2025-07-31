@@ -87,7 +87,8 @@ def multilateration_least_squares(beacons_with_dist: List[Tuple[float, float, fl
 def calculate_position(
     detected_beacons: List[DetectedBeacon],
     miniprogram_config: MiniprogramConfig, # Changed from ConfigData to MiniprogramConfig
-    last_known_position: Optional[Tuple[float, float]] = None
+    last_known_position: Optional[Tuple[float, float]] = None,
+    device_id: str = ""
     ) -> Optional[Tuple[float, float]]:
     """
     Main function to calculate position from detected beacons and miniprogram_config.
@@ -114,29 +115,29 @@ def calculate_position(
                     beacon_info = cfg_beacon
                     break
         else:
-            log.warning(f"Detected beacon report without MAC address: {detected}. Cannot match.")
+            log.warning(f"device(id: {device_id}) Detected beacon report without MAC address: {detected}. Cannot match.")
             continue # Skip this detected beacon if it has no MAC
 
         if beacon_info:
             if not hasattr(beacon_info, 'txPower') or beacon_info.txPower is None:
-                log.warning(f"Beacon {beacon_info.name or beacon_info.macAddress} from config is missing txPower. Skipping.")
+                log.warning(f"device(id: {device_id}): Beacon {beacon_info.name or beacon_info.macAddress} from config is missing txPower. Skipping.")
                 continue
 
             if detected.rssi > 0 or detected.rssi < -120:
-                log.warning(f"Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to implausible RSSI: {detected.rssi}")
+                log.warning(f"device(id: {device_id}): Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to implausible RSSI: {detected.rssi}")
                 continue
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             if distance > 0.1 and distance < 100:
                 beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance))
-                log.info(f"Using beacon: {beacon_info.name or beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
+                log.info(f"device(id: {device_id}): Using beacon: {beacon_info.name or beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:
-                log.warning(f"Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to invalid calculated distance: {distance:.2f}m (RSSI: {detected.rssi}, Tx: {beacon_info.txPower})")
+                log.warning(f"device(id: {device_id}): Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to invalid calculated distance: {distance:.2f}m (RSSI: {detected.rssi}, Tx: {beacon_info.txPower})")
         elif detected.macAddress:
-            log.warning(f"Detected beacon with MAC {detected.macAddress} not found in miniprogram_config.")
+            log.warning(f"device(id: {device_id}) Detected beacon with MAC {detected.macAddress} not found in miniprogram_config.")
 
     if len(beacons_with_coords_dist) < 2: 
-        log.info(f"Not enough valid beacon signals ({len(beacons_with_coords_dist)}) for multilateration (need at least 2, 3+ recommended).")
+        log.info(f"device(id: {device_id}): Not enough valid beacon signals ({len(beacons_with_coords_dist)}) for multilateration (need at least 2, 3+ recommended).")
         return None
     # For multilateration_least_squares, it internally checks for < 3 beacons.
     # If we allow 2 beacons here, multilateration_least_squares might return None or fail if it strictly needs 3.
@@ -144,7 +145,7 @@ def calculate_position(
     # For now, multilateration_least_squares itself handles the < 3 case. 
     # We could provide a simpler 2-beacon positioning if len is 2.
     if len(beacons_with_coords_dist) < 3:
-        log.info(f"Multilateration requires at least 3 beacons, got {len(beacons_with_coords_dist)}. Skipping position calculation.")
+        log.info(f"device(id: {device_id}): Multilateration requires at least 3 beacons, got {len(beacons_with_coords_dist)}. Skipping position calculation.")
         # Reverting the previous change of allowing 2 beacons for the least_squares function, 
         # as it's more robust with 3. If only 2 are available, it will be handled by the function itself returning None.
         return None
@@ -152,9 +153,9 @@ def calculate_position(
     estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
 
     if estimated_position:
-        log.info(f"Multilateration successful. Estimated position: {estimated_position}")
+        log.info(f"device(id: {device_id}): Multilateration successful. Estimated position: {estimated_position}")
     else:
-        log.info("Multilateration failed to estimate a position.")
+        log.info("device(id: {device_id}): Multilateration failed to estimate a position.")
 
     return estimated_position
 
