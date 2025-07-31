@@ -114,7 +114,7 @@ class TrackerReport(BaseModel):
 
 class TrackerState(BaseModel):
     trackerId: str
-    tracker_number: int  # 固定的数字标记
+    tracker_number: Optional[int] = None  # 固定的数字标记
     x: Optional[float] = None
     y: Optional[float] = None
     last_update_time: int # Unix ms timestamp (server time of this update)

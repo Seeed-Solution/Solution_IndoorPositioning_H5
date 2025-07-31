@@ -528,6 +528,7 @@ async def process_tracker_report(report: TrackerReport):
     cutoff_time_ms = current_time_ms - history_time_window_ms
     current_position_history = [p for p in current_position_history if p[2] >= cutoff_time_ms]
 
+    log.info(f"device({tracker_id}) 最终定位: ${current_position_history}") # Can be noisy
     new_state = TrackerState(
         trackerId=tracker_id,
         x=filtered_position[0] if filtered_position else (last_state.x if last_state else None),
