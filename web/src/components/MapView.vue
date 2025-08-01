@@ -149,8 +149,8 @@ const drawMap = (ctx) => {
    // --- Draw Trackers ---
    props.trackers.forEach(tracker => {
        if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
-           const trackerX = tracker.x * currentScale;
-           const trackerY = tracker.y * currentScale;
+           const trackerX = tracker.position.x * currentScale;
+           const trackerY = tracker.position.y * currentScale;
            ctx.beginPath();
            ctx.arc(trackerX, trackerY, 7, 0, 2 * Math.PI); // Draw tracker as a slightly larger circle
            ctx.fillStyle = 'blue';
