@@ -86536,6 +86536,39 @@
       "displayName": "MBeacon",
       "macAddress": "c300003e7daa",
       "is_darwin": true
+    },
+    {
+      "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07649901",
+      "major": 10001,
+      "minor": 19641,
+      "x": 17.29,
+      "y": 26.45,
+      "txPower": -59,
+      "displayName": "BC01  - OD01",
+      "macAddress": "C30000564B61",
+      "is_darwin": true
+    },
+    {
+      "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07649902",
+      "major": 10001,
+      "minor": 19641,
+      "x": 17.29,
+      "y": 26.45,
+      "txPower": -59,
+      "displayName": "BC02  - OD02",
+      "macAddress": "C30000564B59",
+      "is_darwin": true
+    },
+    {
+      "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07649903\n",
+      "major": 10001,
+      "minor": 19641,
+      "x": 17.29,
+      "y": 26.45,
+      "txPower": -59,
+      "displayName": "BC02  - OD03",
+      "macAddress": "C30000564B5C",
+      "is_darwin": true
     }
   ],
   "settings": {

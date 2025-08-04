@@ -151,21 +151,31 @@ const drawMap = (ctx) => {
        if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
            const trackerX = tracker.position.x * currentScale;
            const trackerY = tracker.position.y * currentScale;
+           
+           // Draw tracker circle with transparency
            ctx.beginPath();
-           ctx.arc(trackerX, trackerY, 7, 0, 2 * Math.PI); // Draw tracker as a slightly larger circle
-           ctx.fillStyle = 'blue';
+           ctx.arc(trackerX, trackerY, 8, 0, 2 * Math.PI); // Slightly larger circle
+           ctx.fillStyle = 'rgba(0, 123, 255, 0.7)'; // Blue with 70% opacity
            ctx.fill();
-           ctx.fillStyle = 'white';
-           ctx.font = 'bold 10px Arial';
-           ctx.textAlign = 'center';
+           
+           // Add border for better visibility
+           ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)'; // Darker blue border
+           ctx.lineWidth = 2;
+           ctx.stroke();
+           
+           // Draw text to the right of the circle
+           ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Dark text with slight transparency
+           ctx.font = 'bold 11px Arial';
+           ctx.textAlign = 'left';
            ctx.textBaseline = 'middle';
+           
            // Draw text upright despite flipped context
            ctx.save();
-           ctx.translate(trackerX, trackerY);
+           ctx.translate(trackerX + 12, trackerY); // Position text to the right of circle
            ctx.scale(1, -1); // Flip text back
-           // Display first few chars of trackerId inside the circle
-           ctx.fillText(tracker.trackerId.substring(0, 3), 0, 0);
+           ctx.fillText(tracker.trackerId.substring(10), 0, 0); // Show more chars
            ctx.restore();
+           
            console.log(`tracker(${tracker.trackerId}) 绘制成功`)
          return
        }

@@ -176,15 +176,15 @@ const beaconModalMode = ref('add'); // 'add' or 'edit'
 const editingBeaconIndex = ref(-1);
 
 const initialEditingBeacon = () => ({
-  uuid: '',
-  major: null,
-  minor: null,
+  uuid: 'FDA50693-A4E2-4FB1-AFCF-C6EB07647825',
+  major: 10001,
+  minor: 19641,
   x: 0,
   y: 0,
   txPower: -59,
-  displayName: '',
-  macAddress: '', 
-  deviceId: '' 
+  displayName: 'BC01',
+  macAddress: 'C3:00:00:3E:7D:DA', 
+  deviceId: 'C3:00:00:3E:7D:DA' 
 });
 const editingBeacon = ref(initialEditingBeacon());
 
