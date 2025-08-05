@@ -42,6 +42,13 @@
 
     <!-- 地图部分 -->
     <div class="maps-container" v-if="availableMaps.length > 0">
+      <!-- 全屏按钮 -->
+      <div class="maps-header">
+        <h2>地图总览</h2>
+        <button @click="enterFullscreen" class="btn-fullscreen">
+          <i class="fas fa-expand"></i> 全屏显示
+        </button>
+      </div>
       <div class="maps-grid">
         <div v-for="(mapConfig, index) in availableMaps" :key="index" class="map-grid-item">
           <div class="map-dashboard-card">
@@ -105,6 +112,41 @@
         </div>
       </div>
     </div>
+
+    <!-- 全屏模式 -->
+    <div v-if="isFullscreen" class="fullscreen-overlay">
+      <div class="fullscreen-container">
+        <!-- 右上角退出按钮 -->
+        <button @click="exitFullscreen" class="btn-close-floating">
+          <i class="fas fa-times"></i>
+        </button>
+
+        <!-- 全屏地图网格 -->
+        <div class="fullscreen-maps-grid">
+          <div v-for="(mapConfig, index) in availableMaps.slice(0, 4)" :key="index" class="fullscreen-map-item">
+            <div class="fullscreen-map-card">
+              <!-- Map Header -->
+              <div class="fullscreen-map-header">
+                <h4>{{ mapConfig.map?.name || `Map ${index + 1}` }}</h4>
+                <div class="fullscreen-map-stats">
+                  <span><i class="fas fa-broadcast-tower"></i> {{ mapConfig.beacons?.length || 0 }}</span>
+                  <span><i class="fas fa-map-marker-alt"></i> {{ Object.keys(getTrackersForMap(mapConfig)).length }}</span>
+                </div>
+              </div>
+              
+              <!-- Map Display -->
+              <div class="fullscreen-map-display">
+                <MapView 
+                  :config="mapConfig"
+                  :trackers="Object.values(getTrackersForMap(mapConfig))"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 </template>
 
@@ -140,12 +182,24 @@ const initialMasterConfig = () => ({
 });
 const currentFullConfig = ref(initialMasterConfig());
 
+// 全屏模式状态
+const isFullscreen = ref(false);
+const currentPage = ref(0);
+const mapsPerPage = 4;
+
 // Computed properties
 const totalMaps = computed(() => availableMaps.value.length);
 const totalBeacons = computed(() => 
   availableMaps.value.reduce((total, mapConfig) => total + (mapConfig.beacons?.length || 0), 0)
 );
 const totalTrackers = computed(() => Object.keys(trackers.value).length);
+
+// 分页计算
+const totalPages = computed(() => Math.ceil(availableMaps.value.length / mapsPerPage));
+const paginatedMaps = computed(() => {
+  const start = currentPage.value * mapsPerPage;
+  return availableMaps.value.slice(start, start + mapsPerPage);
+});
 
 const wsStatusText = computed(() => {
   switch (wsStatus.value) {
@@ -375,9 +429,20 @@ const loadAvailableMaps = async () => {
 };
 
 const getTrackersForMap = (mapConfig) => {
-  // TODO: 根据地图配置筛选相关的tracker
-  // 现在返回所有tracker，后续可以根据地图区域或beacon配置进行筛选
-  return trackers.value;
+  // 根据地图名称筛选相关的tracker
+  const mapName = mapConfig.map?.name;
+  if (!mapName) {
+    return {};
+  }
+  
+  const filteredTrackers = {};
+  Object.entries(trackers.value).forEach(([trackerId, tracker]) => {
+    if (tracker.map === mapName) {
+      filteredTrackers[trackerId] = tracker;
+    }
+  });
+  
+  return filteredTrackers;
 };
 
 
@@ -395,10 +460,46 @@ const goToConfiguration = () => {
   router.push('/config-master');
 };
 
+// 全屏功能
+const enterFullscreen = () => {
+  isFullscreen.value = true;
+  // 阻止body滚动
+  document.body.style.overflow = 'hidden';
+};
+
+const exitFullscreen = () => {
+  isFullscreen.value = false;
+  // 恢复body滚动
+  document.body.style.overflow = '';
+};
+
+// 分页控制
+const goToPreviousPage = () => {
+  if (currentPage.value > 0) {
+    currentPage.value--;
+  }
+};
+
+const goToNextPage = () => {
+  if (currentPage.value < totalPages.value - 1) {
+    currentPage.value++;
+  }
+};
+
+// 键盘事件处理
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    exitFullscreen();
+  }
+};
+
 // Lifecycle
 onMounted(() => {
   console.log('[MapDashboard] Component mounted, connecting WebSocket...');
   connectWebSocket();
+  
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
@@ -407,6 +508,12 @@ onUnmounted(() => {
     ws.value.onclose = null;
     ws.value.close();
   }
+  
+  // 移除键盘事件监听
+  window.removeEventListener('keydown', handleKeydown);
+  
+  // 确保恢复body滚动
+  document.body.style.overflow = '';
 });
 </script>
 
@@ -562,6 +669,38 @@ onUnmounted(() => {
 
 .maps-container {
   margin-bottom: 2rem;
+}
+
+.maps-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0 1rem;
+}
+
+.maps-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.btn-fullscreen {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #0056b3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-fullscreen:hover {
+  background-color: #004494;
 }
 
 .maps-grid {
@@ -737,5 +876,246 @@ onUnmounted(() => {
 
 .fas {
   margin-right: 0.25rem;
+}
+
+/* 全屏模式样式 */
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.fullscreen-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  background-color: white;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* 浮动关闭按钮 */
+.btn-close-floating {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-close-floating:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+.fullscreen-maps-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem 1rem 0 1rem;
+  overflow: hidden;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.fullscreen-map-item {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.fullscreen-map-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.fullscreen-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.fullscreen-map-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.fullscreen-map-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.fullscreen-map-stats i {
+  color: #0056b3;
+  margin-right: 0.25rem;
+}
+
+.fullscreen-map-display {
+  flex: 1;
+  background-color: #f8f9fa;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.fullscreen-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+.pagination-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-info {
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.btn-page {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: white;
+  color: #0056b3;
+  border: 1px solid #0056b3;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-page:hover:not(:disabled) {
+  background-color: #0056b3;
+  color: white;
+}
+
+.btn-page:disabled {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  border-color: #dee2e6;
+  cursor: not-allowed;
+}
+
+.page-dots {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.page-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #dee2e6;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.page-dot:hover {
+  background-color: #adb5bd;
+}
+
+.page-dot.active {
+  background-color: #0056b3;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .fullscreen-overlay {
+    padding: 0.5rem;
+  }
+  
+  .fullscreen-maps-grid {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .fullscreen-maps-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+  }
+  
+  .fullscreen-pagination {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .pagination-center {
+    order: -1;
+  }
+  
+  .btn-close-floating {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
 }
 </style>
