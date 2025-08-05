@@ -19,6 +19,7 @@ import time
 from typing import List, Dict, Optional, Any, Tuple
 import os # Keep one os import
 import random
+from server.components.beacon_holder import beacon_holder
 
 # Import project modules
 # from . import config_manager
@@ -35,8 +36,8 @@ import random
 from server import config_manager
 from server import positioning
 from server.models import ( # Grouped imports for models
-    DetectedBeacon, TrackerReport, TrackerState,
-    MiniprogramConfig, WebUIConfig,
+    DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
+    MiniprogramConfig, WebUIConfig, DashboardConfig,
     WebUISettings # Import WebUISettings directly
 )
 from server.positioning import KalmanFilter2D
@@ -53,6 +54,7 @@ app = FastAPI()
 
 # Define the path for the web configuration file
 WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "web_config.json")
+DASHBOARD_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "dashboard_config.json")
 
 # Path to the default test configuration file
 # Assuming 'test/config2.json' is relative to the project root where server/main.py might be, or a sibling to 'server' directory.
@@ -75,6 +77,7 @@ except RuntimeError:
 # Replace single current_config with two separate config holders
 miniprogram_cfg: Optional[MiniprogramConfig] = None
 web_ui_cfg: Optional[WebUIConfig] = None # Added for web UI config
+dashboard_cfg: Optional[DashboardConfig] = None
 runtime_cfg: Optional[config_manager.ServerRuntimeConfig] = None # Use qualified name to avoid circular import if ServerRuntimeConfig is also defined here
 main_event_loop: Optional[asyncio.AbstractEventLoop] = None # Added for thread-safe coroutine scheduling
 mqtt_connection_status: str = "disconnected" # Added for live MQTT status
@@ -83,6 +86,7 @@ is_mqtt_intentionally_disconnected: bool = False # Flag for manual disconnects
 tracker_states: Dict[str, TrackerState] = {} # Stores the latest state for each tracker
 kalman_filters: Dict[str, KalmanFilter2D] = {} # Stores Kalman filter instance per tracker
 mqtt_client: Optional[mqtt.Client] = None
+beacon_map: Dict[str, WebUIBeaconConfig] = {}
 
 # --- WebSocket Connection Manager ---
 class ConnectionManager:
@@ -470,7 +474,7 @@ def on_message(client, userdata, msg):
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters
+    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg
 
     if not web_ui_cfg or not web_ui_cfg.beacons:
         log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
@@ -545,7 +549,8 @@ async def process_tracker_report(report: TrackerReport):
         last_update_time=current_time_ms,
         last_known_measurement_time=report.timestamp,
         last_detected_beacons=report.detectedBeacons,
-        position_history=current_position_history
+        position_history=current_position_history,
+        map= calculated_position[2]
     )
     tracker_states[tracker_id] = new_state
 
@@ -586,7 +591,8 @@ async def process_tracker_report(report: TrackerReport):
         "timestamp": new_state.last_update_time, 
         "position": position_payload, 
         "last_detected_beacons": enriched_detected_beacons, # Use the enriched list
-        "position_history": new_state.position_history
+        "position_history": new_state.position_history,
+        "map": calculated_position[2]
     }
 
     await manager.broadcast({
@@ -596,7 +602,7 @@ async def process_tracker_report(report: TrackerReport):
 
 # --- Configuration Loading for Web UI ---
 def load_web_ui_config() -> Optional[WebUIConfig]:
-    global web_ui_cfg
+    global web_ui_cfg, beacon_map
     if not os.path.exists(WEB_CONFIG_FILE_PATH):
         log.info(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH}. Initializing with defaults.")
         # Initialize with default if file doesn't exist
@@ -609,6 +615,11 @@ def load_web_ui_config() -> Optional[WebUIConfig]:
             data = json.load(f)
             web_ui_cfg = WebUIConfig(**data)
             log.info(f"Web UI configuration loaded successfully from {WEB_CONFIG_FILE_PATH}.")
+            # if web_ui_cfg and len(web_ui_cfg.beacons):
+            #     for beacon in web_ui_cfg.beacons:
+            #         if not beacon.map:
+            #             beacon = web_ui_cfg.map.name
+            #         beacon_map[beacon.macAddress] = beacon
             return web_ui_cfg
     except FileNotFoundError:
         log.warning(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
@@ -618,6 +629,30 @@ def load_web_ui_config() -> Optional[WebUIConfig]:
         return None
     except Exception as e:
         log.error(f"Failed to load Web UI configuration from {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
+        return None
+
+def load_dashboard_config() -> Optional[DashboardConfig]:
+    global dashboard_cfg, beacon_map
+    if not os.path.exists(DASHBOARD_CONFIG_FILE_PATH):
+        log.info(f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH}. Initializing with defaults.")
+        dashboard_cfg = DashboardConfig(maps=[])
+        # save_web_ui_config(dashboard_cfg) # Save the initial default config
+        return dashboard_cfg
+    try:
+        with open(DASHBOARD_CONFIG_FILE_PATH, 'r') as f:
+            data = json.load(f)
+            dashboard_cfg = DashboardConfig(**data)
+            log.info(f"Dashboard configuration loaded successfully from {DASHBOARD_CONFIG_FILE_PATH}.")
+            beacon_holder.update_by_dashboard_config(dashboard_cfg)
+            return dashboard_cfg
+    except FileNotFoundError:
+        log.warning(f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
+        return None # Should not happen if check above is correct
+    except json.JSONDecodeError as e:
+        log.error(f"Error decoding JSON from Dashboard config file {DASHBOARD_CONFIG_FILE_PATH}: {e}")
+        return None
+    except Exception as e:
+        log.error(f"Failed to load Dashboard configuration from {DASHBOARD_CONFIG_FILE_PATH}: {e}", exc_info=True)
         return None
 
 def save_web_ui_config(config_data: WebUIConfig) -> bool:
@@ -733,6 +768,10 @@ async def get_api_miniprogram_config():
         # depending on whether a missing config is a server error or resource not found.
         log.warning("/api/config called but miniprogram_cfg is not loaded.")
         raise HTTPException(status_code=503, detail="Miniprogram configuration not loaded.")
+
+@app.get("/api/test", response_model=Optional[WebUIBeaconConfig])
+async def api_test(mac: str):
+    return beacon_holder.get_beacon(mac)
 
 @app.get("/api/trackers")
 async def get_trackers():
@@ -937,6 +976,21 @@ async def get_web_ui_config():
         log.warning("GET /api/configuration/web: No Web UI configuration available after load attempt.")
         return WebUIConfig(map=None, beacons=[], settings=WebUISettings()) # Use direct model name
 
+
+@app.get("/api/configuration/dashboard", response_model=Optional[DashboardConfig])
+async def get_dashboard_config():
+    global dashboard_cfg
+    # Ensure it's loaded on first request if not already by startup (though startup should handle it)
+    if dashboard_cfg is None:
+        # log.info("Web UI config not in memory, attempting to load from file for GET request.") # Reduced verbosity
+        load_dashboard_config()  # Attempt to load it if somehow missed by startup or cleared
+
+    if dashboard_cfg:
+        return dashboard_cfg
+    else:
+        log.warning("GET /api/configuration/dashboard: No Dashboard configuration available after load attempt.")
+        return DashboardConfig(maps=None)  # Use direct model name
+
 @app.get("/api/default-test-config")
 async def get_default_test_config():
     if not os.path.exists(DEFAULT_TEST_CONFIG_PATH):
@@ -977,5 +1031,7 @@ if __name__ == "__main__":
         # Fallback if server_runtime_config.json is missing or malformed for port.
 
     log.info(f"Starting Uvicorn server on host 0.0.0.0 port {server_port}")
+    load_dashboard_config()
+    load_web_ui_config()
     # Uvicorn should be run from project root: uvicorn server.main:app --reload
     uvicorn.run(app, host="0.0.0.0", port=server_port) 

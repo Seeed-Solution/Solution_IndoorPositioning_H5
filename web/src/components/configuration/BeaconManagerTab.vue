@@ -99,7 +99,7 @@
           </div>
            <div>
             <label>MAC Address / Device ID:</label>
-            <input type="text" v-model="editingBeacon.deviceId" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
+            <input type="text" v-model="editingBeacon.macAddress" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
             <small>This is the physical MAC address (Device ID) from the scan. This is the ONLY identifier used to detect duplicate devices. UUID/Major/Minor can be the same for devices from the same manufacturer.</small>
           </div>
 
@@ -183,8 +183,8 @@ const initialEditingBeacon = () => ({
   y: 0,
   txPower: -59,
   displayName: 'BC01',
-  macAddress: 'C3:00:00:3E:7D:DA', 
-  deviceId: 'C3:00:00:3E:7D:DA' 
+  macAddress: 'c3000056dda',
+  deviceId: 'c3000056dda'
 });
 const editingBeacon = ref(initialEditingBeacon());
 
@@ -556,6 +556,11 @@ const saveBeacon = () => {
 
   const beaconDataToSave = JSON.parse(JSON.stringify(editingBeacon.value));
 
+  // 确保 macAddress 和 deviceId 保持同步，使用用户输入的值
+  if (beaconDataToSave.deviceId) {
+    beaconDataToSave.macAddress = beaconDataToSave.deviceId;
+  }
+
   // Ensure UUID is consistently uppercase
   if (beaconDataToSave.uuid) {
     beaconDataToSave.uuid = String(beaconDataToSave.uuid).toUpperCase();
@@ -678,7 +683,7 @@ const addScannedBeaconToForm = (scannedBeaconData) => {
     y: 0, 
     txPower: scannedBeaconData.txPower, // Already a number (default or parsed) from handleBeaconFound
     displayName: scannedBeaconData.displayName, // Already prepared by handleBeaconFound
-    macAddress: '', // MAC address is not consistently available from noble scan result's main properties for iBeacons
+    macAddress: scannedBeaconData.id || '', // 使用扫描到的设备 ID 作为 MAC 地址
     deviceId: scannedBeaconData.id 
   };
   editingBeaconIndex.value = -1;

@@ -26,6 +26,23 @@ export const loadWebConfiguration = async () => {
   }
 };
 
+export const loadDashboardConfiguration = async () => {
+  try {
+    const response = await apiClient.get('/configuration/dashboard');
+    return response.data; // FastAPI should return the WebUIConfig model or null/default
+  } catch (error) {
+    console.error('Error loading dashboard configuration from server:', error);
+    // Enhance error handling: check error.response for server-side error details
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to load configuration.');
+    } else {
+      throw new Error(`Failed to load dashboard configuration: ${error.message}`);
+    }
+  }
+};
+
 export const saveWebConfiguration = async (configData) => {
   try {
     const response = await apiClient.post('/configuration/web', configData);

@@ -1,0 +1,334 @@
+{
+  "maps": [
+    {
+        "map": {
+            "name": "9楼 a 区",
+            "width": 33.000011086948234,
+            "height": 33.417400656890884,
+            "entities": [
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                }
+            ]
+        },
+        "beacons": [
+            {
+                "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                "major": 10001,
+                "minor": 19641,
+                "x": 13.96,
+                "y": 31.63,
+                "txPower": -59,
+                "displayName": "BC01",
+                "macAddress": "c30000564b60",
+                "deviceId": null
+            }
+        ],
+        "settings": {
+            "signalPropagationFactor": 2.5
+        },
+        "is_darwin": false
+    },
+    {
+        "map": {
+            "name": "9楼 b 区",
+            "width": 33.000011086948234,
+            "height": 33.417400656890884,
+            "entities": [
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                }
+            ]
+        },
+        "beacons": [
+            {
+                "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                "major": 10001,
+                "minor": 19641,
+                "x": 13.96,
+                "y": 31.63,
+                "txPower": -59,
+                "displayName": "BC01",
+                "macAddress": "c30000564b60",
+                "deviceId": null
+            }
+        ],
+        "settings": {
+            "signalPropagationFactor": 2.5
+        },
+        "is_darwin": false
+    },
+    {
+        "map": {
+            "name": "10楼",
+            "width": 33.000011086948234,
+            "height": 33.417400656890884,
+            "entities": [
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                },
+                {
+                    "type": "polyline",
+                    "points": [
+                        [
+                            22.38831596472545,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            10.285598525696114
+                        ],
+                        [
+                            23.21440320007497,
+                            11.93777299639513
+                        ]
+                    ],
+                    "closed": false,
+                    "strokeColor": null,
+                    "lineWidth": null,
+                    "fillColor": null
+                }
+            ]
+        },
+        "beacons": [
+            {
+                "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                "major": 10001,
+                "minor": 19641,
+                "x": 13.96,
+                "y": 31.63,
+                "txPower": -59,
+                "displayName": "BC01",
+                "macAddress": "c30000564b60",
+                "deviceId": null
+            }
+        ],
+        "settings": {
+            "signalPropagationFactor": 2.5
+        },
+        "is_darwin": false
+    }
+  ]
+}

@@ -2,8 +2,6 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
-// 根据环境变量决定代理目标
-const isProduction = process.env.NODE_ENV === 'production'
 const isRemoteDev = process.env.VITE_USE_REMOTE === 'false'
 
 // 开发环境：默认使用本地服务器，可通过环境变量切换到远程
@@ -13,7 +11,7 @@ const apiTarget = isRemoteDev
 
 const wsTarget = isRemoteDev
   ? 'wss://indoorpositioning-demo.seeed.cc:8022'
-  : 'ws://localhost:8081'
+  : 'ws://localhost:8022'
 
 console.log(`[Vite Config] Environment: ${process.env.NODE_ENV || 'development'}`)
 console.log(`[Vite Config] API Target: ${apiTarget}`)

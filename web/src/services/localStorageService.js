@@ -20,9 +20,12 @@ export const saveConfigToLocalStorage = (configData) => {
  * Loads the Web UI configuration from localStorage.
  * @returns {object | null} The loaded configuration object, or null if not found or error.
  */
-export const loadConfigFromLocalStorage = () => {
+export const loadConfigFromLocalStorage = (key=null) => {
   try {
-    const serializedConfig = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!key) {
+      key = LOCAL_STORAGE_KEY
+    }
+    const serializedConfig = localStorage.getItem(key);
     if (serializedConfig === null) {
       console.log('No configuration found in localStorage.');
       return null;

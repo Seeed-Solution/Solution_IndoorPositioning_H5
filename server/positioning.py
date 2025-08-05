@@ -6,6 +6,7 @@ from scipy.optimize import least_squares
 import logging # Added for logging
 
 from .models import DetectedBeacon, MiniprogramConfig
+from server.components.beacon_holder import beacon_holder
 
 log = logging.getLogger(__name__) # Added logger instance
 
@@ -89,7 +90,7 @@ def calculate_position(
     miniprogram_config: MiniprogramConfig, # Changed from ConfigData to MiniprogramConfig
     last_known_position: Optional[Tuple[float, float]] = None,
     device_id: str = ""
-    ) -> Optional[Tuple[float, float]]:
+    ) -> Optional[Tuple[float, float, str]]:
     """
     Main function to calculate position from detected beacons and miniprogram_config.
     Uses least squares multilateration.
@@ -108,12 +109,18 @@ def calculate_position(
     for detected in detected_beacons:
         beacon_info = None
         if detected.macAddress:
-            for cfg_beacon in miniprogram_config.beacons: # Use miniprogram_config.beacons
-                # The macAddress field in MiniprogramBeaconConfig is populated via AliasChoices
-                detected.macAddress = detected.macAddress.replace(":", "")
-                if cfg_beacon.macAddress and cfg_beacon.macAddress.lower() == detected.macAddress.lower():
-                    beacon_info = cfg_beacon
-                    break
+
+            mac_formatted = detected.macAddress.replace(":", "")
+            beacon_info = beacon_holder.get_beacon(detected.macAddress)
+
+            # for cfg_beacon in miniprogram_config.beacons: # Use miniprogram_config.beacons
+            #     # The macAddress field in MiniprogramBeaconConfig is populated via AliasChoices
+            #     detected.macAddress = detected.macAddress.replace(":", "")
+            #     if cfg_beacon.macAddress and cfg_beacon.macAddress.lower() == detected.macAddress.lower():
+            #         beacon_info = cfg_beacon
+            #         break
+
+
         else:
             log.warning(f"device(id: {device_id}) Detected beacon report without MAC address: {detected}. Cannot match.")
             continue # Skip this detected beacon if it has no MAC
@@ -129,34 +136,49 @@ def calculate_position(
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             if distance > 0.1 and distance < 100:
-                beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance))
+                beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance, beacon_info.map))
                 log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:
                 log.warning(f"device(id: {device_id}): Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to invalid calculated distance: {distance:.2f}m (RSSI: {detected.rssi}, Tx: {beacon_info.txPower})")
         elif detected.macAddress:
             log.warning(f"device(id: {device_id}) Detected beacon with MAC {detected.macAddress} not found in miniprogram_config.")
 
-    if len(beacons_with_coords_dist) < 2: 
-        log.info(f"device(id: {device_id}): Not enough valid beacon signals ({len(beacons_with_coords_dist)}) for multilateration (need at least 2, 3+ recommended).")
+    # if len(beacons_with_coords_dist) < 2:
+    #     log.info(f"device(id: {device_id}): Not enough valid beacon signals ({len(beacons_with_coords_dist)}) for multilateration (need at least 2, 3+ recommended).")
+    #     return None
+
+    # Group beacons by map to avoid cross-map positioning
+    beacons_by_map = {}
+    for x, y, distance, map_name in beacons_with_coords_dist:
+        if map_name not in beacons_by_map:
+            beacons_by_map[map_name] = []
+        beacons_by_map[map_name].append((x, y, distance))
+
+    # Select the map with the most beacons for better positioning accuracy
+    best_map = None
+    best_beacons = []
+    max_beacon_count = 0
+    
+    for map_name, map_beacons in beacons_by_map.items():
+        if len(map_beacons) > max_beacon_count:
+            max_beacon_count = len(map_beacons)
+            best_map = map_name
+            best_beacons = map_beacons
+
+    if len(best_beacons) < 3:
+        log.info(f"device(id: {device_id}): choose map '{best_map}' length of beacons: {len(best_beacons)} ")
         return None
-    # For multilateration_least_squares, it internally checks for < 3 beacons.
-    # If we allow 2 beacons here, multilateration_least_squares might return None or fail if it strictly needs 3.
-    # Let's adjust the check here to be consistent with multilateration_least_squares or adjust that function.
-    # For now, multilateration_least_squares itself handles the < 3 case. 
-    # We could provide a simpler 2-beacon positioning if len is 2.
-    if len(beacons_with_coords_dist) < 3:
-        log.info(f"device(id: {device_id}): Multilateration requires at least 3 beacons, got {len(beacons_with_coords_dist)}. Skipping position calculation.")
-        # Reverting the previous change of allowing 2 beacons for the least_squares function, 
-        # as it's more robust with 3. If only 2 are available, it will be handled by the function itself returning None.
-        return None
-    log.info(f"device(id: {device_id}) 完成蓝牙测距, beacons_with_coords_dist:{beacons_with_coords_dist}")
-    estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
+
+    log.info(f"device(id: {device_id}) Using map '{best_map}' with {len(best_beacons)} beacons for positioning")
+    # log.info(f"device(id: {device_id}) 完成蓝牙测距, best_beacons:{best_beacons}")
+    estimated_position = multilateration_least_squares(best_beacons, initial_guess=last_known_position)
 
     if estimated_position:
+        estimated_position = estimated_position + (best_map,)
         log.info(f"device(id: {device_id}): Multilateration successful. Estimated position: {estimated_position}")
     else:
+        estimated_position = estimated_position + (None,)
         log.info("device(id: {device_id}): Multilateration failed to estimate a position.")
-
     return estimated_position
 
 # --- Kalman Filter Implementation ---
@@ -166,7 +188,7 @@ class KalmanFilter2D:
     State: [x, y, vx, vy]
     Measurement: [x, y]
     """
-    def __init__(self, initial_pos: Tuple[float, float],
+    def __init__(self, initial_pos: Tuple[float, float, str],
                  process_variance: float = 1.0,
                  measurement_variance: float = 10.0):
         # State vector [x, y, vx, vy] - Initialize velocity to 0
@@ -202,7 +224,7 @@ class KalmanFilter2D:
         # Predict state covariance: P_k = F * P_{k-1} * F^T + Q
         self.P = self.F @ self.P @ self.F.T + self.Q
 
-    def update(self, measurement: Tuple[float, float]):
+    def update(self, measurement: Tuple[float, float, str]):
         """Update the state based on the measurement [x, y]."""
         z = np.array([[measurement[0]], [measurement[1]]])
 

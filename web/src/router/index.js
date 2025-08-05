@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import MasterConfigView from '@/views/MasterConfigView.vue'; // New Master Config
 import LocalModeConfigView from '@/views/LocalModeConfigView.vue'; // Renamed from PersonalModeConfigView
 import TrackerModeConfigView from '@/views/TrackerModeConfigView.vue'; // Import the new view
+import MapDashboardView from '@/views/MapDashboardView.vue'; // Import the map dashboard view
 // import HomeView from '@/views/HomeView.vue';
 // import ConfigurationView from '@/views/ConfigurationView.vue'; // Old, to be removed or reworked
 import ConfigurationSuiteView from '@/views/ConfigurationSuiteView.vue'; // Import the main config view
@@ -34,6 +35,11 @@ const routes = [
     path: '/config-tracker', // Define path for tracker mode
     name: 'TrackerModeConfig', // This is the specific path for Tracker Mode if not default
     component: TrackerModeConfigView, // Use the new component
+  },
+  {
+    path: '/map-dashboard', // Define path for map dashboard
+    name: 'MapDashboard', // Name for the map dashboard route
+    component: MapDashboardView, // Use the new component
   },
   {
     path: '/config',
