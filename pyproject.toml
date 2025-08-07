@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
+[tool.setuptools.packages.find]
+include = ["server*"]
 dependencies = [
     "cachetools>=6.1.0",
     "fastapi>=0.115.12",
