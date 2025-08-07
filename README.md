@@ -177,3 +177,11 @@ uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
 *   **UI Views:** `web/src/views/` (MasterConfigView, PersonalModeConfigView, TrackerModeConfigView)
 *   **Map Component:** `web/src/components/MapView.vue`
 
+
+
+## 部署注意事项
+
+apt install python3.10-venv
+
+虚拟环境下安装 uvicorn
+pip install uvicorn[standard]

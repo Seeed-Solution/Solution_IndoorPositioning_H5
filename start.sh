@@ -16,9 +16,12 @@ else
     source .venv/bin/activate
 fi
 
+uv pip install -e .
+pip install uvicorn[standard]
+
 # Start backend server
 echo "Starting backend server..."
-uvicorn server.main:app --host 0.0.0.0 --port 8022 &
+python3 -m uvicorn server.main:app --host 0.0.0.0 --port 8022 &
 BACKEND_PID=$!
 
 # Give backend a moment to start
