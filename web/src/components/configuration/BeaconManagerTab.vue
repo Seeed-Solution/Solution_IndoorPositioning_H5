@@ -155,7 +155,7 @@ const emit = defineEmits(['beacons-updated', 'beacon-selected-for-placement']);
 // WebSocket connection state and management
 const socket = ref(null);
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const serviceUrl = `wss://indoorpositioning-demo.seeed.cc:8022/ws`;
+const serviceUrl = `${wsProtocol}//${window.location.host}/ws`;
 const isWebSocketConnected = ref(false); // Renamed from isServiceConnected for clarity
 const retryCount = ref(0);
 const maxRetries = 5;
