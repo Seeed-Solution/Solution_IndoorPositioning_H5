@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 [tool.setuptools.packages.find]
-include = ["server*"]
+include = ["server"]
 dependencies = [
     "cachetools>=6.1.0",
     "fastapi>=0.115.12",
