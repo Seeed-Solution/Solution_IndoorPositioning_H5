@@ -1,3 +1,5 @@
+import pydantic
+
 if __name__ == "__main__":
     import sys
     import os
@@ -20,6 +22,9 @@ from typing import List, Dict, Optional, Any, Tuple
 import os # Keep one os import
 import random
 from server.components.beacon_holder import beacon_holder
+from server.dao.device_alarm_record_dao import alarm_record_dao
+from server.components.uplink_collector import UplinkCollector
+# from server.clients.paas_client import get_sensecap_client, initialize_sensecap_client
 
 # Import project modules
 # from . import config_manager
@@ -194,7 +199,7 @@ def on_disconnect(client, userdata, rc):
     #     pass
 
 ## 解析从 sensecap openstream 中收到的数据
-def parse_sensecap_payload(device_eui: str, payload_bytes: bytes) -> Optional[TrackerReport]:
+def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: bytes) -> Optional[TrackerReport]:
     """
     Parses the SenseCAP-like payload (JSON string) for beacon data.
     Assumes topic provides DeviceEUI, and payload contains timestamp and beacon list.
@@ -215,10 +220,48 @@ def parse_sensecap_payload(device_eui: str, payload_bytes: bytes) -> Optional[Tr
                 log.warning(f"Invalid 'timestamp' format in SenseCAP payload for {device_eui}. Using current time.")
                 payload_timestamp = int(time.time() * 1000)
 
-        beacon_values = data.get("value")
+        UplinkCollector.set(dev_eui=device_eui, measurement_id='timestamp', value=payload_timestamp)
+        beacon_values = None
+        match measurement_id:
+            case '4197':
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+            case '4198':
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+                time.sleep(1)
+                altitude = UplinkCollector.get(dev_eui=device_eui, measurement_id='4197')
+                longitude = UplinkCollector.get(dev_eui=device_eui, measurement_id='4198')
+                if altitude and longitude:
+                    loc = {
+                        "alt": altitude,
+                        "lon": longitude
+                    }
+                    loc_type = 'gps'
+
+                    sos = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
+                    return TrackerReport(
+                        trackerId=device_eui,
+                        timestamp=payload_timestamp,
+                        detectedBeacons=beacon_values,
+                        sos=sos,
+                        loc=loc,
+                        loc_type=loc_type
+                    )
+                log.error(f"illegal gps data for device{device_eui} altitude: {altitude}, longitude: {longitude}")
+            case '4200':
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+            case '5002':
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+                beacon_values = data.get("value")
+                time.sleep(1)
+            case '3000':
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+
+        if not beacon_values:
+            return
+
         if not isinstance(beacon_values, list):
             log.warning(f"Missing or invalid 'value' list in SenseCAP payload for {device_eui}. No beacons to parse.")
-            return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, detectedBeacons=[])
+            return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, detectedBeacons=[], loc={})
 
         detected_beacons_list = []
         for beacon_data in beacon_values:
@@ -247,11 +290,14 @@ def parse_sensecap_payload(device_eui: str, payload_bytes: bytes) -> Optional[Tr
         if not detected_beacons_list:
             # log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.") # Can be noisy
             pass
-
+        sos = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
         return TrackerReport(
             trackerId=device_eui,
             timestamp=payload_timestamp,
-            detectedBeacons=detected_beacons_list
+            detectedBeacons=detected_beacons_list,
+            sos=sos,
+            locType='bluetooth',
+            loc={}
         )
 
     except json.JSONDecodeError:
@@ -450,17 +496,14 @@ def on_message(client, userdata, msg):
     if not msg.topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
         log.warning(f"Received message on unexpected or incomplete topic structure: {msg.topic}")
         return
-
     device_eui = topic_parts[3]
     measurement_id = topic_parts[6]
-
     if measurement_id != "5002":
         # log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.") # DEBUG
         return
 
     # log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})") # Can be noisy
-    report = parse_sensecap_payload(device_eui, msg.payload)
-    log.info(f"开始进行蓝牙定位计算: eui=>{device_eui}")
+    report = parse_sensecap_payload(device_eui, measurement_id, msg.payload)
     if report:
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
@@ -483,6 +526,24 @@ async def process_tracker_report(report: TrackerReport):
         log.warning("Server runtime configuration not loaded, cannot process tracker report for Kalman params.")
         return
 
+    if report.locType == "gps":
+        tracker_data_payload = {
+            "trackerId": report.trackerId,
+            "timestamp": report.timestamp,
+            "position": report.loc,
+            "locType": report.locType,
+            "sos": report.sos
+        }
+        tracker_id = report.trackerId
+        # if report.sos == 1:
+            # alarm_record_dao.create_record(dev_eui=report.trackerId, loc=report.loc, pos_type='gps', alarm_time=report.timestamp)
+        await manager.broadcast({
+            "type": "tracker_update",
+            "data": {tracker_id: tracker_data_payload}
+        })
+        return
+
+    log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
     tracker_id = report.trackerId
     current_time_ms = int(time.time() * 1000)
     last_state = tracker_states.get(tracker_id)
@@ -592,7 +653,8 @@ async def process_tracker_report(report: TrackerReport):
         "position": position_payload, 
         "last_detected_beacons": enriched_detected_beacons, # Use the enriched list
         "position_history": new_state.position_history,
-        "map": calculated_position[2]
+        "map": calculated_position[2],
+        "sos": report.sos
     }
 
     await manager.broadcast({
@@ -769,9 +831,109 @@ async def get_api_miniprogram_config():
         log.warning("/api/config called but miniprogram_cfg is not loaded.")
         raise HTTPException(status_code=503, detail="Miniprogram configuration not loaded.")
 
-@app.get("/api/test", response_model=Optional[WebUIBeaconConfig])
-async def api_test(mac: str):
-    return beacon_holder.get_beacon(mac)
+# @app.get("/api/test")
+# async def api_test():
+#     # return alarm_record_dao.create_record(dev_eui='2CF7F1C0530004AD', loc={'x': 11, 'y': 22}, pos_type='bluetooth')
+#
+#     print(pydantic.json(alarm_record_dao.get_records_by_dev_eui(dev_eui='2CF7F1C0530004AD')))
+
+
+@app.get("/api/list_alarm")
+async def list_device_alarms(
+    device_eui: str = Query(..., description="设备EUI"),
+    page: int = Query(1, ge=1, description="页码，从1开始"),
+    page_size: int = Query(20, ge=1, le=100, description="每页记录数，最大100")
+):
+    """
+    查询设备报警记录，支持分页
+
+    Parameters:
+    - device_eui: 设备EUI (必填)
+    - page: 页码，从1开始 (默认1)
+    - page_size: 每页记录数，最大100 (默认20)
+
+    Returns:
+    - records: 报警记录列表
+    - total: 总记录数
+    - page: 当前页码
+    - page_size: 每页记录数
+    - total_pages: 总页数
+    """
+    try:
+        records, total = alarm_record_dao.get_records_by_dev_eui(
+            dev_eui=device_eui,
+            page=page,
+            page_size=page_size
+        )
+
+        total_pages = (total + page_size - 1) // page_size  # 计算总页数
+
+        return {
+            "code": 200,
+            "message": "查询成功",
+            "data": {
+                "records": [record.to_dict() for record in records],
+                "pagination": {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": total_pages
+                }
+            }
+        }
+
+    except Exception as e:
+        log.error(f"查询设备报警记录失败: device_eui={device_eui}, error={e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+
+
+# @app.post("/api/sensecap/init")
+# async def initialize_sensecap(
+#     api_key: str = Query(..., description="SenseCAP API Key"),
+#     org_id: str = Query(..., description="SenseCAP Organization ID"),
+#     base_url: str = Query("https://sensecap.seeed.cc/openapi", description="SenseCAP API Base URL")
+# ):
+#     """
+#     初始化 SenseCAP 客户端
+#
+#     Parameters:
+#     - api_key: SenseCAP API Key (必填)
+#     - org_id: SenseCAP Organization ID (必填)
+#     - base_url: SenseCAP API Base URL (默认官方地址)
+#
+#     Returns:
+#     - 初始化结果
+#     """
+#     try:
+#         success = initialize_sensecap_client(
+#             api_key=api_key,
+#             org_id=org_id,
+#             base_url=base_url
+#         )
+#
+#         if success:
+#             return {
+#                 "code": 200,
+#                 "message": "SenseCAP 客户端初始化成功",
+#                 "data": {
+#                     "api_key_preview": f"{api_key[:8]}***{api_key[-4:]}" if len(api_key) > 12 else "***",
+#                     "org_id": org_id,
+#                     "base_url": base_url
+#                 }
+#             }
+#         else:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="SenseCAP 客户端初始化失败，请检查 API Key 和 Org ID 是否正确"
+#             )
+#
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         log.error(f"初始化 SenseCAP 客户端失败: error={e}", exc_info=True)
+#         raise HTTPException(status_code=500, detail=f"初始化失败: {str(e)}")
+
 
 @app.get("/api/trackers")
 async def get_trackers():

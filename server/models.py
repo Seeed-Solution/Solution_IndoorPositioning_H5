@@ -1,6 +1,9 @@
 # server/models.py
 from pydantic import BaseModel, Field, AliasChoices
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
+from datetime import datetime
+from dataclasses import dataclass, asdict
+import json
 
 # --- Models for Miniprogram Exported Configuration (e.g., map_beacon_config.json) ---
 
@@ -123,7 +126,10 @@ class DetectedBeacon(BaseModel):
 class TrackerReport(BaseModel):
     trackerId: str # Corresponds to device devEui from MQTT topic
     timestamp: int # Unix ms timestamp from message payload
-    detectedBeacons: List[DetectedBeacon]
+    detectedBeacons: List[DetectedBeacon] = []
+    sos: int = 0
+    locType: str = 'bluetooth'
+    loc: dict[str, Any] = {}
 
 
 class TrackerState(BaseModel):
@@ -137,6 +143,8 @@ class TrackerState(BaseModel):
     position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
     used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
     map: Optional[str] = ""
+
+
 
 # --- Old combined ConfigData and CommonSettings (can be removed after refactoring) ---
 # class OldBeaconConfig(BaseModel):
@@ -170,4 +178,56 @@ class TrackerState(BaseModel):
 #     beacons: List[OldBeaconConfig]
 #     settings: OldCommonSettings
 #     mqtt: OldMqttConfig
-#     server: OldServerConfig 
+#     server: OldServerConfig
+
+
+# --- Device Alarm Record Model ---
+
+@dataclass
+class DeviceAlarmRecord:
+    """设备报警记录数据模型"""
+    id: Optional[int] = None
+    dev_eui: str = ""
+    alarm_time: Optional[datetime] = None
+    create_time: Optional[datetime] = None
+    pos_type: str = "bluetooth"
+    loc: Dict[str, Any] = None
+    beacons: Optional[List[Dict[str, Any]]] = None
+    
+    def __post_init__(self):
+        if self.loc is None:
+            self.loc = {}
+        if self.alarm_time is None:
+            self.alarm_time = datetime.now()
+        if self.create_time is None:
+            self.create_time = datetime.now()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，方便JSON序列化"""
+        data = asdict(self)
+        # 转换datetime为字符串
+        if self.alarm_time:
+            data['alarm_time'] = self.alarm_time.isoformat()
+        if self.create_time:
+            data['create_time'] = self.create_time.isoformat()
+        return data
+    
+    def to_json(self) -> str:
+        """转换为JSON字符串"""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'DeviceAlarmRecord':
+        """从字典创建对象"""
+        # 转换字符串为datetime
+        if 'alarm_time' in data and isinstance(data['alarm_time'], str):
+            data['alarm_time'] = datetime.fromisoformat(data['alarm_time'])
+        if 'create_time' in data and isinstance(data['create_time'], str):
+            data['create_time'] = datetime.fromisoformat(data['create_time'])
+        return cls(**data)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'DeviceAlarmRecord':
+        """从JSON字符串创建对象"""
+        data = json.loads(json_str)
+        return cls.from_dict(data) 

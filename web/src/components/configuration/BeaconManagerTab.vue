@@ -155,7 +155,7 @@ const emit = defineEmits(['beacons-updated', 'beacon-selected-for-placement']);
 // WebSocket connection state and management
 const socket = ref(null);
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const serviceUrl = `${wsProtocol}//${window.location.host}/ws`;
+const serviceUrl = `wss://indoorpositioning-demo.seeed.cc:8022/ws`;
 const isWebSocketConnected = ref(false); // Renamed from isServiceConnected for clarity
 const retryCount = ref(0);
 const maxRetries = 5;
@@ -183,8 +183,8 @@ const initialEditingBeacon = () => ({
   y: 0,
   txPower: -59,
   displayName: 'BC01',
-  macAddress: 'c3000056dda',
-  deviceId: 'c3000056dda'
+  macAddress: 'c3000056dda1',
+  deviceId: 'c3000056dda1'
 });
 const editingBeacon = ref(initialEditingBeacon());
 
@@ -557,8 +557,8 @@ const saveBeacon = () => {
   const beaconDataToSave = JSON.parse(JSON.stringify(editingBeacon.value));
 
   // 确保 macAddress 和 deviceId 保持同步，使用用户输入的值
-  if (beaconDataToSave.deviceId) {
-    beaconDataToSave.macAddress = beaconDataToSave.deviceId;
+  if (beaconDataToSave.macAddress) {
+    beaconDataToSave.deviceId = beaconDataToSave.macAddress;
   }
 
   // Ensure UUID is consistently uppercase
