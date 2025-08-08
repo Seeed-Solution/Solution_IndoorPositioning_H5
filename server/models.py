@@ -127,7 +127,7 @@ class TrackerReport(BaseModel):
     trackerId: str # Corresponds to device devEui from MQTT topic
     timestamp: int # Unix ms timestamp from message payload
     detectedBeacons: List[DetectedBeacon] = []
-    sos: int = 0
+    sos: int = 2 # 0: 恢复, 1: 触发, 2: 未知
     locType: str = 'bluetooth'
     loc: dict[str, Any] = {}
 

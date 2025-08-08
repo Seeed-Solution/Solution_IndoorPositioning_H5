@@ -363,6 +363,20 @@ const connectWebSocket = () => {
             if (serverConfig.value) serverConfig.value.mqtt.enabled = false;
           }
         }
+      } else if (message.type === 'tracker_sos') {
+        console.log('[MapDashboard] Processing tracker_sos. Data:', message.data);
+        if (isMqttEffectivelyEnabled.value) {
+          const updatedTrackerId = Object.keys(message.data)[0];
+          if (updatedTrackerId && message.data[updatedTrackerId]) {
+            if (!trackers.value[updatedTrackerId]) {
+              console.log('[MapDashboard] not found the tracker: ',updatedTrackerId);
+              return
+            }
+            const newTrackerEvent = message.data[updatedTrackerId];
+            trackers.value[updatedTrackerId].sos = newTrackerEvent.sos
+            trackers.value[updatedTrackerId].sos_happen = newTrackerEvent.timestamp
+          }
+        }
       } else {
         console.log('[MapDashboard] Received unhandled message type:', message.type, 'Data:', message.data);
       }
@@ -500,6 +514,14 @@ onMounted(() => {
   
   // 添加键盘事件监听
   window.addEventListener('keydown', handleKeydown);
+  
+  // 检查URL参数，如果有fullscreen=true则自动进入全屏模式
+  const router = useRouter();
+  const currentRoute = router.currentRoute.value;
+  if (currentRoute.query.fullscreen === 'true') {
+    console.log('[MapDashboard] Auto-entering fullscreen mode from URL parameter');
+    enterFullscreen();
+  }
 });
 
 onUnmounted(() => {

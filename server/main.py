@@ -222,39 +222,38 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
 
         UplinkCollector.set(dev_eui=device_eui, measurement_id='timestamp', value=payload_timestamp)
         beacon_values = None
-        sos = 0
         match measurement_id:
             case '4197':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
             case '4198':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
-                time.sleep(1)
                 altitude = UplinkCollector.get(dev_eui=device_eui, measurement_id='4197')
-                longitude = UplinkCollector.get(dev_eui=device_eui, measurement_id='4198')
+                longitude = data.get("value")
                 if altitude and longitude:
                     loc = {
                         "alt": altitude,
                         "lon": longitude
                     }
                     loc_type = 'gps'
-                    sos_cache = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
-                    if sos_cache:
-                        sos = sos_cache
                     return TrackerReport(
                         trackerId=device_eui,
                         timestamp=payload_timestamp,
                         detectedBeacons=beacon_values,
-                        sos=sos,
                         loc=loc,
                         loc_type=loc_type
                     )
                 log.error(f"illegal gps data for device{device_eui} altitude: {altitude}, longitude: {longitude}")
             case '4200':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+                log.info(f'detected tracker in sos model: {device_eui}')
+                return TrackerReport(
+                    trackerId=device_eui,
+                    timestamp=payload_timestamp,
+                    sos=data.get("value")
+                )
             case '5002':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
                 beacon_values = data.get("value")
-                time.sleep(1)
             case '3000':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
 
@@ -292,14 +291,10 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
         if not detected_beacons_list:
             # log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.") # Can be noisy
             pass
-        sos_cache = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
-        if sos_cache:
-            sos = sos_cache
         return TrackerReport(
             trackerId=device_eui,
             timestamp=payload_timestamp,
             detectedBeacons=detected_beacons_list,
-            sos=sos,
             locType='bluetooth',
             loc={}
         )
@@ -496,15 +491,18 @@ def on_message(client, userdata, msg):
 
     # log.info(f"MQTT Message Received: Topic: {msg.topic}") # Can be very noisy
 
+
+    if msg.topic == '/device_sensor_data/449120059189248/2CF7F1C0530003BD/1/vs/4200':
+        print("aaa")
     topic_parts = msg.topic.split('/')
     if not msg.topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
         log.warning(f"Received message on unexpected or incomplete topic structure: {msg.topic}")
         return
     device_eui = topic_parts[3]
     measurement_id = topic_parts[6]
-    if measurement_id != "5002":
-        # log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.") # DEBUG
-        return
+    # if measurement_id != "5002":
+    #     # log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.") # DEBUG
+    #     return
 
     # log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})") # Can be noisy
     report = parse_sensecap_payload(device_eui, measurement_id, msg.payload)
@@ -539,12 +537,26 @@ async def process_tracker_report(report: TrackerReport):
             "sos": report.sos
         }
         tracker_id = report.trackerId
-        # if report.sos == 1:
-            # alarm_record_dao.create_record(dev_eui=report.trackerId, loc=report.loc, pos_type='gps', alarm_time=report.timestamp)
         await manager.broadcast({
             "type": "tracker_update",
             "data": {tracker_id: tracker_data_payload}
         })
+        return
+
+    if report.sos != 2:
+        log.info(f'broadcast tracker sos event: {report.trackerId}')
+        await manager.broadcast({
+            "type": "tracker_sos",
+            "data": {report.trackerId: {
+                "timestamp": report.timestamp,
+                "sos": report.sos
+            }}
+        })
+
+        time.sleep(1)
+        # todo 获取定位数据
+        alarm_record_dao.create_record(
+            dev_eui=report.trackerId, loc=report.loc, pos_type='gps', alarm_time=report.timestamp)
         return
 
     log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
@@ -650,9 +662,6 @@ async def process_tracker_report(report: TrackerReport):
     else:
         # Fallback if no web_ui_cfg.beacons or no detected_beacons, send basic detected beacon info
         enriched_detected_beacons = [b.model_dump() for b in new_state.last_detected_beacons] if new_state.last_detected_beacons else []
-
-    if new_state.trackerId == '2CF7F1C0530004AD':
-        log.info(f"device({tracker_id}) 当前是否触发告警: ${report.sos}")
 
     tracker_data_payload = {
         "trackerId": new_state.trackerId,
@@ -838,12 +847,19 @@ async def get_api_miniprogram_config():
         log.warning("/api/config called but miniprogram_cfg is not loaded.")
         raise HTTPException(status_code=503, detail="Miniprogram configuration not loaded.")
 
+
+@app.post("/api/test/push_sos")
+async def push_sos(report: TrackerReport):
+
+    report.timestamp = int(time.time()) * 1000
+    if main_event_loop and main_event_loop.is_running():
+        asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+
 # @app.get("/api/test")
 # async def api_test():
 #     # return alarm_record_dao.create_record(dev_eui='2CF7F1C0530004AD', loc={'x': 11, 'y': 22}, pos_type='bluetooth')
 #
 #     print(pydantic.json(alarm_record_dao.get_records_by_dev_eui(dev_eui='2CF7F1C0530004AD')))
-
 
 @app.get("/api/list_alarm")
 async def list_device_alarms(

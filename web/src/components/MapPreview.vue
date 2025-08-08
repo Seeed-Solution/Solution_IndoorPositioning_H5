@@ -21,8 +21,16 @@
           </button>
         </div>
         <ul v-if="trackerList.length > 0">
-          <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item">
+          <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item" :class="{ 'tracker-sos': tracker.sos }">
             <strong>{{ tracker.trackerId }}</strong>
+            
+            <!-- SOS Status -->
+            <div v-if="tracker.sos" class="tracker-sos-status">
+              🚨 SOS ALERT
+              <div v-if="tracker.sos_happen" class="tracker-sos-time">
+                {{ new Date(tracker.sos_happen).toLocaleString() }}
+              </div>
+            </div>
             
             <!-- Position Data -->
             <div v-if="tracker.position && typeof tracker.position.x === 'number' && typeof tracker.position.y === 'number'" class="tracker-pos">
@@ -132,14 +140,14 @@ const updateCanvasSize = () => {
     canvasWidth.value = Math.floor(availableWidth);
     canvasHeight.value = Math.floor(availableHeight);
     
-    console.log(`[DEBUG] Canvas size updated:`, {
-      containerWidth,
-      containerHeight,
-      availableWidth,
-      availableHeight,
-      canvasWidth: canvasWidth.value,
-      canvasHeight: canvasHeight.value
-    });
+    // console.log(`[DEBUG] Canvas size updated:`, {
+    //   containerWidth,
+    //   containerHeight,
+    //   availableWidth,
+    //   availableHeight,
+    //   canvasWidth: canvasWidth.value,
+    //   canvasHeight: canvasHeight.value
+    // });
   }
 };
 
@@ -203,11 +211,11 @@ const drawMap = (ctx) => {
     }
   });
   
-  console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Data bounds:`, {
-    minX, maxX, minY, maxY,
-    dataWidth: maxX - minX,
-    dataHeight: maxY - minY
-  });
+  // console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Data bounds:`, {
+  //   minX, maxX, minY, maxY,
+  //   dataWidth: maxX - minX,
+  //   dataHeight: maxY - minY
+  // });
 
   // Ensure canvas internal drawing buffer matches these dimensions.
   ctx.canvas.width = canvasWidth.value;
@@ -245,24 +253,24 @@ const drawMap = (ctx) => {
   const offsetX = (canvasWidth.value - renderedMapWidth) / 2;
   const offsetY = (canvasHeight.value - renderedMapHeight) / 2;
   
-  console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Canvas and offset values:`, {
-    canvasWidth: canvasWidth.value,
-    canvasHeight: canvasHeight.value,
-    mapWidthMeters,
-    mapHeightMeters,
-    currentScale,
-    renderedMapWidth,
-    renderedMapHeight,
-    offsetX,
-    offsetY,
-    translateX: offsetX,
-    translateY: canvasHeight.value - offsetY
-  });
+  // console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Canvas and offset values:`, {
+  //   canvasWidth: canvasWidth.value,
+  //   canvasHeight: canvasHeight.value,
+  //   mapWidthMeters,
+  //   mapHeightMeters,
+  //   currentScale,
+  //   renderedMapWidth,
+  //   renderedMapHeight,
+  //   offsetX,
+  //   offsetY,
+  //   translateX: offsetX,
+  //   translateY: canvasHeight.value - offsetY
+  // });
   
-  console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Entity count:`, entities.length);
-  if (entities.length > 0) {
-    console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - First entity:`, entities[0]);
-  }
+  // console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Entity count:`, entities.length);
+  // if (entities.length > 0) {
+  //   console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - First entity:`, entities[0]);
+  // }
 
   // Clear canvas
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
@@ -275,10 +283,10 @@ const drawMap = (ctx) => {
 
   entities.forEach((entity, index) => {
     if (entity.type === 'polyline' && entity.points && entity.points.length > 0) {
-      if (index === 0) {
-        console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - First entity points:`, entity.points.slice(0, 3));
-        console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Scaled points:`, entity.points.slice(0, 3).map(p => [p[0] * currentScale, p[1] * currentScale]));
-      }
+      // if (index === 0) {
+      //   console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - First entity points:`, entity.points.slice(0, 3));
+      //   console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Scaled points:`, entity.points.slice(0, 3).map(p => [p[0] * currentScale, p[1] * currentScale]));
+      // }
       
       ctx.beginPath();
       ctx.strokeStyle = entity.color || '#333333';
@@ -327,11 +335,19 @@ const drawMap = (ctx) => {
            // Draw tracker circle with transparency
            ctx.beginPath();
            ctx.arc(trackerX, trackerY, 8, 0, 2 * Math.PI); // Slightly larger circle
-           ctx.fillStyle = 'rgba(0, 123, 255, 0.7)'; // Blue with 70% opacity
+           
+           // Change color based on SOS status
+           if (tracker.sos) {
+             ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Red with 80% opacity for SOS
+             ctx.strokeStyle = 'rgba(220, 0, 0, 1)'; // Darker red border for SOS
+           } else {
+             ctx.fillStyle = 'rgba(0, 123, 255, 0.7)'; // Blue with 70% opacity (normal)
+             ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)'; // Darker blue border (normal)
+           }
+           
            ctx.fill();
 
            // Add border for better visibility
-           ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)'; // Darker blue border
            ctx.lineWidth = 2;
            ctx.stroke();
 
@@ -481,6 +497,11 @@ defineExpose({
   border-bottom: 1px solid #eee;
   font-size: 0.9em;
 }
+
+.tracker-item.tracker-sos {
+  background-color: rgba(255, 0, 0, 0.1);
+  border-left: 4px solid #ff0000;
+}
 .tracker-item:last-child {
   border-bottom: none;
 }
@@ -505,6 +526,23 @@ defineExpose({
   color: #555;
 }
 .tracker-meta-item {
+  margin-top: 2px;
+}
+
+.tracker-sos-status {
+  color: #ff0000;
+  font-weight: bold;
+  font-size: 0.9em;
+  margin-bottom: 4px;
+  padding: 2px 4px;
+  background-color: rgba(255, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.tracker-sos-time {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: #666;
   margin-top: 2px;
 }
 

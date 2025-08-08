@@ -5,7 +5,7 @@
       <router-link to="/config-master" class="nav-link">Map & Beacon Configuration</router-link>
       <router-link to="/config-local" class="nav-link">Local Mode</router-link>
       <router-link to="/config-tracker" class="nav-link">Tracker Mode</router-link>
-      <router-link to="/map-dashboard" class="nav-link">Map Dashboard</router-link>
+      <router-link to="/map-dashboard?fullscreen=true" class="nav-link">Map Dashboard</router-link>
     </nav>
     <router-view />
   </div>
