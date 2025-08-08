@@ -190,6 +190,25 @@ const drawMap = (ctx) => {
 
   const { width: mapWidthMeters, height: mapHeightMeters, entities } = props.config.map;
   const beacons = props.config.beacons || [];
+  
+  // Calculate actual bounds of map data
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  entities.forEach(entity => {
+    if (entity.points) {
+      entity.points.forEach(point => {
+        minX = Math.min(minX, point[0]);
+        maxX = Math.max(maxX, point[0]);
+        minY = Math.min(minY, point[1]);
+        maxY = Math.max(maxY, point[1]);
+      });
+    }
+  });
+  
+  console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Data bounds:`, {
+    minX, maxX, minY, maxY,
+    dataWidth: maxX - minX,
+    dataHeight: maxY - minY
+  });
 
   // Ensure canvas internal drawing buffer matches these dimensions.
   ctx.canvas.width = canvasWidth.value;
@@ -199,14 +218,18 @@ const drawMap = (ctx) => {
   const contentAreaWidth = canvasWidth.value * 0.9;
   const contentAreaHeight = canvasHeight.value * 0.9;
 
+  // Use actual data bounds for scaling
+  const dataWidth = maxX - minX;
+  const dataHeight = maxY - minY;
+  
   // Calculate scale to fit map into the content area, maintaining aspect ratio
   let currentScale;
-  if (mapWidthMeters <= 0 || mapHeightMeters <= 0) {
+  if (dataWidth <= 0 || dataHeight <= 0) {
     // Avoid division by zero or negative scales if map dimensions are invalid
     currentScale = 1;
   } else {
-    const scaleX = contentAreaWidth / mapWidthMeters;
-    const scaleY = contentAreaHeight / mapHeightMeters;
+    const scaleX = contentAreaWidth / dataWidth;
+    const scaleY = contentAreaHeight / dataHeight;
     currentScale = Math.min(scaleX, scaleY);
   }
 
@@ -215,14 +238,32 @@ const drawMap = (ctx) => {
       currentScale = 1; // Fallback to a minimal positive scale
   }
 
-
   // Calculate the actual pixel dimensions of the scaled map content
-  const renderedMapWidth = mapWidthMeters * currentScale;
-  const renderedMapHeight = mapHeightMeters * currentScale;
+  const renderedMapWidth = dataWidth * currentScale;
+  const renderedMapHeight = dataHeight * currentScale;
 
   // Calculate offsets to center the scaled map content within the canvas
   const offsetX = (canvasWidth.value - renderedMapWidth) / 2;
   const offsetY = (canvasHeight.value - renderedMapHeight) / 2;
+  
+  console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Canvas and offset values:`, {
+    canvasWidth: canvasWidth.value,
+    canvasHeight: canvasHeight.value,
+    mapWidthMeters,
+    mapHeightMeters,
+    currentScale,
+    renderedMapWidth,
+    renderedMapHeight,
+    offsetX,
+    offsetY,
+    translateX: offsetX,
+    translateY: canvasHeight.value - offsetY
+  });
+  
+  console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Entity count:`, entities.length);
+  if (entities.length > 0) {
+    console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - First entity:`, entities[0]);
+  }
 
   // Clear canvas
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
@@ -233,18 +274,23 @@ const drawMap = (ctx) => {
   ctx.translate(offsetX, canvasHeight.value - offsetY);
   ctx.scale(1, -1);
 
-  entities.forEach(entity => {
+  entities.forEach((entity, index) => {
     if (entity.type === 'polyline' && entity.points && entity.points.length > 0) {
+      if (index === 0) {
+        console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - First entity points:`, entity.points.slice(0, 3));
+        console.log(`[DEBUG] ${props.config?.map?.name || 'Unknown Map'} - Scaled points:`, entity.points.slice(0, 3).map(p => [p[0] * currentScale, p[1] * currentScale]));
+      }
+      
       ctx.beginPath();
       ctx.strokeStyle = entity.color || '#333333';
       // ctx.lineWidth = (entity.lineWidth || 1) / currentScale; // If line width is in world units
       ctx.lineWidth = entity.lineWidth || 1; // Assuming line width is in pixels
 
       const startPoint = entity.points[0];
-      ctx.moveTo(startPoint[0] * currentScale, startPoint[1] * currentScale);
+      ctx.moveTo((startPoint[0] - minX) * currentScale, (startPoint[1] - minY) * currentScale);
 
       for (let i = 1; i < entity.points.length; i++) {
-        ctx.lineTo(entity.points[i][0] * currentScale, entity.points[i][1] * currentScale);
+        ctx.lineTo((entity.points[i][0] - minX) * currentScale, (entity.points[i][1] - minY) * currentScale);
       }
 
       if (entity.closed) {
@@ -257,8 +303,8 @@ const drawMap = (ctx) => {
 
    // --- Draw Beacons ---
    beacons.forEach(beacon => {
-    const beaconX = beacon.x * currentScale;
-    const beaconY = beacon.y * currentScale;
+    const beaconX = (beacon.x - minX) * currentScale;
+    const beaconY = (beacon.y - minY) * currentScale;
     ctx.beginPath();
     ctx.arc(beaconX, beaconY, 5, 0, 2 * Math.PI); // Draw beacon as a small circle (radius 5px)
     ctx.fillStyle = 'orange';
@@ -276,8 +322,8 @@ const drawMap = (ctx) => {
    // --- Draw Trackers ---
    filteredTrackers.value.forEach(tracker => {
        if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
-           const trackerX = tracker.position.x * currentScale;
-           const trackerY = tracker.position.y * currentScale;
+           const trackerX = (tracker.position.x - minX) * currentScale;
+           const trackerY = (tracker.position.y - minY) * currentScale;
 
            // Draw tracker circle with transparency
            ctx.beginPath();
@@ -319,12 +365,12 @@ const drawMap = (ctx) => {
 
         // Move to the oldest point in the history for this tracker
         const firstPoint = tracker.position_history[0];
-        ctx.moveTo(firstPoint[0] * currentScale, firstPoint[1] * currentScale);
+        ctx.moveTo((firstPoint[0] - minX) * currentScale, (firstPoint[1] - minY) * currentScale);
 
         // Draw lines to subsequent points
         for (let i = 1; i < tracker.position_history.length; i++) {
           const point = tracker.position_history[i];
-          ctx.lineTo(point[0] * currentScale, point[1] * currentScale);
+          ctx.lineTo((point[0] - minX) * currentScale, (point[1] - minY) * currentScale);
         }
         ctx.stroke();
       }

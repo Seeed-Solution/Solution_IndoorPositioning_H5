@@ -1,7 +1,7 @@
+from cachetools import TTLCache
 
+cache = TTLCache(maxsize=999999, ttl=30)
 
-a = (11.22, 33.44)
+cache["aaa"] = '111'
 
-a = a + ("aaa",)
-
-print(a)
+print(cache.get("aaa"))

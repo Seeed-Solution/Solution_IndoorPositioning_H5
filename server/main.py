@@ -222,6 +222,7 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
 
         UplinkCollector.set(dev_eui=device_eui, measurement_id='timestamp', value=payload_timestamp)
         beacon_values = None
+        sos = 0
         match measurement_id:
             case '4197':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
@@ -236,8 +237,9 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
                         "lon": longitude
                     }
                     loc_type = 'gps'
-
-                    sos = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
+                    sos_cache = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
+                    if sos_cache:
+                        sos = sos_cache
                     return TrackerReport(
                         trackerId=device_eui,
                         timestamp=payload_timestamp,
@@ -290,7 +292,9 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
         if not detected_beacons_list:
             # log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.") # Can be noisy
             pass
-        sos = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
+        sos_cache = UplinkCollector.get(dev_eui=device_eui, measurement_id='4200')
+        if sos_cache:
+            sos = sos_cache
         return TrackerReport(
             trackerId=device_eui,
             timestamp=payload_timestamp,
@@ -611,7 +615,7 @@ async def process_tracker_report(report: TrackerReport):
         last_known_measurement_time=report.timestamp,
         last_detected_beacons=report.detectedBeacons,
         position_history=current_position_history,
-        map= calculated_position[2]
+        map=calculated_position[2]
     )
     tracker_states[tracker_id] = new_state
 
@@ -646,6 +650,9 @@ async def process_tracker_report(report: TrackerReport):
     else:
         # Fallback if no web_ui_cfg.beacons or no detected_beacons, send basic detected beacon info
         enriched_detected_beacons = [b.model_dump() for b in new_state.last_detected_beacons] if new_state.last_detected_beacons else []
+
+    if new_state.trackerId == '2CF7F1C0530004AD':
+        log.info(f"device({tracker_id}) 当前是否触发告警: ${report.sos}")
 
     tracker_data_payload = {
         "trackerId": new_state.trackerId,

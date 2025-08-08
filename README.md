@@ -181,6 +181,11 @@ uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
 
 ## 部署注意事项
 
+
+安装 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+
 apt install python3.10-venv
 
 虚拟环境下安装 uvicorn
