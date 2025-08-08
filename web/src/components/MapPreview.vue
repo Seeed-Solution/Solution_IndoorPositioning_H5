@@ -4,22 +4,22 @@
     <div class="content-columns">
       <div class="map-view-wrapper">
         <div class="map-container">
-          <div class="map-controls">
-            <button @click="toggleTrails" class="button-secondary map-trail-toggle-btn">
-              <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? 'Hide' : 'Show' }} Trails
-            </button>
-          </div>
           <canvas ref="mapCanvas" :width="canvasWidth" :height="canvasHeight" style="border: 1px solid #ccc;"></canvas>
-          <div v-if="config && config.map" class="map-info">
+          <div v-if="config && config.map" class="map-info" style="display: none;">
             Map Dimensions: {{ config.map.width.toFixed(1) }}m x {{ config.map.height.toFixed(1) }}m
           </div>
-          <div v-else class="map-info">
+          <div v-else class="map-info" style="display: none;">
             Load configuration to display map.
           </div>
         </div>
       </div>
       <aside class="tracker-list-aside">
-        <h4>Trackers ({{ trackerList.length }})</h4>
+        <div class="tracker-list-header">
+          <h4>Trackers ({{ trackerList.length }})</h4>
+          <button @click="toggleTrails" class="button-secondary map-trail-toggle-btn">
+            <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? 'Hide' : 'Show' }} Trails
+          </button>
+        </div>
         <ul v-if="trackerList.length > 0">
           <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item">
             <strong>{{ tracker.trackerId }}</strong>
@@ -124,23 +124,22 @@ const updateCanvasSize = () => {
     const containerWidth = mapContainer.clientWidth;
     const containerHeight = mapContainer.clientHeight;
     
-    // 计算可用空间，减去 map-info 等元素的空间
-    const availableWidth = Math.max(containerWidth - 20, 400); // 减去边距，最小宽度 400px
-    const availableHeight = Math.max(containerHeight - 60, 300); // 减去上下元素空间，最小高度 300px
+    // 计算可用空间，减少预留空间（因为隐藏了map-info）
+    const availableWidth = Math.max(containerWidth - 20, 400); // 减少边距，最小宽度 400px
+    const availableHeight = Math.max(containerHeight - 50, 300); // 减少上下元素空间，最小高度 300px
     
-    // 根据可用空间和地图宽高比计算最佳尺寸
-    const aspectRatio = 4 / 3; // 默认宽高比
-    let optimalWidth = availableWidth;
-    let optimalHeight = availableWidth / aspectRatio;
+    // 直接使用可用空间，不强制固定宽高比
+    canvasWidth.value = Math.floor(availableWidth);
+    canvasHeight.value = Math.floor(availableHeight);
     
-    // 如果计算出的高度超过可用高度，则以高度为准重新计算
-    if (optimalHeight > availableHeight) {
-      optimalHeight = availableHeight;
-      optimalWidth = availableHeight * aspectRatio;
-    }
-    
-    canvasWidth.value = Math.floor(optimalWidth);
-    canvasHeight.value = Math.floor(optimalHeight);
+    console.log(`[DEBUG] Canvas size updated:`, {
+      containerWidth,
+      containerHeight,
+      availableWidth,
+      availableHeight,
+      canvasWidth: canvasWidth.value,
+      canvasHeight: canvasHeight.value
+    });
   }
 };
 
@@ -438,6 +437,13 @@ defineExpose({
   flex-direction: column;
 }
 
+.tracker-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
 .map-container {
   position: relative;
   width: 100%;
@@ -460,11 +466,8 @@ defineExpose({
 }
 
 .tracker-list-aside h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
+  margin: 0;
   color: #333;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 5px;
 }
 
 .tracker-list-aside ul {
@@ -505,24 +508,20 @@ defineExpose({
   margin-top: 2px;
 }
 
-.map-controls {
-  position: absolute;
-  top: 5px; /* Adjust as needed */
-  right: 5px; /* Adjust as needed */
-  z-index: 10;
-  display: flex;
-  gap: 5px;
-}
 
 .map-trail-toggle-btn {
-  padding: 6px 10px;
-  font-size: 0.85em;
-  background-color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px;
+  font-size: 0.75em;
+  background-color: #fff;
   border: 1px solid #ccc;
   color: #333;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
 }
 .map-trail-toggle-btn:hover {
-  background-color: rgba(240, 240, 240, 0.8);
+  background-color: #f0f0f0;
 }
 
 .map-info {
