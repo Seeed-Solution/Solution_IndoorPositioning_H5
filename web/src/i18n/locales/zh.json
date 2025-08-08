@@ -2,7 +2,7 @@
   "nav": {
     "mapBeaconConfig": "地图与信标配置",
     "localMode": "本地模式",
-    "trackerMode": "追踪器模式",
+    "mapTracker": "地图与追踪器",
     "mapDashboard": "地图仪表盘"
   },
   "mapDashboard": {
@@ -26,7 +26,28 @@
     "noBeaconsDetected": "最后更新中未检测到信标。",
     "showTrails": "显示轨迹",
     "hideTrails": "隐藏轨迹",
-    "sosAlert": "🚨 SOS 警报"
+    "sosAlert": "🚨 SOS 警报",
+    "mapViewer": "地图查看器",
+    "mapTracker": "地图与追踪器",
+    "selectMap": "选择地图",
+    "chooseMap": "选择地图",
+    "unnamedMap": "未命名地图",
+    "selectMapPlaceholder": "选择要查看的地图",
+    "entities": "实体",
+    "noMapsAvailable": "没有可用地图",
+    "activeTrackers": "活跃追踪器",
+    "noMapSelected": "未选择地图",
+    "selectMapToView": "请从上方下拉菜单选择地图以查看追踪器和地图详情。",
+    "connectionLost": "连接丢失",
+    "reconnecting": "正在尝试重新连接到服务器...",
+    "connected": "已连接",
+    "disconnected": "已断开",
+    "trackerStatistics": "追踪器统计",
+    "totalTrackers": "总追踪器数",
+    "onlineTrackers": "在线",
+    "offlineTrackers": "离线",
+    "sosAlerts": "SOS 警报",
+    "distributionByMap": "地图分布"
   },
   "map": {
     "mapDimensions": "地图尺寸",

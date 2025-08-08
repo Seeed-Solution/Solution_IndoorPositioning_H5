@@ -7,7 +7,8 @@
     "applicationID": "449120059189248",
     "topicPattern": "/device_sensor_data/{ApplicationID}/+/+/+/+",
     "clientID": "org-449120059189248-{clientID}",
-    "enabled": true
+    "enabled": true,
+    "live_mqtt_status": null
   },
   "server": {
     "port": 8022
@@ -15,5 +16,12 @@
   "kalman": {
     "processVariance": 1.0,
     "measurementVariance": 10.0
-  }
+  },
+  "tracker_list": [
+    "2CF7F1C0530004AD",
+    "2CF7F1C0530003BD",
+    "2CF7F1C05460045D"
+  ],
+  "paas_api_id": "8L3Y0GXIW9G6TA2L",
+  "paas_api_key": "A3DF22EE57A24818AB036074D2053CAC59A1FE01C19441AF9873048DE6A79835"
 }

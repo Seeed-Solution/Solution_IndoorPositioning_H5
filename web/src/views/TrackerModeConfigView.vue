@@ -1,203 +1,274 @@
 <template>
   <div class="tracker-mode-config-view page-content-wrapper">
-    <h1 class="page-title">Tracker Mode Configuration</h1>
-    <p class="info-banner status-display info" v-if="statusMessage">{{ statusMessage }}</p>
-
-    <div class="config-management card"> 
+    <h1 class="page-title">{{ $t('tracker.mapTracker') }}</h1>
+    
+    <!-- Tracker Statistics at Top -->
+    <div v-if="wsStatus === 'connected'" class="tracker-stats-card card">
       <div class="card-header">
-        <h2>Master Configuration Status</h2>
+        <h2><i class="fas fa-chart-bar"></i> {{ $t('tracker.trackerStatistics') }}</h2>
       </div>
       <div class="card-content">
-        <p v-if="!currentFullConfig.map && !statusMessage.includes('Processing') && wsStatus === 'connected'" class="status-text warning-text">Waiting for server configuration...</p>
-        <p v-if="!currentFullConfig.map && wsStatus === 'disconnected'" class="status-text error-text">Disconnected from server. Cannot load configuration.</p>
-        <p v-if="currentFullConfig.map" class="status-text">
-          Current master configuration loaded: {{ currentFullConfig.map.name || 'Unnamed Map' }}.
-          (Beacons: {{ currentFullConfig.beacons.length }}, Map Entities: {{ currentFullConfig.map.entities?.length || 0 }})
-        </p>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-number">{{ trackerStats.total }}</div>
+            <div class="stat-label">{{ $t('tracker.totalTrackers') }}</div>
+          </div>
+          <div class="stat-item success">
+            <div class="stat-number">{{ trackerStats.online }}</div>
+            <div class="stat-label">{{ $t('tracker.onlineTrackers') }}</div>
+          </div>
+          <div class="stat-item secondary">
+            <div class="stat-number">{{ trackerStats.offline }}</div>
+            <div class="stat-label">{{ $t('tracker.offlineTrackers') }}</div>
+          </div>
+          <div v-if="trackerStats.sos > 0" class="stat-item danger">
+            <div class="stat-number">{{ trackerStats.sos }}</div>
+            <div class="stat-label">{{ $t('tracker.sosAlerts') }}</div>
+          </div>
+        </div>
+        <div v-if="Object.keys(trackerStats.byMap).length > 0" class="map-distribution">
+          <h4>{{ $t('tracker.distributionByMap') }}:</h4>
+          <div class="map-stats">
+            <div v-for="(count, mapName) in trackerStats.byMap" :key="mapName" class="map-stat">
+              <span class="map-name">{{ mapName }}</span>
+              <span class="map-count">{{ count }} {{ count === 1 ? 'tracker' : 'trackers' }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="server-status-and-settings card">
-        <div class="card-header"> 
-            <h2>Server Status</h2>
+    <!-- Map Viewer Section -->
+    <div class="map-viewer-section card">
+      <div class="card-header">
+        <h2><i class="fas fa-map-marked-alt"></i> {{ $t('tracker.mapViewer') }}</h2>
+        <div class="map-selector-wrapper">
+          <div class="map-selector-dropdown">
+            <button 
+              @click="toggleMapDropdown" 
+              class="map-dropdown-button"
+              :disabled="availableMaps.length === 0"
+            >
+              <span v-if="selectedMapConfig">
+                {{ selectedMapConfig.map.name || $t('tracker.unnamedMap') }}
+                <small class="map-info">({{ getMapInfoText(selectedMapConfig) }})</small>
+              </span>
+              <span v-else>{{ $t('tracker.selectMapPlaceholder') }}</span>
+              <i class="fas fa-chevron-down dropdown-icon" :class="{ 'rotated': showMapDropdown }"></i>
+            </button>
+            
+            <div v-if="showMapDropdown" class="map-dropdown-menu">
+              <div 
+                v-for="mapConfig in availableMaps" 
+                :key="mapConfig.map.name"
+                @click="selectMap(mapConfig)"
+                class="map-dropdown-item"
+                :class="{ 'selected': selectedMapConfig && selectedMapConfig.map.name === mapConfig.map.name }"
+              >
+                <div class="map-item-info">
+                  <strong>{{ mapConfig.map.name || $t('tracker.unnamedMap') }}</strong>
+                  <small>{{ getMapInfoText(mapConfig) }}</small>
+                </div>
+              </div>
+              <div v-if="availableMaps.length === 0" class="map-dropdown-item disabled">
+                {{ $t('tracker.noMapsAvailable') }}
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card-content">
-            <p class="status-text">
-              WebSocket Status: <span :class="wsStatus === 'connected' ? 'status-connected' : 'status-disconnected'">{{ wsStatus }}</span>
-              <span v-if="wsStatus === 'connected'"> | MQTT Status (Live): <span :class="['mqtt-status-indicator-inline', mqttStatusDisplay.class]"><i :class="mqttStatusDisplay.icon"></i> {{ mqttStatusDisplay.text }}</span></span>
-            </p>
+      </div>
+      
+      <div class="card-content map-content">
+        <div v-if="selectedMapConfig">
+          <div class="map-header">
+            <h3>
+              {{ selectedMapConfig.map.name || $t('tracker.unnamedMap') }}
+              <span class="tracker-count">({{ filteredTrackerList.length }} {{ $t('tracker.activeTrackers') }})</span>
+            </h3>
+          </div>
+          <MapPreview 
+            :config="selectedMapConfig"
+            :trackers="trackers"
+            :initialShowTrails="showTrails"
+            @trails-toggled="onTrailsToggled"
+          />
         </div>
+        <div v-else class="no-map-selected">
+          <div class="empty-state">
+            <i class="fas fa-map-marked-alt empty-state-icon"></i>
+            <h3>{{ $t('tracker.noMapSelected') }}</h3>
+            <p>{{ $t('tracker.selectMapToView') }}</p>
+          </div>
+        </div>
+      </div>
     </div>
     
-    <div v-if="currentFullConfig.map" class="map-display-tracker card">
-      <div class="card-header"><h2>Map Preview (Live Trackers: {{ trackerList.length }})</h2></div>
-      <div class="card-content">
-        <div class="content-columns">
-          <div class="map-view-wrapper">
-            <MapView 
-              v-if="currentFullConfig.map" 
-              :config="currentFullConfig" 
-              :trackers="trackerList" 
-            />
-          </div>
-          <aside class="tracker-list-aside">
-            <h4>Trackers ({{ trackerList.length }})</h4>
-            <ul v-if="trackerList.length > 0">
-              <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item">
-                <strong>{{ tracker.trackerId }}</strong>
-                
-                <!-- Position Data -->
-                <div v-if="tracker.position && typeof tracker.position.x === 'number' && typeof tracker.position.y === 'number'" class="tracker-pos">
-                  X: {{ tracker.position.x.toFixed(2) }}, Y: {{ tracker.position.y.toFixed(2) }}
-                  <span v-if="tracker.position.accuracy && typeof tracker.position.accuracy === 'number'">, Acc: {{ tracker.position.accuracy.toFixed(2) }}m</span>
-                </div>
-                <div v-else class="tracker-pos-na">
-                  No position data
-                </div>
-
-                <!-- Meta Data -->
-                <div class="tracker-meta-group">
-                  <div v-if="tracker.timestamp" class="tracker-meta-item">
-                     Last seen: {{ new Date(tracker.timestamp).toLocaleTimeString() }}
-                  </div>
-                  <div v-if="tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-meta-item">
-                    Strongest RSSI: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm
-                    (Detected {{ tracker.last_detected_beacons.length }} beacon(s))
-                  </div>
-                  <div v-else-if="tracker.last_detected_beacons" class="tracker-meta-item">
-                    No beacons detected in last update.
-                  </div>
-                </div>
-              </li>
-            </ul>
-            <p v-else>No trackers received yet.</p>
-          </aside>
-        </div>
+    <!-- Status Messages -->
+    <p v-if="statusMessage" class="status-message" :class="statusMessageType">{{ statusMessage }}</p>
+    
+    <!-- No Map Selected State -->
+    <div v-if="!selectedMapConfig && wsStatus === 'connected'" class="empty-state-card">
+      <div class="empty-state">
+        <i class="fas fa-map-marked-alt empty-state-icon"></i>
+        <h3>{{ $t('tracker.noMapSelected') }}</h3>
+        <p>{{ $t('tracker.selectMapToView') }}</p>
       </div>
     </div>
-     <p v-if="!currentFullConfig.map && wsStatus !== 'disconnected'" class="info-banner warning">
-        WebSocket connected, but no map configuration loaded. Please import a master configuration to see trackers on a map.
-    </p>
-
+    
+    <!-- Disconnected State -->
+    <div v-if="wsStatus === 'disconnected'" class="empty-state-card">
+      <div class="empty-state">
+        <i class="fas fa-wifi-slash empty-state-icon error"></i>
+        <h3>{{ $t('tracker.connectionLost') }}</h3>
+        <p>{{ $t('tracker.reconnecting') }}</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import MapView from '@/components/MapView.vue';
-import { loadConfigFromLocalStorage, saveConfigToLocalStorage, clearConfigFromLocalStorage } from '@/services/localStorageService.js';
-import { loadWebConfiguration, saveWebConfiguration, loadServerConfiguration, saveServerConfiguration } from '@/services/configApiService.js';
-
-const CONFIG_STORAGE_KEY = 'trackerModeConfig'; 
-const TRACKER_SETTINGS_STORAGE_KEY = 'trackerModeUISettings';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import MapPreview from '@/components/MapPreview.vue';
+import { loadConfigFromLocalStorage } from '@/services/localStorageService.js';
+import { loadWebConfiguration, loadDashboardConfiguration, loadServerConfiguration, loadTrackers } from '@/services/configApiService.js';
 
 const statusMessage = ref('');
+const statusMessageType = ref('info');
 
-const initialMasterConfig = () => ({
-  map: null,
-  beacons: [],
-  settings: { signalPropagationFactor: 2.5 },
-});
-const currentFullConfig = ref(initialMasterConfig()); 
+// Available maps and selection
+const availableMaps = ref([]);
+const selectedMapConfig = ref(null);
+const showMapDropdown = ref(false);
+const showTrails = ref(false);
 
+// WebSocket and tracker data
 const trackers = ref({}); 
+const allTrackers = ref([]); // All trackers from /api/trackers
 const ws = ref(null);
 const wsStatus = ref('disconnected');
 const liveMqttStatusForServerSettings = ref('unknown');
-let saveSettingsTimeout = null;
-
 const currentServerConfig = ref(null);
-const isMasterConfigSectionVisible = ref(true);
 
-const trackerList = computed(() => {
-    return Object.values(trackers.value).sort((a, b) => (a.trackerId || '').localeCompare(b.trackerId || ''));
+// Computed properties
+const filteredTrackerList = computed(() => {
+    const allTrackers = Object.values(trackers.value);
+    if (!selectedMapConfig.value || !selectedMapConfig.value.map) {
+        return [];
+    }
+    
+    return allTrackers
+        .filter(tracker => tracker.map === selectedMapConfig.value.map.name)
+        .sort((a, b) => (a.trackerId || '').localeCompare(b.trackerId || ''));
 });
 
-const mqttStatusDisplay = computed(() => {
-  let statusText = 'MQTT: Unknown';
-  let statusClass = 'info';
-  let iconClass = 'fas fa-question-circle';
-
-  const mqttConfig = currentServerConfig.value?.mqtt;
-  const mqttEnabledInConfig = mqttConfig?.enabled;
-
-  if (wsStatus.value !== 'connected') {
-    statusText = 'Unavailable (WebSocket Disconnected)';
-    statusClass = 'error';
-    iconClass = 'fas fa-wifi-slash';
-  } else if (!mqttConfig) {
-    statusText = 'Status Loading...';
-    statusClass = 'info';
-    iconClass = 'fas fa-hourglass-start';
-  } else if (mqttEnabledInConfig === false) {
-    statusText = 'Disabled by Server Configuration'; 
-    statusClass = 'info'; 
-    iconClass = 'fas fa-toggle-off';
-  } else {
-      switch (liveMqttStatusForServerSettings.value) {
-        case 'connected': statusText = 'Connected'; statusClass = 'success'; iconClass = 'fas fa-check-circle'; break;
-        case 'connecting': statusText = 'Connecting...'; statusClass = 'info'; iconClass = 'fas fa-spinner fa-spin'; break;
-        case 'disconnected': statusText = 'Disconnected'; statusClass = 'warn'; iconClass = 'fas fa-plug'; break;
-        case 'misconfigured': statusText = 'Misconfigured on Server'; statusClass = 'warn'; iconClass = 'fas fa-exclamation-triangle'; break;
-        case 'error': statusText = 'Connection Error'; statusClass = 'error'; iconClass = 'fas fa-times-circle'; break;
-        default:
-          if (liveMqttStatusForServerSettings.value === 'unknown') {
-            statusText = "Awaiting Status...";
-            iconClass = 'fas fa-hourglass-half';
-            statusClass = 'info';
-          } else {
-            statusText = `Live Status: ${liveMqttStatusForServerSettings.value}`;
-            iconClass = 'fas fa-exclamation-circle';
-            statusClass = 'warn';
-          }
-          break;
-      }
-  }
-  return { text: statusText, class: statusClass, icon: iconClass };
+// Tracker statistics
+const trackerStats = computed(() => {
+    const liveTrackers = Object.values(trackers.value);
+    const totalTrackers = allTrackers.value.length;
+    const onlineTrackers = liveTrackers.length;
+    const trackersByMap = {};
+    
+    // Count trackers by map
+    liveTrackers.forEach(tracker => {
+        if (tracker.map) {
+            trackersByMap[tracker.map] = (trackersByMap[tracker.map] || 0) + 1;
+        }
+    });
+    
+    const sosTrackers = liveTrackers.filter(tracker => tracker.sos).length;
+    
+    return {
+        total: totalTrackers,
+        online: onlineTrackers,
+        offline: totalTrackers - onlineTrackers,
+        sos: sosTrackers,
+        byMap: trackersByMap
+    };
 });
+
+// Map selection methods
+const toggleMapDropdown = () => {
+    showMapDropdown.value = !showMapDropdown.value;
+};
+
+const selectMap = (mapConfig) => {
+    selectedMapConfig.value = mapConfig;
+    showMapDropdown.value = false;
+    showStatus(`Selected map: ${mapConfig.map.name || 'Unnamed Map'}`, 'success');
+};
+
+const onTrailsToggled = (showTrailsValue) => {
+    showTrails.value = showTrailsValue;
+};
+
+// Get formatted map info text
+const getMapInfoText = (mapConfig) => {
+    if (!mapConfig) return '';
+    
+    const beaconsCount = Array.isArray(mapConfig.beacons) ? mapConfig.beacons.length : 0;
+    const entitiesCount = mapConfig.map?.entities?.length || 0;
+    
+    const parts = [];
+    if (beaconsCount > 0) {
+        parts.push(`${beaconsCount} ${beaconsCount === 1 ? 'beacon' : 'beacons'}`);
+    }
+    if (entitiesCount > 0) {
+        parts.push(`${entitiesCount} ${entitiesCount === 1 ? 'entity' : 'entities'}`);
+    }
+    
+    return parts.length > 0 ? parts.join(', ') : 'No data';
+};
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event) => {
+    if (!event.target.closest('.map-selector-dropdown')) {
+        showMapDropdown.value = false;
+    }
+};
 
 const connectWebSocket = () => {
     if (ws.value && ws.value.readyState === WebSocket.OPEN) return;
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
     ws.value = new WebSocket(wsUrl);
-    // ws.value = new WebSocket('ws://indoorpositioning-demo.seeed.cc:8022');
     wsStatus.value = 'connecting';
+    showStatus('Connecting to server...', 'info');
 
     ws.value.onopen = () => { 
         wsStatus.value = 'connected'; 
-        initializeMasterConfig();
+        showStatus('Connected to server', 'success');
+        loadAvailableMaps();
+        loadAllTrackers();
         fetchFullServerConfig();    
     };
+    
     ws.value.onmessage = (event) => {
-        console.log('[WebSocket] RAW onmessage event received. Data:', event.data);
         try {
             const message = JSON.parse(event.data);
-            console.log('[WebSocket] PARSED message object:', message);
 
             if (message.type === 'initial_state') {
-                console.log('[WebSocket] Processing initial_state. Current isMqttEffectivelyEnabled:', isMqttEffectivelyEnabled.value, 'Data:', message.data);
                 if (isMqttEffectivelyEnabled.value) {
                     trackers.value = message.data || {};
                 } else {
                     trackers.value = {};
                 }
             } else if (message.type === 'tracker_update') {
-                console.log('[WebSocket] Processing tracker_update. Data:', message.data);
                 if (isMqttEffectivelyEnabled.value) {
                     const updatedTrackerId = Object.keys(message.data)[0];
                     if (updatedTrackerId && message.data[updatedTrackerId]) {
                         const newTrackerData = message.data[updatedTrackerId];
-                        console.log(`[WebSocket] Updating tracker ${updatedTrackerId} with (raw incoming):`, newTrackerData);
                         
                         const trackerInstanceData = {
                             trackerId: newTrackerData.trackerId,
+                            map: newTrackerData.map,
                             position: newTrackerData.position ? { 
                                 x: newTrackerData.position.x, 
                                 y: newTrackerData.position.y, 
                                 accuracy: newTrackerData.position.accuracy
                             } : null,
                             timestamp: newTrackerData.timestamp,
+                            sos: newTrackerData.sos || false,
+                            sos_happen: newTrackerData.sos_happen,
                             last_detected_beacons: newTrackerData.last_detected_beacons 
                                 ? newTrackerData.last_detected_beacons.map(b => ({ ...b })) 
                                 : [],
@@ -206,76 +277,116 @@ const connectWebSocket = () => {
                                 : []
                         };
 
-                        if (!trackers.value[updatedTrackerId]) {
-                            trackers.value = { ...trackers.value, [updatedTrackerId]: trackerInstanceData };
-                        } else {
-                            trackers.value[updatedTrackerId] = trackerInstanceData;
-                        }
-                        
-                        nextTick(() => {
-                            if (trackers.value[updatedTrackerId]) {
-                                console.log(`[Vue Reactive State AFTER nextTick] Tracker ${updatedTrackerId} .position is now:`, trackers.value[updatedTrackerId].position);
-                                console.log(`[Vue Reactive State AFTER nextTick] Tracker ${updatedTrackerId} .timestamp is now:`, trackers.value[updatedTrackerId].timestamp);
-                            } else {
-                                console.warn(`[Vue Reactive State AFTER nextTick] Tracker ${updatedTrackerId} missing after update.`);
-                            }
-                        });
+                        trackers.value[updatedTrackerId] = trackerInstanceData;
                     }
                 }
             } else if (message.type === 'mqtt_status_update') { 
-                console.log('[WebSocket] Processing mqtt_status_update. Data:', message.data);
                 if (message.data && typeof message.data.status === 'string') {
                     liveMqttStatusForServerSettings.value = message.data.status;
-                    if (message.data.status === 'disabled' && currentServerConfig.value && currentServerConfig.value.mqtt.enabled) {
-                         if(currentServerConfig.value) currentServerConfig.value.mqtt.enabled = false;
+                    if (message.data.status === 'disabled' && currentServerConfig.value?.mqtt?.enabled) {
+                         currentServerConfig.value.mqtt.enabled = false;
                     }
                 }
-            } else {
-                console.log('[WebSocket] Received unhandled message type:', message.type, 'Data:', message.data);
             }
         } catch (error) {
-            console.error('[WebSocket] FATAL: Error parsing WebSocket message or in handler. Raw data:', event.data, 'Error:', error);
+            console.error('[WebSocket] Error parsing message:', error);
         }
     };
-    ws.value.onerror = (error) => { wsStatus.value = 'error'; console.error('TrackerModeConfigView: WebSocket error:', error); };
-    ws.value.onclose = () => { wsStatus.value = 'disconnected'; };
+    
+    ws.value.onerror = (error) => { 
+        wsStatus.value = 'error'; 
+        showStatus('WebSocket connection error', 'error');
+    };
+    
+    ws.value.onclose = () => { 
+        wsStatus.value = 'disconnected'; 
+        showStatus('Disconnected from server. Reconnecting...', 'error');
+        setTimeout(connectWebSocket, 3000);
+    };
 };
 
 const showStatus = (msg, type = 'info') => {
-    statusMessage.value = `${type.toUpperCase()}: ${msg}`; 
-    setTimeout(() => { statusMessage.value = '' }, 7000); 
+    statusMessage.value = msg;
+    statusMessageType.value = type; 
+    setTimeout(() => { statusMessage.value = ''; statusMessageType.value = 'info'; }, 5000); 
 };
 
-const initializeMasterConfig = async () => {
-  showStatus('Loading master configuration...', 'info');
+const loadAllTrackers = async () => {
   try {
-    const config = await loadWebConfiguration();
-    if (config && config.map) {
-      currentFullConfig.value = config;
-      showStatus('Master configuration loaded from server.', 'success');
-      isMasterConfigSectionVisible.value = false;
-      return;
+    const trackersData = await loadTrackers();
+    allTrackers.value = Array.isArray(trackersData) ? trackersData : [];
+    console.log(`Loaded ${allTrackers.value.length} total trackers from server`);
+  } catch (error) {
+    console.error('Error loading all trackers:', error);
+    allTrackers.value = [];
+  }
+};
+
+const loadAvailableMaps = async () => {
+  showStatus('Loading available maps...', 'info');
+  try {
+    // Load dashboard configuration which contains the maps array
+    const dashboardConfig = await loadDashboardConfiguration();
+    
+    if (dashboardConfig && Array.isArray(dashboardConfig.maps)) {
+      // Dashboard config contains a maps array
+      availableMaps.value = dashboardConfig.maps;
+      
+      if (dashboardConfig.maps.length > 0) {
+        showStatus(`Found ${dashboardConfig.maps.length} available map(s)`, 'success');
+        // Auto-select the first map if none selected
+        if (!selectedMapConfig.value) {
+          selectedMapConfig.value = dashboardConfig.maps[0];
+        }
+      } else {
+        showStatus('No maps found in dashboard configuration.', 'warning');
+      }
+    } else if (dashboardConfig && dashboardConfig.map) {
+      // Fallback: single map in dashboard config
+      availableMaps.value = [dashboardConfig];
+      selectedMapConfig.value = dashboardConfig;
+      showStatus('Found 1 available map', 'success');
     } else {
-      showStatus('No master configuration found on server. Checking local storage...', 'info');
-      loadMasterConfigFromStorage();
+      // No maps found, try fallback sources
+      showStatus('No maps found in dashboard. Checking fallback sources...', 'warning');
+      
+      const fallbackMaps = [];
+      
+      // Try web configuration as fallback
+      try {
+        const webConfig = await loadWebConfiguration();
+        if (webConfig && webConfig.map) {
+          fallbackMaps.push(webConfig);
+        }
+      } catch (error) {
+        console.warn('Could not load web configuration:', error);
+      }
+      
+      // Try local storage as fallback
+      try {
+        const localConfig = loadConfigFromLocalStorage('trackerModeConfig');
+        if (localConfig && localConfig.map) {
+          fallbackMaps.push(localConfig);
+        }
+      } catch (error) {
+        console.warn('Could not load from local storage:', error);
+      }
+      
+      availableMaps.value = fallbackMaps;
+      
+      if (fallbackMaps.length > 0) {
+        showStatus(`Found ${fallbackMaps.length} fallback map(s)`, 'success');
+        if (!selectedMapConfig.value) {
+          selectedMapConfig.value = fallbackMaps[0];
+        }
+      } else {
+        showStatus('No maps found. Please configure maps in the dashboard first.', 'warning');
+      }
     }
   } catch (error) {
-    console.error('Error loading master configuration from server:', error);
-    showStatus(`Failed to load master config from server: ${error.message || 'Unknown error'}. Trying local storage.`, 'error');
-    loadMasterConfigFromStorage();
-  }
-};
-
-const loadMasterConfigFromStorage = () => {
-  const loaded = loadConfigFromLocalStorage(CONFIG_STORAGE_KEY);
-  if (loaded && loaded.map) { 
-    currentFullConfig.value = loaded; 
-    showStatus('Tracker mode master configuration loaded from local storage.'); 
-    isMasterConfigSectionVisible.value = false;
-  }
-  else { 
-    currentFullConfig.value = initialMasterConfig(); 
-    isMasterConfigSectionVisible.value = true;
+    console.error('Error loading available maps:', error);
+    showStatus(`Failed to load maps: ${error.message}`, 'error');
+    availableMaps.value = [];
   }
 };
 
@@ -292,15 +403,9 @@ const fetchFullServerConfig = async () => {
       } else if (config.mqtt && config.mqtt.enabled) {
         liveMqttStatusForServerSettings.value = 'unknown';
       }
-    } else {
-      console.warn('[TrackerMode] Failed to load server configuration or server returned empty.');
-      currentServerConfig.value = null;
-      liveMqttStatusForServerSettings.value = 'unknown';
     }
   } catch (error) {
-    console.error('[TrackerMode] Error fetching server configuration:', error);
-    currentServerConfig.value = null;
-    liveMqttStatusForServerSettings.value = 'unknown';
+    console.error('Error fetching server configuration:', error);
   }
 };
 
@@ -310,140 +415,407 @@ const isMqttEffectivelyEnabled = computed(() => {
 
 onMounted(() => {
     connectWebSocket();
+    document.addEventListener('click', handleClickOutside);
 });
-onUnmounted(() => { if (ws.value) { ws.value.onclose = null; ws.value.close(); } });
+
+onUnmounted(() => { 
+    if (ws.value) { 
+        ws.value.onclose = null; 
+        ws.value.close(); 
+    }
+    document.removeEventListener('click', handleClickOutside);
+});
 
 </script>
 
 <style scoped>
-/* .page-content-wrapper removed to use global */
-
+/* Page Title */
 .page-title {
-  /* color: #333; */ /* Use global */
-  /* margin-bottom: 20px; */ /* Use global */
-  text-align: center; /* Specific to this view */
+  text-align: center;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color);
+  font-size: 1.3rem;
+  font-weight: 600;
 }
 
-/* .info-banner styles removed to rely on global .status-display */
-
-.config-management {
-  margin-bottom: 20px;
+/* Map Viewer Section */
+.map-viewer-section {
+  margin-bottom: 0.5rem;
 }
 
-.server-status-and-settings {
-  margin-bottom: 20px;
-}
-
-.status-text {
-  /* padding: 0; */ /* Handled by card-content parent */
-  /* padding-left: 10px; */ /* Handled by card-content parent */
-  margin-bottom: 5px;
-  /* border-radius: 0; */ /* Not needed for plain text */
-  /* background-color: transparent; */ /* Default */
-  /* border: none; */ /* Default for <p> */
-  color: #333; /* Or var(--text-color) if #333 is not from a variable */
-  text-align: left;
-}
-
-.status-text.warning-text {
-  color: #8a6d3b;
-}
-.status-text.error-text {
-  color: #a94442;
-}
-
-.status-connected { color: green; font-weight: bold; }
-.status-disconnected { color: red; font-weight: bold; }
-
-.map-display-tracker {
-  margin-bottom: 1.5rem;
-}
-
-.content-columns {
+.map-viewer-section .card-header {
   display: flex;
-  gap: 20px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
 }
 
-.map-view-wrapper {
-  flex-grow: 1;
-  min-height: 400px;
+.map-viewer-section .card-header h2 {
+  margin: 0;
+  flex: 1;
+  font-size: 1rem;
 }
 
-.tracker-list-aside {
-  width: 300px;
+/* Map Selector */
+.map-selector-wrapper {
+  min-width: 300px;
   flex-shrink: 0;
-  background-color: #f9f9f9;
-  padding: 0.75rem; /* Standardized padding */
-  border-radius: 4px; /* Matches global --border-radius if var(--border-radius) is 4px, else use var */
-  /* Consider var(--border-radius) for consistency if it's not 4px */
-  border: 1px solid #eee; /* Consider var(--border-color) for consistency */
-  max-height: 500px;
+}
+
+.map-selector-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.map-dropdown-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+  min-height: 48px;
+}
+
+.map-dropdown-button:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(115, 199, 77, 0.1);
+}
+
+.map-dropdown-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.map-info {
+  color: var(--secondary-color);
+  margin-left: 0.5rem;
+}
+
+.dropdown-icon {
+  transition: transform 0.2s ease;
+  color: var(--secondary-color);
+}
+
+.dropdown-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.map-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--card-background);
+  border: 2px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  box-shadow: var(--box-shadow);
+  z-index: 100;
+  max-height: 200px;
   overflow-y: auto;
 }
 
-.tracker-list-aside h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: #333;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 5px;
+.map-dropdown-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.tracker-list-aside ul {
-  list-style-type: none;
-  padding: 0;
+.map-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.map-dropdown-item:hover:not(.disabled) {
+  background-color: rgba(115, 199, 77, 0.05);
+}
+
+.map-dropdown-item.selected {
+  background-color: rgba(115, 199, 77, 0.1);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.map-dropdown-item.disabled {
+  color: var(--secondary-color);
+  cursor: not-allowed;
+  font-style: italic;
+}
+
+.map-item-info strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.map-item-info small {
+  color: var(--secondary-color);
+  font-size: 0.8rem;
+}
+
+/* Status Message */
+.status-message {
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  border-left: 4px solid;
+  font-size: 0.9rem;
   margin: 0;
 }
 
-.tracker-item {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-  font-size: 0.9em;
+.status-message.info {
+  background-color: var(--info-bg-color);
+  border-left-color: var(--info-color);
+  color: var(--info-color);
 }
-.tracker-item:last-child {
-  border-bottom: none;
+
+.status-message.success {
+  background-color: rgba(115, 199, 77, 0.1);
+  border-left-color: var(--success-color);
+  color: var(--success-color);
 }
-.tracker-item strong {
-  color: #0056b3; 
+
+.status-message.warning {
+  background-color: rgba(230, 162, 60, 0.1);
+  border-left-color: var(--warning-color);
+  color: var(--warning-color);
+}
+
+.status-message.error {
+  background-color: rgba(245, 108, 108, 0.1);
+  border-left-color: var(--danger-color);
+  color: var(--danger-color);
+}
+
+/* Tracker Statistics Card */
+.tracker-stats-card {
+  margin-bottom: 0.5rem;
+}
+
+.tracker-stats-card .card-header {
+  padding: 0.5rem 1rem;
+}
+
+.tracker-stats-card .card-content {
+  padding: 0.75rem 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 0.5rem;
+  background-color: rgba(95, 99, 104, 0.1);
+  border-radius: var(--border-radius);
+  border-left: 4px solid var(--secondary-color);
+  transition: transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 60px;
+}
+
+.stat-item:hover {
+  transform: translateY(-1px);
+}
+
+.stat-item.success {
+  background-color: rgba(115, 199, 77, 0.1);
+  border-left-color: var(--success-color);
+}
+
+.stat-item.secondary {
+  background-color: rgba(95, 99, 104, 0.1);
+  border-left-color: var(--secondary-color);
+}
+
+.stat-item.danger {
+  background-color: rgba(245, 108, 108, 0.1);
+  border-left-color: var(--danger-color);
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 0.125rem;
   display: block;
-  margin-bottom: 3px;
-}
-.tracker-pos {
-  color: #333;
-  font-size: 0.95em;
-  margin-bottom: 3px;
-}
-.tracker-pos-na {
-  color: #777;
-  font-style: italic;
-  font-size: 0.95em;
-  margin-bottom: 3px;
-}
-.tracker-meta-group {
-  font-size: 0.85em;
-  color: #555;
-}
-.tracker-meta-item {
-  margin-top: 2px;
+  line-height: 1;
 }
 
-.fas {
-  margin-right: 5px;
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--secondary-color);
+  font-weight: 500;
+  line-height: 1;
 }
 
-.mqtt-controls {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
+.map-distribution {
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.5rem;
 }
 
-.mqtt-status-indicator-inline {
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-size: 0.9em;
+.map-distribution h4 {
+  margin: 0 0 0.25rem 0;
+  color: var(--text-color);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
-.mqtt-status-indicator-inline.success { background-color: #28a745; color: white; }
-.mqtt-status-indicator-inline.warn { background-color: #ffc107; color: #333; }
-.mqtt-status-indicator-inline.error { background-color: #dc3545; color: white; }
-.mqtt-status-indicator-inline.info { background-color: #17a2b8; color: white; }
+
+.map-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.map-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.375rem;
+  background-color: rgba(115, 199, 77, 0.05);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(115, 199, 77, 0.2);
+  font-size: 0.65rem;
+}
+
+.map-name {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 0.65rem;
+}
+
+.map-count {
+  font-size: 0.6rem;
+  color: var(--secondary-color);
+}
+
+/* Map Content */
+.map-header {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.map-header h3 {
+  margin: 0;
+  color: var(--text-color);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tracker-count {
+  color: var(--secondary-color);
+  font-weight: normal;
+  font-size: 0.75rem;
+}
+
+.map-content {
+  padding: 0.5rem;
+}
+
+.no-map-selected {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Empty States */
+.empty-state-card {
+  margin-bottom: 1.5rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  background-color: var(--card-background);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+
+.empty-state {
+  color: var(--secondary-color);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.empty-state-icon.error {
+  color: var(--danger-color);
+}
+
+.empty-state h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color);
+  font-size: 1.2rem;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .map-viewer-section .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .map-selector-wrapper {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .map-dropdown-button {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+  
+  .stat-item {
+    padding: 0.75rem;
+    min-height: 70px;
+  }
+  
+  .stat-number {
+    font-size: 1.6rem;
+  }
+  
+  .empty-state-card,
+  .no-map-selected {
+    padding: 2rem 1rem;
+  }
+  
+  .empty-state-icon {
+    font-size: 2rem;
+  }
+}
 </style>

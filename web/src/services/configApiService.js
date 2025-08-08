@@ -110,4 +110,21 @@ export const requestMqttAction = async (action) => { // action should be 'enable
   }
 };
 
+// Function to get all tracker devices
+export const loadTrackers = async () => {
+  try {
+    const response = await apiClient.get('/trackers');
+    return response.data;
+  } catch (error) {
+    console.error('Error loading trackers:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to load trackers.');
+    } else {
+      throw new Error(`Failed to load trackers: ${error.message}`);
+    }
+  }
+};
+
 // You might add other API calls related to configuration here later. 

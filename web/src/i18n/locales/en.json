@@ -2,7 +2,7 @@
   "nav": {
     "mapBeaconConfig": "Map & Beacon Configuration",
     "localMode": "Local Mode",
-    "trackerMode": "Tracker Mode",
+    "mapTracker": "Map & Tracker",
     "mapDashboard": "Map Dashboard"
   },
   "mapDashboard": {
@@ -26,7 +26,28 @@
     "noBeaconsDetected": "No beacons detected in last update.",
     "showTrails": "Show Trails",
     "hideTrails": "Hide Trails",
-    "sosAlert": "🚨 SOS ALERT"
+    "sosAlert": "🚨 SOS ALERT",
+    "mapViewer": "Map Viewer",
+    "mapTracker": "Map & Tracker",
+    "selectMap": "Select Map",
+    "chooseMap": "Choose Map",
+    "unnamedMap": "Unnamed Map",
+    "selectMapPlaceholder": "Select a map to view",
+    "entities": "entities",
+    "noMapsAvailable": "No maps available",
+    "activeTrackers": "active trackers",
+    "noMapSelected": "No Map Selected",
+    "selectMapToView": "Please select a map from the dropdown above to view trackers and map details.",
+    "connectionLost": "Connection Lost",
+    "reconnecting": "Attempting to reconnect to server...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "trackerStatistics": "Tracker Statistics",
+    "totalTrackers": "Total Trackers",
+    "onlineTrackers": "Online",
+    "offlineTrackers": "Offline",
+    "sosAlerts": "SOS Alerts",
+    "distributionByMap": "Distribution by Map"
   },
   "map": {
     "mapDimensions": "Map Dimensions",

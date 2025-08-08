@@ -113,6 +113,9 @@ class ServerRuntimeConfig(BaseModel):
     mqtt: MqttServerConfig
     server: WebServerConfig
     kalman: KalmanParams
+    tracker_list: list[str] = [],
+    paas_api_id: str = "",
+    paas_api_key: str = ""
 
 
 # --- Tracker Data Models (remain largely unchanged) ---
@@ -142,7 +145,8 @@ class TrackerState(BaseModel):
     last_detected_beacons: List[DetectedBeacon] = [] 
     position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
     used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
-    map: Optional[str] = ""
+    map: Optional[str] = "unknown"
+    sos: int = 0
 
 
 
@@ -193,6 +197,8 @@ class DeviceAlarmRecord:
     pos_type: str = "bluetooth"
     loc: Dict[str, Any] = None
     beacons: Optional[List[Dict[str, Any]]] = None
+    sos: int = 0
+    map_name: Optional[str] = 'unknown'
     
     def __post_init__(self):
         if self.loc is None:

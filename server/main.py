@@ -11,6 +11,8 @@ if __name__ == "__main__":
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query
+from pydantic import BaseModel
+from typing import List, Optional
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 import json
@@ -93,7 +95,11 @@ kalman_filters: Dict[str, KalmanFilter2D] = {} # Stores Kalman filter instance p
 mqtt_client: Optional[mqtt.Client] = None
 beacon_map: Dict[str, WebUIBeaconConfig] = {}
 
-device_sos_map: dict[str: int] = {}
+allow_tracker_list: list[str] = []
+
+# Request models for API endpoints
+class TrackerListUpdateRequest(BaseModel):
+    tracker_list: List[str] = []
 
 # --- WebSocket Connection Manager ---
 class ConnectionManager:
@@ -495,10 +501,6 @@ def on_message(client, userdata, msg):
     global main_event_loop # Access the main event loop
 
     # log.info(f"MQTT Message Received: Topic: {msg.topic}") # Can be very noisy
-
-
-    if msg.topic == '/device_sensor_data/449120059189248/2CF7F1C0530003BD/1/vs/4200':
-        print("aaa")
     topic_parts = msg.topic.split('/')
     if not msg.topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
         log.warning(f"Received message on unexpected or incomplete topic structure: {msg.topic}")
@@ -508,6 +510,9 @@ def on_message(client, userdata, msg):
     # if measurement_id != "5002":
     #     # log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.") # DEBUG
     #     return
+
+    if device_eui not in allow_tracker_list:
+        return
 
     # log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})") # Can be noisy
     report = parse_sensecap_payload(device_eui, measurement_id, msg.payload)
@@ -524,7 +529,7 @@ def on_message(client, userdata, msg):
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg, device_sos_map
+    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg
 
     if not web_ui_cfg or not web_ui_cfg.beacons:
         log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
@@ -548,7 +553,7 @@ async def process_tracker_report(report: TrackerReport):
         })
         return
 
-    if report.sos != 2:
+    if report.sos != 2 and tracker_states.get(report.trackerId, None):
         log.info(f'broadcast tracker sos event: {report.trackerId}')
         await manager.broadcast({
             "type": "tracker_sos",
@@ -562,13 +567,13 @@ async def process_tracker_report(report: TrackerReport):
         now_loc_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
 
         # 检查设备SOS状态是否发生变化
-        previous_sos = device_sos_map.get(report.trackerId, 2)  # 默认为未知状态
+        previous_sos = tracker_states.get(report.trackerId, {}).get('sos', 2)
         current_sos = report.sos
         
         # 如果状态发生变化，创建告警记录
         if previous_sos != current_sos and current_sos != 2:  # 排除未知状态
             # 更新设备SOS状态映射
-            device_sos_map[report.trackerId] = current_sos
+            tracker_states.get(report.trackerId, {}).sos = current_sos
             
             # 确定使用的定位信息和类型
             alarm_loc = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc', default_value=None)
@@ -585,11 +590,17 @@ async def process_tracker_report(report: TrackerReport):
                 from datetime import datetime
                 alarm_time = datetime.fromtimestamp(report.timestamp / 1000.0)
                 
+                # 获取设备当前所在的地图
+                current_tracker_state = tracker_states.get(report.trackerId)
+                map_name = current_tracker_state.map if current_tracker_state and current_tracker_state.map else None
+                
                 alarm_record_dao.create_record(
                     dev_eui=report.trackerId, 
                     loc=alarm_loc, 
                     pos_type=pos_type, 
-                    alarm_time=alarm_time
+                    alarm_time=alarm_time,
+                    sos=current_sos,
+                    map_name=map_name
                 )
                 
                 log.info(f"设备 {report.trackerId} SOS状态变化: {previous_sos} -> {current_sos}，已创建告警记录")
@@ -597,7 +608,7 @@ async def process_tracker_report(report: TrackerReport):
                 log.error(f"创建告警记录失败: {e}")
         else:
             # 如果状态没有变化，仍需更新映射以跟踪当前状态
-            device_sos_map[report.trackerId] = current_sos
+            tracker_states.get(report.trackerId, {}).sos = current_sos
         return
 
     log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
@@ -908,15 +919,17 @@ async def push_sos(report: TrackerReport):
 async def list_device_alarms(
     device_eui: str = Query(..., description="设备EUI"),
     page: int = Query(1, ge=1, description="页码，从1开始"),
-    page_size: int = Query(20, ge=1, le=100, description="每页记录数，最大100")
+    page_size: int = Query(20, ge=1, le=100, description="每页记录数，最大100"),
+    map_name: Optional[str] = Query(None, description="地图名称，可选筛选条件")
 ):
     """
-    查询设备报警记录，支持分页
+    查询设备报警记录，支持分页和地图筛选
 
     Parameters:
     - device_eui: 设备EUI (必填)
     - page: 页码，从1开始 (默认1)
     - page_size: 每页记录数，最大100 (默认20)
+    - map_name: 地图名称，可选筛选条件
 
     Returns:
     - records: 报警记录列表
@@ -929,7 +942,8 @@ async def list_device_alarms(
         records, total = alarm_record_dao.get_records_by_dev_eui(
             dev_eui=device_eui,
             page=page,
-            page_size=page_size
+            page_size=page_size,
+            map_name=map_name
         )
 
         total_pages = (total + page_size - 1) // page_size  # 计算总页数
@@ -951,54 +965,6 @@ async def list_device_alarms(
     except Exception as e:
         log.error(f"查询设备报警记录失败: device_eui={device_eui}, error={e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
-
-
-
-# @app.post("/api/sensecap/init")
-# async def initialize_sensecap(
-#     api_key: str = Query(..., description="SenseCAP API Key"),
-#     org_id: str = Query(..., description="SenseCAP Organization ID"),
-#     base_url: str = Query("https://sensecap.seeed.cc/openapi", description="SenseCAP API Base URL")
-# ):
-#     """
-#     初始化 SenseCAP 客户端
-#
-#     Parameters:
-#     - api_key: SenseCAP API Key (必填)
-#     - org_id: SenseCAP Organization ID (必填)
-#     - base_url: SenseCAP API Base URL (默认官方地址)
-#
-#     Returns:
-#     - 初始化结果
-#     """
-#     try:
-#         success = initialize_sensecap_client(
-#             api_key=api_key,
-#             org_id=org_id,
-#             base_url=base_url
-#         )
-#
-#         if success:
-#             return {
-#                 "code": 200,
-#                 "message": "SenseCAP 客户端初始化成功",
-#                 "data": {
-#                     "api_key_preview": f"{api_key[:8]}***{api_key[-4:]}" if len(api_key) > 12 else "***",
-#                     "org_id": org_id,
-#                     "base_url": base_url
-#                 }
-#             }
-#         else:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="SenseCAP 客户端初始化失败，请检查 API Key 和 Org ID 是否正确"
-#             )
-#
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         log.error(f"初始化 SenseCAP 客户端失败: error={e}", exc_info=True)
-#         raise HTTPException(status_code=500, detail=f"初始化失败: {str(e)}")
 
 
 @app.get("/api/trackers")
@@ -1246,6 +1212,110 @@ async def get_map_example_format():
         log.error(f"Error reading map example format file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read map example format: {str(e)}")
 
+@app.post("/api/allow_tracker-list", status_code=200)
+async def update_allow_tracker_list(request: TrackerListUpdateRequest):
+    """更新tracker_list配置"""
+    global runtime_cfg
+    
+    try:
+        # 验证tracker_list中的每个项目都是有效字符串
+        if not isinstance(request.tracker_list, list):
+            raise HTTPException(status_code=400, detail="tracker_list must be a list")
+        
+        for item in request.tracker_list:
+            if not isinstance(item, str):
+                raise HTTPException(status_code=400, detail="All items in tracker_list must be strings")
+            if len(item.strip()) == 0:
+                raise HTTPException(status_code=400, detail="tracker_list items cannot be empty strings")
+        
+        # 加载当前配置
+        current_cfg = config_manager.load_server_runtime_config()
+        if not current_cfg:
+            raise HTTPException(status_code=500, detail="Cannot load server runtime configuration")
+        
+        # 更新tracker_list，转为大写
+        current_cfg.tracker_list = [item.strip().upper() for item in request.tracker_list]
+        
+        # 保存配置
+        success, new_cfg = config_manager.save_server_runtime_config(current_cfg)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to save tracker_list configuration")
+        
+        # 更新全局配置
+        runtime_cfg = new_cfg
+        
+        log.info(f"tracker_list updated successfully. New list: {current_cfg.tracker_list}")
+        
+        return {
+            "success": True, 
+            "message": "tracker_list updated successfully", 
+            "tracker_list": current_cfg.tracker_list
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating tracker_list: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/allow_tracker-list")
+async def get_allow_tracker_list():
+    """获取当前的tracker_list配置"""
+    try:
+        current_cfg = config_manager.load_server_runtime_config()
+        if not current_cfg:
+            return {"tracker_list": []}
+        
+        return {"tracker_list": [item.upper() for item in current_cfg.tracker_list]}
+        
+    except Exception as e:
+        log.error(f"Error getting tracker_list: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/list_paas_device")
+async def get_paas_devices():
+    """获取PaaS平台设备列表"""
+    try:
+        # 获取当前配置中的PaaS认证信息
+        current_cfg = config_manager.load_server_runtime_config()
+        if not current_cfg or not current_cfg.paas_api_id or not current_cfg.paas_api_key:
+            raise HTTPException(status_code=400, detail="PaaS API credentials not configured")
+        
+        # 动态导入paas_client以避免循环导入
+        from server.clients.paas_client import initialize_paas_client, get_paas_client
+        
+        # 初始化PaaS客户端
+        host = getattr(current_cfg, 'paas_host', 'https://sensecap.seeed.cc/openapi')  # 使用配置中的host或默认值
+        username = current_cfg.paas_api_id
+        password = current_cfg.paas_api_key
+        
+        if not initialize_paas_client(host, username, password):
+            raise HTTPException(status_code=500, detail="Failed to initialize PaaS client")
+        
+        client = get_paas_client()
+        if not client:
+            raise HTTPException(status_code=500, detail="PaaS client not available")
+        
+        # 获取设备列表
+        devices = client.list_devices(device_type=2)
+        if devices is None:
+            raise HTTPException(status_code=500, detail="Failed to retrieve devices from PaaS")
+        
+        # 转换为字典格式返回
+        device_list = [device.to_dict() for device in devices]
+        
+        return {
+            "success": True,
+            "data": device_list,
+            "count": len(device_list)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error getting PaaS devices: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 # --- Main Execution ---
 if __name__ == "__main__":
     # Load runtime config first for server port
@@ -1258,6 +1328,7 @@ if __name__ == "__main__":
         log.warning(f"Could not load server port from runtime config. Using default {server_port}.")
         # Fallback if server_runtime_config.json is missing or malformed for port.
 
+    allow_tracker_list = rt_cfg.tracker_list
     log.info(f"Starting Uvicorn server on host 0.0.0.0 port {server_port}")
     load_dashboard_config()
     load_web_ui_config()
