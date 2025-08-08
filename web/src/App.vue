@@ -1,18 +1,21 @@
 <template>
   <div id="app-shell">
     <nav class="main-nav">
-      <!-- <router-link to="/" class="nav-link">Live Map</router-link> REMOVE THIS -->
-      <router-link to="/config-master" class="nav-link">Map & Beacon Configuration</router-link>
-      <router-link to="/config-local" class="nav-link">Local Mode</router-link>
-      <router-link to="/config-tracker" class="nav-link">Tracker Mode</router-link>
-      <router-link to="/map-dashboard?fullscreen=true" class="nav-link">Map Dashboard</router-link>
+      <div class="nav-links">
+        <!-- <router-link to="/" class="nav-link">Live Map</router-link> REMOVE THIS -->
+        <router-link to="/config-master" class="nav-link">{{ $t('nav.mapBeaconConfig') }}</router-link>
+        <router-link to="/config-local" class="nav-link">{{ $t('nav.localMode') }}</router-link>
+        <router-link to="/config-tracker" class="nav-link">{{ $t('nav.trackerMode') }}</router-link>
+        <router-link to="/map-dashboard?fullscreen=true" class="nav-link">{{ $t('nav.mapDashboard') }}</router-link>
+      </div>
+      <LanguageSwitcher />
     </nav>
     <router-view />
   </div>
 </template>
 
 <script setup>
-// No script needed for this basic shell if it only contains router-view and links.
+import LanguageSwitcher from './components/LanguageSwitcher.vue'
 </script>
 
 <style scoped>
@@ -27,9 +30,16 @@
   background-color: var(--card-background); /* Changed from --dark-color to white */
   padding: 0.75rem 1.5rem;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.08); /* Adjusted shadow for white bg */
   border-bottom: 1px solid var(--border-color); /* Added a light border like SenseCraft */
+}
+
+.nav-links {
+  display: flex;
+  justify-content: center;
+  flex: 1;
 }
 
 .nav-link {

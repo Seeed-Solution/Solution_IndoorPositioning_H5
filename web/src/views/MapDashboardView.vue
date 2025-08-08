@@ -1,9 +1,9 @@
 <template>
   <div class="map-dashboard-view page-content-wrapper">
-    <h1 class="page-title">Map Dashboard</h1>
+    <h1 class="page-title">{{ $t('nav.mapDashboard') }}</h1>
     <p class="info-banner status-display info" v-if="statusMessage">{{ statusMessage }}</p>
 
-    <!-- 连接状态与统计信息 -->
+    <!-- {{ $t('mapDashboard.connectionStatus') }} -->
     <div class="dashboard-overview card">
       <div class="card-content">
         <div class="overview-content">
@@ -42,11 +42,11 @@
 
     <!-- 地图部分 -->
     <div class="maps-container" v-if="availableMaps.length > 0">
-      <!-- 全屏按钮 -->
+      <!-- {{ $t('mapDashboard.fullscreen') }} -->
       <div class="maps-header">
-        <h2>地图总览</h2>
+        <h2>{{ $t('mapDashboard.title') }}</h2>
         <button @click="enterFullscreen" class="btn-fullscreen">
-          <i class="fas fa-expand"></i> 全屏显示
+          <i class="fas fa-expand"></i> {{ $t('mapDashboard.fullscreen') }}
         </button>
       </div>
       <div class="maps-grid">
@@ -117,7 +117,7 @@
     <div v-if="isFullscreen" class="fullscreen-overlay">
       <div class="fullscreen-container">
         <!-- 右上角退出按钮 -->
-        <button @click="exitFullscreen" class="btn-close-floating">
+        <button @click="exitFullscreen" class="btn-close-floating" :title="$t('mapDashboard.exitFullscreen')">
           <i class="fas fa-times"></i>
         </button>
 

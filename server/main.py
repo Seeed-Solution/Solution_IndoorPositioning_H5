@@ -93,6 +93,8 @@ kalman_filters: Dict[str, KalmanFilter2D] = {} # Stores Kalman filter instance p
 mqtt_client: Optional[mqtt.Client] = None
 beacon_map: Dict[str, WebUIBeaconConfig] = {}
 
+device_sos_map: dict[str: int] = {}
+
 # --- WebSocket Connection Manager ---
 class ConnectionManager:
     def __init__(self):
@@ -227,6 +229,7 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
             case '4198':
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+                time.sleep(1)
                 altitude = UplinkCollector.get(dev_eui=device_eui, measurement_id='4197')
                 longitude = data.get("value")
                 if altitude and longitude:
@@ -235,6 +238,8 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
                         "lon": longitude
                     }
                     loc_type = 'gps'
+                    UplinkCollector.set(dev_eui=device_eui, measurement_id='loc', value=loc)
+                    UplinkCollector.set(dev_eui=device_eui, measurement_id='loc_type', value=loc_type)
                     return TrackerReport(
                         trackerId=device_eui,
                         timestamp=payload_timestamp,
@@ -519,7 +524,7 @@ def on_message(client, userdata, msg):
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg
+    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg, device_sos_map
 
     if not web_ui_cfg or not web_ui_cfg.beacons:
         log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
@@ -553,10 +558,46 @@ async def process_tracker_report(report: TrackerReport):
             }}
         })
 
-        time.sleep(1)
-        # todo 获取定位数据
-        alarm_record_dao.create_record(
-            dev_eui=report.trackerId, loc=report.loc, pos_type='gps', alarm_time=report.timestamp)
+        time.sleep(2)
+        now_loc_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
+
+        # 检查设备SOS状态是否发生变化
+        previous_sos = device_sos_map.get(report.trackerId, 2)  # 默认为未知状态
+        current_sos = report.sos
+        
+        # 如果状态发生变化，创建告警记录
+        if previous_sos != current_sos and current_sos != 2:  # 排除未知状态
+            # 更新设备SOS状态映射
+            device_sos_map[report.trackerId] = current_sos
+            
+            # 确定使用的定位信息和类型
+            alarm_loc = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc', default_value=None)
+            pos_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
+            if not alarm_loc:
+                alarm_loc = {}
+            if not pos_type:
+                pos_type = 'unknown'
+
+            
+            # 创建告警记录
+            try:
+                # 将timestamp从毫秒转换为datetime对象
+                from datetime import datetime
+                alarm_time = datetime.fromtimestamp(report.timestamp / 1000.0)
+                
+                alarm_record_dao.create_record(
+                    dev_eui=report.trackerId, 
+                    loc=alarm_loc, 
+                    pos_type=pos_type, 
+                    alarm_time=alarm_time
+                )
+                
+                log.info(f"设备 {report.trackerId} SOS状态变化: {previous_sos} -> {current_sos}，已创建告警记录")
+            except Exception as e:
+                log.error(f"创建告警记录失败: {e}")
+        else:
+            # 如果状态没有变化，仍需更新映射以跟踪当前状态
+            device_sos_map[report.trackerId] = current_sos
         return
 
     log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
@@ -641,6 +682,8 @@ async def process_tracker_report(report: TrackerReport):
 
     # Construct the data payload for the specific tracker_id
 
+    UplinkCollector.set(dev_eui=tracker_id, measurement_id='loc', value=position_payload)
+    UplinkCollector.set(dev_eui=tracker_id, measurement_id='loc_type', value='bluetooth')
     enriched_detected_beacons = []
     if new_state.last_detected_beacons and web_ui_cfg and web_ui_cfg.beacons:
         configured_beacons_map = {b.macAddress: b for b in web_ui_cfg.beacons if b.macAddress} # Create a map for quick lookup by MAC

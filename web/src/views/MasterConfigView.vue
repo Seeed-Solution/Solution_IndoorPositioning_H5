@@ -1,6 +1,6 @@
 <template>
   <div class="master-config-view page-content-wrapper">
-    <h1 class="page-title">Map & Beacon Configuration</h1>
+    <h1 class="page-title">{{ $t('config.title') }}</h1>
     <p class="info-banner status-display info" v-if="configStatusMessage">{{ configStatusMessage }}</p>
 
     <div class="global-actions card">
@@ -9,7 +9,7 @@
         <input type="file" @change="handleImportFullConfigurationFile" accept=".json" ref="importFileRef" style="display: none;" />
         <button @click="triggerImportFile" :disabled="isLoadingConfig" class="button-primary">Import Configuration from File</button>
         <button @click="exportFullConfiguration" :disabled="!currentConfiguration.map || isLoadingConfig">Export Configuration to Clipboard</button>
-        <button @click="saveConfigurationToServer" :disabled="!currentConfiguration.map || isLoadingConfig" class="save-to-server-btn">保存配置到服务器</button>
+        <button @click="saveConfigurationToServer" :disabled="!currentConfiguration.map || isLoadingConfig" class="save-to-server-btn">{{ $t('config.saveToServer') }}</button>
         <p class="info-banner info" style="margin-top:10px;">This section is for creating or modifying a complete map and beacon setup. Use 'Export' to copy the configuration, then import it into 'Personal Mode' or 'Tracker Mode'. Changes here are for the current session and are not automatically saved to the server or other modes.</p>
       </div>
     </div>
@@ -63,6 +63,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BeaconManagerTab from '@/components/configuration/BeaconManagerTab.vue';
 import MapEditorTab from '@/components/configuration/MapEditorTab.vue';
 import GeneralSettingsTab from '@/components/configuration/GeneralSettingsTab.vue';
@@ -71,6 +72,8 @@ import { processBeaconsForPlatform } from '@/utils/platformUtils';
 // Removed: loadWebConfiguration, saveWebConfiguration from configApiService
 
 const SESSION_STORAGE_KEY = 'masterConfigData';
+
+const { t } = useI18n();
 
 const activeTab = ref('map'); /* Default to Map Editor tab */
 
@@ -335,7 +338,7 @@ const handleBeaconCoordinatesUpdatedFromMapEditor = (updatedBeacon) => {
         "Target Beacon (from map click):", JSON.parse(JSON.stringify(updatedBeacon)),
         "Searched List (currentConfiguration.beacons at time of search):", JSON.parse(JSON.stringify(currentConfiguration.value.beacons))
     );
-    configStatusMessage.value = "错误：尝试更新位置的信标未在已配置列表中找到。如果您正在编辑一个新信标，请确保从信标表单中点击'从地图更新坐标'。";
+    configStatusMessage.value = t('config.errorBeaconNotFound');
   }
   selectedBeaconForPlacement.value = null; // Clear selection after attempt, regardless of outcome for this path
   setTimeout(() => { configStatusMessage.value = '' }, 7000);
@@ -411,19 +414,19 @@ const exportFullConfiguration = () => {
 
 const saveConfigurationToServer = async () => {
   if (!currentConfiguration.value.map) {
-    configStatusMessage.value = '没有地图配置，无法保存到服务器。请先创建或导入地图。';
+    configStatusMessage.value = t('config.noMapConfig');
     setTimeout(() => { configStatusMessage.value = '' }, 5000);
     return;
   }
   isLoadingConfig.value = true;
-  configStatusMessage.value = '正在保存配置到服务器...';
+  configStatusMessage.value = t('config.savingConfig');
   try {
     const response = await saveWebConfiguration(currentConfiguration.value);
-    configStatusMessage.value = response.message || '配置已成功保存到服务器！';
+    configStatusMessage.value = response.message || t('config.configSaved');
     console.log("Save response:", response);
   } catch (error) {
     console.error("Failed to save configuration to server:", error);
-    configStatusMessage.value = `保存配置到服务器失败: ${error.message}`;
+    configStatusMessage.value = `${t('config.saveFailed')}: ${error.message}`;
   }
   isLoadingConfig.value = false;
   setTimeout(() => { configStatusMessage.value = '' }, 5000);

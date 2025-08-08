@@ -94,10 +94,13 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import MapView from '@/components/MapView.vue'; // Changed from MapEditorTab
 import { loadConfigFromLocalStorage, saveConfigToLocalStorage, clearConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { calculatePosition, calculateDistance, setSignalFactor } from '@/utils/positioning/positionCalculator.js';
 import { loadServerConfiguration } from '@/services/configApiService.js'; // Example, might not be the right one
+
+const { t } = useI18n();
 
 const CONFIG_STORAGE_KEY = 'localModeConfig';
 
@@ -297,9 +300,9 @@ const localDevicePositionDisplay = computed(() => {
   if (localDevicePosition.value.method) {
     // Translate method to English
     let methodName = localDevicePosition.value.method;
-    if (methodName === '三边测量') methodName = 'Trilateration';
-    else if (methodName === '最小二乘法') methodName = 'Least Squares';
-    else if (methodName === '加权质心') methodName = 'Weighted Centroid';
+    if (methodName === t('positioning.trilateration')) methodName = 'Trilateration';
+    else if (methodName === t('positioning.leastSquares')) methodName = 'Least Squares';
+    else if (methodName === t('positioning.weightedCentroid')) methodName = 'Weighted Centroid';
     display += `, Method: ${methodName}`;
   }
   return display;

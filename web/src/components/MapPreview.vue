@@ -15,9 +15,9 @@
       </div>
       <aside class="tracker-list-aside">
         <div class="tracker-list-header">
-          <h4>Trackers ({{ trackerList.length }})</h4>
+          <h4>{{ $t('tracker.trackers') }} ({{ trackerList.length }})</h4>
           <button @click="toggleTrails" class="button-secondary map-trail-toggle-btn">
-            <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? 'Hide' : 'Show' }} Trails
+            <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? $t('tracker.hideTrails') : $t('tracker.showTrails') }}
           </button>
         </div>
         <ul v-if="trackerList.length > 0">
@@ -26,7 +26,7 @@
             
             <!-- SOS Status -->
             <div v-if="tracker.sos" class="tracker-sos-status">
-              🚨 SOS ALERT
+              {{ $t('tracker.sosAlert') }}
               <div v-if="tracker.sos_happen" class="tracker-sos-time">
                 {{ new Date(tracker.sos_happen).toLocaleString() }}
               </div>
@@ -35,28 +35,28 @@
             <!-- Position Data -->
             <div v-if="tracker.position && typeof tracker.position.x === 'number' && typeof tracker.position.y === 'number'" class="tracker-pos">
               X: {{ tracker.position.x.toFixed(2) }}, Y: {{ tracker.position.y.toFixed(2) }}
-              <span v-if="tracker.position.accuracy && typeof tracker.position.accuracy === 'number'">, Acc: {{ tracker.position.accuracy.toFixed(2) }}m</span>
+              <span v-if="tracker.position.accuracy && typeof tracker.position.accuracy === 'number'">, {{ $t('tracker.accuracy') }}: {{ tracker.position.accuracy.toFixed(2) }}m</span>
             </div>
             <div v-else class="tracker-pos-na">
-              No position data
+              {{ $t('tracker.noPositionData') }}
             </div>
 
             <!-- Meta Data -->
             <div class="tracker-meta-group">
               <div v-if="tracker.timestamp" class="tracker-meta-item">
-                 Last seen: {{ new Date(tracker.timestamp).toLocaleTimeString() }}
+                 {{ $t('tracker.lastSeen') }}: {{ new Date(tracker.timestamp).toLocaleTimeString() }}
               </div>
               <div v-if="tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-meta-item">
-                Strongest RSSI: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm
-                (Detected {{ tracker.last_detected_beacons.length }} beacon(s))
+                {{ $t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm
+                ({{ $t('tracker.detected') }} {{ tracker.last_detected_beacons.length }} {{ $t('tracker.beacons') }})
               </div>
               <div v-else-if="tracker.last_detected_beacons" class="tracker-meta-item">
-                No beacons detected in last update.
+                {{ $t('tracker.noBeaconsDetected') }}
               </div>
             </div>
           </li>
         </ul>
-        <p v-else>No trackers received yet.</p>
+        <p v-else>{{ $t('tracker.noTrackers') }}</p>
       </aside>
     </div>
   </div>
