@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "mapBeaconConfig": "Map & Beacon Configuration",
+    "localMode": "Local Mode",
+    "trackerMode": "Tracker Mode",
+    "mapDashboard": "Map Dashboard"
+  },
+  "mapDashboard": {
+    "title": "Map Overview",
+    "fullscreen": "Fullscreen",
+    "connectionStatus": "Connection Status",
+    "statistics": "Statistics",
+    "connectedTrackers": "Connected Trackers",
+    "totalBeacons": "Total Beacons",
+    "exitFullscreen": "Exit Fullscreen"
+  },
+  "tracker": {
+    "trackers": "Trackers",
+    "noTrackers": "No trackers received yet.",
+    "noPositionData": "No position data",
+    "lastSeen": "Last seen",
+    "accuracy": "Acc",
+    "strongestRssi": "Strongest RSSI",
+    "detected": "Detected",
+    "beacons": "beacon(s)",
+    "noBeaconsDetected": "No beacons detected in last update.",
+    "showTrails": "Show Trails",
+    "hideTrails": "Hide Trails",
+    "sosAlert": "🚨 SOS ALERT"
+  },
+  "map": {
+    "mapDimensions": "Map Dimensions",
+    "loadConfiguration": "Load configuration to display map."
+  },
+  "config": {
+    "saveToServer": "Save to Server",
+    "noMapConfig": "No map configuration, cannot save to server. Please create or import a map first.",
+    "savingConfig": "Saving configuration to server...",
+    "configSaved": "Configuration successfully saved to server!",
+    "saveFailed": "Failed to save configuration to server",
+    "errorBeaconNotFound": "Error: Beacon attempting position update not found in configured list. If you are editing a new beacon, make sure to click 'Update coordinates from map' from the beacon form.",
+    "title": "Map & Beacon Configuration",
+    "mapConfiguration": "Map Configuration",
+    "beaconConfiguration": "Beacon Configuration",
+    "importConfig": "Import Configuration",
+    "exportConfig": "Export Configuration",
+    "createNewMap": "Create New Map",
+    "loadFromFile": "Load from File"
+  },
+  "positioning": {
+    "trilateration": "Trilateration",
+    "leastSquares": "Least Squares", 
+    "weightedCentroid": "Weighted Centroid"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close"
+  }
+}

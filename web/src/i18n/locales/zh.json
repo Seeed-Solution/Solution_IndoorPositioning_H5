@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "mapBeaconConfig": "地图与信标配置",
+    "localMode": "本地模式",
+    "trackerMode": "追踪器模式",
+    "mapDashboard": "地图仪表盘"
+  },
+  "mapDashboard": {
+    "title": "地图总览",
+    "fullscreen": "全屏显示",
+    "connectionStatus": "连接状态与统计信息",
+    "statistics": "统计信息",
+    "connectedTrackers": "已连接追踪器",
+    "totalBeacons": "总信标数",
+    "exitFullscreen": "退出全屏"
+  },
+  "tracker": {
+    "trackers": "追踪器",
+    "noTrackers": "尚未接收到追踪器数据。",
+    "noPositionData": "无位置数据",
+    "lastSeen": "最后在线",
+    "accuracy": "精度",
+    "strongestRssi": "最强信号",
+    "detected": "检测到",
+    "beacons": "个信标",
+    "noBeaconsDetected": "最后更新中未检测到信标。",
+    "showTrails": "显示轨迹",
+    "hideTrails": "隐藏轨迹",
+    "sosAlert": "🚨 SOS 警报"
+  },
+  "map": {
+    "mapDimensions": "地图尺寸",
+    "loadConfiguration": "加载配置以显示地图。"
+  },
+  "config": {
+    "saveToServer": "保存配置到服务器",
+    "noMapConfig": "没有地图配置，无法保存到服务器。请先创建或导入地图。",
+    "savingConfig": "正在保存配置到服务器...",
+    "configSaved": "配置已成功保存到服务器！",
+    "saveFailed": "保存配置到服务器失败",
+    "errorBeaconNotFound": "错误：尝试更新位置的信标未在已配置列表中找到。如果您正在编辑一个新信标，请确保从信标表单中点击'从地图更新坐标'。",
+    "title": "地图与信标配置",
+    "mapConfiguration": "地图配置",
+    "beaconConfiguration": "信标配置",
+    "importConfig": "导入配置",
+    "exportConfig": "导出配置",
+    "createNewMap": "创建新地图",
+    "loadFromFile": "从文件加载"
+  },
+  "positioning": {
+    "trilateration": "三边测量",
+    "leastSquares": "最小二乘法", 
+    "weightedCentroid": "加权质心"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "add": "添加",
+    "close": "关闭"
+  }
+}
