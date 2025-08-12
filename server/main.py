@@ -547,10 +547,12 @@ async def process_tracker_report(report: TrackerReport):
             "sos": report.sos
         }
         tracker_id = report.trackerId
-        await manager.broadcast({
-            "type": "tracker_update",
-            "data": {tracker_id: tracker_data_payload}
-        })
+
+        # 暂时屏蔽 gps 定位数据
+        # await manager.broadcast({
+        #     "type": "tracker_update",
+        #     "data": {tracker_id: tracker_data_payload}
+        # })
         return
 
     if report.sos != 2 and tracker_states.get(report.trackerId, None):
@@ -562,6 +564,9 @@ async def process_tracker_report(report: TrackerReport):
                 "sos": report.sos
             }}
         })
+
+        if tracker_states.get(report.trackerId, None):
+            tracker_states.get(report.trackerId, {}).sos = report.sos
 
         time.sleep(2)
         now_loc_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')

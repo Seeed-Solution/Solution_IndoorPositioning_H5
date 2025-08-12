@@ -21,7 +21,7 @@
             <div class="stat-number">{{ trackerStats.offline }}</div>
             <div class="stat-label">{{ $t('tracker.offlineTrackers') }}</div>
           </div>
-          <div v-if="trackerStats.sos > 0" class="stat-item danger">
+          <div class="stat-item danger">
             <div class="stat-number">{{ trackerStats.sos }}</div>
             <div class="stat-label">{{ $t('tracker.sosAlerts') }}</div>
           </div>
@@ -163,24 +163,35 @@ const filteredTrackerList = computed(() => {
 
 // Tracker statistics
 const trackerStats = computed(() => {
-    const liveTrackers = Object.values(trackers.value);
     const totalTrackers = allTrackers.value.length;
-    const onlineTrackers = liveTrackers.length;
-    const trackersByMap = {};
+    const now = Date.now();
+    const fifteenMinutesMs = 15 * 60 * 1000; // 15 minutes in milliseconds
     
-    // Count trackers by map
+    // Calculate online/offline based on last_update_time from /api/trackers
+    const onlineTrackers = allTrackers.value.filter(tracker => {
+        if (!tracker.last_update_time) return false;
+        const lastUpdateTime = new Date(tracker.last_update_time).getTime();
+        return (now - lastUpdateTime) <= fifteenMinutesMs;
+    }).length;
+    
+    const offlineTrackers = totalTrackers - onlineTrackers;
+    
+    // Count trackers by map using live tracker data
+    const liveTrackers = Object.values(trackers.value);
+    const trackersByMap = {};
     liveTrackers.forEach(tracker => {
         if (tracker.map) {
             trackersByMap[tracker.map] = (trackersByMap[tracker.map] || 0) + 1;
         }
     });
     
-    const sosTrackers = liveTrackers.filter(tracker => tracker.sos).length;
+    // Count SOS trackers from live data
+    const sosTrackers = liveTrackers.filter(tracker => tracker.sos === 1).length;
     
     return {
         total: totalTrackers,
         online: onlineTrackers,
-        offline: totalTrackers - onlineTrackers,
+        offline: offlineTrackers,
         sos: sosTrackers,
         byMap: trackersByMap
     };
