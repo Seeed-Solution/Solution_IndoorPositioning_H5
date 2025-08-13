@@ -339,6 +339,8 @@ const connectWebSocket = () => {
                 accuracy: newTrackerData.position.accuracy
               } : null,
               timestamp: newTrackerData.timestamp,
+              sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
+              sos_happen: newTrackerData.sos_happen,
               last_detected_beacons: newTrackerData.last_detected_beacons
                 ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
                 : [],

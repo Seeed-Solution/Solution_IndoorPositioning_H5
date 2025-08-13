@@ -14,6 +14,93 @@
     "totalBeacons": "Total Beacons",
     "exitFullscreen": "Exit Fullscreen"
   },
+  "map": {
+    "mapDimensions": "Map Dimensions",
+    "loadConfiguration": "Load configuration to display map."
+  },
+  "config": {
+    "saveToServer": "Save to Server",
+    "noMapConfig": "No map configuration, cannot save to server. Please create or import a map first.",
+    "savingConfig": "Saving configuration to server...",
+    "configSaved": "Configuration successfully saved to server!",
+    "saveFailed": "Failed to save configuration to server",
+    "errorBeaconNotFound": "Error: Beacon attempting position update not found in configured list. If you are editing a new beacon, make sure to click 'Update coordinates from map' from the beacon form.",
+    "title": "Map & Beacon Configuration",
+    "mapConfiguration": "Map Configuration",
+    "beaconConfiguration": "Beacon Configuration",
+    "importConfig": "Import Configuration",
+    "exportConfig": "Export Configuration",
+    "createNewMap": "Create New Map",
+    "loadFromFile": "Load from File",
+    "management": {
+      "title": "Configuration Management",
+      "overview": "Configuration Overview",
+      "totalMaps": "Total Maps",
+      "totalBeacons": "Total Beacons",
+      "totalTrackers": "Total Trackers",
+      "onlineDevices": "Online Devices",
+      "mapBeaconConfig": "Map & Beacon Configuration",
+      "trackerConfig": "Tracker Configuration"
+    },
+    "mapSelector": {
+      "title": "Map Selection",
+      "refresh": "Refresh Configuration",
+      "noMaps": "No available map configurations",
+      "noMapsHint": "Please ensure the backend has loaded map configuration files",
+      "selectLabel": "Select Map:",
+      "selectPlaceholder": "Please click to select a map to view...",
+      "mapTab": "Map",
+      "beaconsTab": "Beacons",
+      "settingsTab": "Settings"
+    },
+    "actions": {
+      "saveAllChanges": "Save All Changes",
+      "saveChanges": "Save Changes",
+      "cancelAllChanges": "Cancel All Changes",
+      "cancel": "Cancel",
+      "create": "Create",
+      "edit": "Edit",
+      "delete": "Delete",
+      "import": "Import Configuration",
+      "importTooltip": "Import WebUIConfig file (includes map, beacons, settings) or map JSON file"
+    },
+    "status": {
+      "creating": "Creating new map",
+      "creatingHint": "Please edit map content and use the 'Save Changes' button above",
+      "editMode": "Edit mode enabled - You can now modify map and beacon configurations, please use the 'Save Changes' button above",
+      "unsavedChanges": "Configuration changes detected - Please use the 'Save Changes' button above to save"
+    },
+    "mapInfo": {
+      "title": "Map Basic Information",
+      "name": "Map Name:",
+      "nameNotSet": "Not Set",
+      "dimensions": "Map Dimensions:",
+      "meters": "meters",
+      "entities": "Entities Count:",
+      "entitiesUnit": "entities",
+      "width": "Map Width (meters):",
+      "height": "Map Height (meters):",
+      "widthPlaceholder": "Width",
+      "heightPlaceholder": "Height",
+      "namePlaceholder": "Enter map name (max 10 characters)"
+    },
+    "mapPreview": {
+      "title": "Map Preview",
+      "placementHint": "Click map to place beacon:",
+      "beaconSummary": "beacons configured on this map"
+    },
+    "emptyState": {
+      "noMapSelected": "Please select a map to view",
+      "selectMapHint": "Select a map from the dropdown above to view and edit configuration"
+    },
+    "newMapModal": {
+      "title": "Create New Map",
+      "nameLabel": "Map Name:",
+      "namePlaceholder": "Enter map name (max 10 characters)",
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    }
+  },
   "tracker": {
     "trackers": "Trackers",
     "noTrackers": "No trackers received yet.",
@@ -27,6 +114,24 @@
     "showTrails": "Show Trails",
     "hideTrails": "Hide Trails",
     "sosAlert": "🚨 SOS ALERT",
+    "sosRecovery": "Alarm Recovery",
+    "statusChange": "Status Change",
+    "alarmRecords": "Alarm Records",
+    "noAlarmRecords": "No alarm records for this device",
+    "location": "Location",
+    "longitude": "Longitude",
+    "latitude": "Latitude", 
+    "map": "Map",
+    "positioningType": "Positioning Type",
+    "bluetoothPositioning": "Bluetooth Positioning",
+    "gpsPositioning": "GPS Positioning",
+    "unknown": "Unknown",
+    "locationNotAvailable": "Location information not available",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "pageInfo": "Page {page} of {total}",
+    "unknownTime": "Unknown time",
+    "timeFormatError": "Time format error",
     "mapViewer": "Map Viewer",
     "mapTracker": "Map & Tracker",
     "selectMap": "Select Map",
@@ -47,26 +152,24 @@
     "onlineTrackers": "Online",
     "offlineTrackers": "Offline",
     "sosAlerts": "SOS Alerts",
-    "distributionByMap": "Distribution by Map"
-  },
-  "map": {
-    "mapDimensions": "Map Dimensions",
-    "loadConfiguration": "Load configuration to display map."
-  },
-  "config": {
-    "saveToServer": "Save to Server",
-    "noMapConfig": "No map configuration, cannot save to server. Please create or import a map first.",
-    "savingConfig": "Saving configuration to server...",
-    "configSaved": "Configuration successfully saved to server!",
-    "saveFailed": "Failed to save configuration to server",
-    "errorBeaconNotFound": "Error: Beacon attempting position update not found in configured list. If you are editing a new beacon, make sure to click 'Update coordinates from map' from the beacon form.",
-    "title": "Map & Beacon Configuration",
-    "mapConfiguration": "Map Configuration",
-    "beaconConfiguration": "Beacon Configuration",
-    "importConfig": "Import Configuration",
-    "exportConfig": "Export Configuration",
-    "createNewMap": "Create New Map",
-    "loadFromFile": "Load from File"
+    "distributionByMap": "Distribution by Map",
+    "configuration": {
+      "title": "Tracker Device Configuration",
+      "allowList": {
+        "title": "Allowed Tracker List",
+        "description": "Configure the list of trackers allowed to connect and be positioned. Only devices in this list will be processed by the system.",
+        "inputPlaceholder": "Enter Tracker EUI (e.g: 2CF7F1C0530004AD)",
+        "add": "Add",
+        "current": "Current Allowed Trackers",
+        "count": "devices",
+        "remove": "Remove this Tracker",
+        "saving": "Saving...",
+        "save": "Save Configuration",
+        "reload": "Reload",
+        "empty": "No configured Tracker devices",
+        "emptyHint": "Add Tracker EUI to allow device connections"
+      }
+    }
   },
   "positioning": {
     "trilateration": "Trilateration",
@@ -83,6 +186,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "add": "Add",
-    "close": "Close"
+    "close": "Close",
+    "back": "Back"
   }
 }

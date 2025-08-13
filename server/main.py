@@ -20,8 +20,9 @@ import paho.mqtt.client as mqtt
 import logging
 import datetime
 import time
+import math
 from typing import List, Dict, Optional, Any, Tuple
-import os # Keep one os import
+import os  # Keep one os import
 import random
 from server.components.beacon_holder import beacon_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
@@ -42,16 +43,15 @@ from server.components.uplink_collector import UplinkCollector
 # Import project modules
 from server import config_manager
 from server import positioning
-from server.models import ( # Grouped imports for models
+from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
     MiniprogramConfig, WebUIConfig, DashboardConfig,
-    WebUISettings # Import WebUISettings directly
+    WebUISettings  # Import WebUISettings directly
 )
 from server.positioning import KalmanFilter2D
 
-
 # Configure logging
-logging.basicConfig(level=logging.INFO) # Keep level INFO for now, but will reduce specific log.info calls
+logging.basicConfig(level=logging.INFO)  # Keep level INFO for now, but will reduce specific log.info calls
 log = logging.getLogger(__name__)
 
 # Add asyncio import if not already present globally, for create_task
@@ -68,7 +68,7 @@ DASHBOARD_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "dashboard_
 # Adjust the path as per your actual project structure.
 # If main.py is in server/, and test/ is a sibling of server/, then ../test/config2.json
 DEFAULT_TEST_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "config2.json")
-MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "map1.json") # New path for map1.json
+MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "map1.json")  # New path for map1.json
 
 # Mount static files (for serving the client-side HTML/JS)
 # Make sure the client directory exists relative to where uvicorn is run (usually project root)
@@ -79,27 +79,29 @@ except RuntimeError:
     # If you definitely need the static files, consider making the path absolute
     # or ensuring the server is run from the correct directory.
 
-
 # --- Global State ---
 # Replace single current_config with two separate config holders
 miniprogram_cfg: Optional[MiniprogramConfig] = None
-web_ui_cfg: Optional[WebUIConfig] = None # Added for web UI config
+web_ui_cfg: Optional[WebUIConfig] = None  # Added for web UI config
 dashboard_cfg: Optional[DashboardConfig] = None
-runtime_cfg: Optional[config_manager.ServerRuntimeConfig] = None # Use qualified name to avoid circular import if ServerRuntimeConfig is also defined here
-main_event_loop: Optional[asyncio.AbstractEventLoop] = None # Added for thread-safe coroutine scheduling
-mqtt_connection_status: str = "disconnected" # Added for live MQTT status
-is_mqtt_intentionally_disconnected: bool = False # Flag for manual disconnects
+runtime_cfg: Optional[
+    config_manager.ServerRuntimeConfig] = None  # Use qualified name to avoid circular import if ServerRuntimeConfig is also defined here
+main_event_loop: Optional[asyncio.AbstractEventLoop] = None  # Added for thread-safe coroutine scheduling
+mqtt_connection_status: str = "disconnected"  # Added for live MQTT status
+is_mqtt_intentionally_disconnected: bool = False  # Flag for manual disconnects
 
-tracker_states: Dict[str, TrackerState] = {} # Stores the latest state for each tracker
-kalman_filters: Dict[str, KalmanFilter2D] = {} # Stores Kalman filter instance per tracker
+tracker_states: Dict[str, TrackerState] = {}  # Stores the latest state for each tracker
+kalman_filters: Dict[str, KalmanFilter2D] = {}  # Stores Kalman filter instance per tracker
 mqtt_client: Optional[mqtt.Client] = None
 beacon_map: Dict[str, WebUIBeaconConfig] = {}
 
 allow_tracker_list: list[str] = []
 
+
 # Request models for API endpoints
 class TrackerListUpdateRequest(BaseModel):
     tracker_list: List[str] = []
+
 
 # --- WebSocket Connection Manager ---
 class ConnectionManager:
@@ -122,15 +124,17 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
-            except Exception as e: # Handles various connection errors
+            except Exception as e:  # Handles various connection errors
                 log.warning(f"Could not send to WebSocket client {connection.client}: {e}. Marking for disconnect.")
                 disconnected_clients.append(connection)
         # Clean up disconnected clients
         for client in disconnected_clients:
             if client in self.active_connections:
-                self.active_connections.remove(client) # No need to call disconnect() again
+                self.active_connections.remove(client)  # No need to call disconnect() again
+
 
 manager = ConnectionManager()
+
 
 # --- MQTT Handling ---
 ## 广播当前 mqtt 状态
@@ -152,9 +156,9 @@ def on_connect(client, userdata, flags, rc):
     """Callback when connected to MQTT Broker."""
     global runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
     if rc == 0:
-        log.info("MQTT Broker: Connected!") 
+        log.info("MQTT Broker: Connected!")
         mqtt_connection_status = "connected"
-        is_mqtt_intentionally_disconnected = False # Clear flag on successful connect
+        is_mqtt_intentionally_disconnected = False  # Clear flag on successful connect
         # RESTORED SUBSCRIPTION LOGIC:
         if runtime_cfg and runtime_cfg.mqtt and runtime_cfg.mqtt.topicPattern and runtime_cfg.mqtt.applicationID:
             try:
@@ -170,12 +174,13 @@ def on_connect(client, userdata, flags, rc):
     else:
         log.error(f"MQTT Broker: Failed to connect, return code {rc}")
         # If it failed to connect, it's not "intentionally disconnected" in a way that should prevent retries if configured
-        mqtt_connection_status = "error" 
-    # Schedule broadcast_mqtt_status on the main event loop
+        mqtt_connection_status = "error"
+        # Schedule broadcast_mqtt_status on the main event loop
     if main_event_loop and main_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
     else:
         log.warning("on_connect: Main event loop not available for broadcasting MQTT status.")
+
 
 ## 断开后输出日志, main eventloop 还在运行则广播 mqtt 状态
 def on_disconnect(client, userdata, rc):
@@ -191,13 +196,13 @@ def on_disconnect(client, userdata, rc):
     else:
         log.error(f"MQTT Broker: Unexpected disconnection, return code {rc}.")
         mqtt_connection_status = "error"
-    
+
     # Schedule broadcast_mqtt_status on the main event loop
     if main_event_loop and main_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
     else:
         log.warning("on_disconnect: Main event loop not available for broadcasting MQTT status.")
-    
+
     # Optional: Auto-reconnect logic if not intentionally disconnected and enabled in config
     # For now, Paho's default loop_start() handles some retry, but this could be more explicit.
     # if not is_mqtt_intentionally_disconnected and runtime_cfg and runtime_cfg.mqtt.enabled:
@@ -205,6 +210,7 @@ def on_disconnect(client, userdata, rc):
     #     # Be careful with immediate retries; consider a backoff strategy
     #     # For simplicity, relying on Paho's internal or manual reconnect via UI for now.
     #     pass
+
 
 ## 解析从 sensecap openstream 中收到的数据
 def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: bytes) -> Optional[TrackerReport]:
@@ -297,7 +303,7 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
                     log.warning(f"Could not convert beacon data for {device_eui}: {beacon_data} - {conv_err}")
             else:
                 # log.debug(f"Skipping beacon entry for {device_eui} due to missing mac or rssi: {beacon_data}") # DEBUG
-                pass # Keep it quiet
+                pass  # Keep it quiet
 
         if not detected_beacons_list:
             # log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.") # Can be noisy
@@ -316,6 +322,7 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
     except Exception as e:
         log.error(f"Error processing SenseCAP MQTT payload for tracker '{device_eui}': {e}", exc_info=True)
         return None
+
 
 ## 创建 mqtt client 连接到 broker
 def _initialize_mqtt_client():
@@ -339,7 +346,7 @@ def _initialize_mqtt_client():
 
         if mqtt_cfg.username and mqtt_cfg.password:
             new_client.username_pw_set(mqtt_cfg.username, mqtt_cfg.password)
-        
+
         new_client.on_connect = on_connect
         new_client.on_disconnect = on_disconnect
         new_client.on_message = on_message
@@ -349,6 +356,7 @@ def _initialize_mqtt_client():
         log.error(f"Error initializing MQTT client: {e}", exc_info=True)
         return None
 
+
 ## 实际的 mqtt 连接函数, 除了初始化 mqtt client 还负责日志记录, 连接状态管理
 def _connect_mqtt_client():
     """Attempts to connect the global mqtt_client to the broker."""
@@ -357,17 +365,18 @@ def _connect_mqtt_client():
     if not runtime_cfg or not runtime_cfg.mqtt or not mqtt_client:
         log.warning("MQTT client or configuration not ready for connection.")
         if runtime_cfg and runtime_cfg.mqtt and not mqtt_client:
-             # log.info("Attempting to re-initialize MQTT client...") # Can be noisy
-             mqtt_client = _initialize_mqtt_client()
-             if not mqtt_client:
-                  mqtt_connection_status = "error"
-                  if main_event_loop and main_event_loop.is_running():
-                      asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-                  else:
-                      log.warning("_connect_mqtt_client: Main event loop not available for broadcasting MQTT status after init fail.")
-                  return False # Failed to initialize
+            # log.info("Attempting to re-initialize MQTT client...") # Can be noisy
+            mqtt_client = _initialize_mqtt_client()
+            if not mqtt_client:
+                mqtt_connection_status = "error"
+                if main_event_loop and main_event_loop.is_running():
+                    asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
+                else:
+                    log.warning(
+                        "_connect_mqtt_client: Main event loop not available for broadcasting MQTT status after init fail.")
+                return False  # Failed to initialize
         else:
-            return False # Not ready
+            return False  # Not ready
 
     mqtt_cfg = runtime_cfg.mqtt
     if not mqtt_cfg.brokerHost:
@@ -376,7 +385,8 @@ def _connect_mqtt_client():
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
         else:
-            log.warning("_connect_mqtt_client: Main event loop not available for broadcasting MQTT status for misconfig.")
+            log.warning(
+                "_connect_mqtt_client: Main event loop not available for broadcasting MQTT status for misconfig.")
         return False
 
     if mqtt_connection_status == "connected" or mqtt_connection_status == "connecting":
@@ -385,15 +395,16 @@ def _connect_mqtt_client():
 
     try:
         # log.info(f"Attempting to connect MQTT client to {mqtt_cfg.brokerHost}...") # Reduced verbosity
-        is_mqtt_intentionally_disconnected = False # Clear flag before attempting connection
+        is_mqtt_intentionally_disconnected = False  # Clear flag before attempting connection
         mqtt_connection_status = "connecting"
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
         else:
-            log.warning("_connect_mqtt_client: Main event loop not available for broadcasting MQTT status for connecting.")
-        
+            log.warning(
+                "_connect_mqtt_client: Main event loop not available for broadcasting MQTT status for connecting.")
+
         mqtt_client.connect_async(mqtt_cfg.brokerHost, mqtt_cfg.brokerPort, 60)
-        mqtt_client.loop_start() # loop_start is non-blocking and handles reconnects.
+        mqtt_client.loop_start()  # loop_start is non-blocking and handles reconnects.
         # Status will be updated by on_connect or on_disconnect callbacks
         return True
     except Exception as e:
@@ -405,6 +416,7 @@ def _connect_mqtt_client():
             log.warning("_connect_mqtt_client: Main event loop not available for broadcasting MQTT status on error.")
         return False
 
+
 def disconnect_mqtt_client(broadcast=True):
     """Disconnects the MQTT client."""
     global mqtt_client, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
@@ -414,35 +426,39 @@ def disconnect_mqtt_client(broadcast=True):
             # log.info("Disconnecting MQTT client...") # Reduced verbosity
             # Stop the loop first to prevent immediate auto-reconnect attempts by Paho
             # Paho's disconnect might also trigger on_disconnect, where status is set.
-            mqtt_client.loop_stop() 
-            mqtt_client.disconnect() 
+            mqtt_client.loop_stop()
+            mqtt_client.disconnect()
             # on_disconnect should handle setting status to "disconnected" and broadcasting
             # However, ensure status is set if on_disconnect isn't triggered as expected
             if mqtt_connection_status != "disconnected":
-                 mqtt_connection_status = "disconnected"
-                 if broadcast:
+                mqtt_connection_status = "disconnected"
+                if broadcast:
                     if main_event_loop and main_event_loop.is_running():
                         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
                     else:
-                        log.warning("disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
+                        log.warning(
+                            "disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
             # log.info("MQTT client disconnect initiated.") # Reduced verbosity
 
         except Exception as e:
             log.error(f"Error disconnecting MQTT client: {e}", exc_info=True)
-            mqtt_connection_status = "error" # Or keep as is if disconnect failed partially
+            mqtt_connection_status = "error"  # Or keep as is if disconnect failed partially
             if broadcast:
                 if main_event_loop and main_event_loop.is_running():
                     asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
                 else:
-                    log.warning("disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status on error.")      
+                    log.warning(
+                        "disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status on error.")
     else:
         log.info("MQTT client not initialized, cannot disconnect.")
-        mqtt_connection_status = "disconnected" # Already effectively disconnected
+        mqtt_connection_status = "disconnected"  # Already effectively disconnected
         if broadcast:
             if main_event_loop and main_event_loop.is_running():
                 asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
             else:
-                log.warning("disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for not initialized.")
+                log.warning(
+                    "disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for not initialized.")
+
 
 ## 检查配置并连接 mqtt broker
 def setup_mqtt(force_reconnect: bool = False):
@@ -461,13 +477,13 @@ def setup_mqtt(force_reconnect: bool = False):
 
     if not runtime_cfg.mqtt:
         log.info("MQTT configuration section missing. Skipping MQTT setup.")
-        mqtt_connection_status = "disabled" # No MQTT config means disabled / not configured
+        mqtt_connection_status = "disabled"  # No MQTT config means disabled / not configured
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
         else:
             log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status for no mqtt_cfg.")
         return
-        
+
     # log.info(f"MQTT setup called. Proceeding with setup for {runtime_cfg.mqtt.brokerHost if runtime_cfg.mqtt.brokerHost else 'No Broker Host'}.") # Can be noisy
 
     if is_mqtt_intentionally_disconnected and not force_reconnect:
@@ -478,27 +494,28 @@ def setup_mqtt(force_reconnect: bool = False):
             if main_event_loop and main_event_loop.is_running():
                 asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
             else:
-                log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
+                log.warning(
+                    "setup_mqtt: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
         return
 
     if not mqtt_client:
         mqtt_client = _initialize_mqtt_client()
         if not mqtt_client:
-            mqtt_connection_status = "error" # Failed to initialize
+            mqtt_connection_status = "error"  # Failed to initialize
             if main_event_loop and main_event_loop.is_running():
                 asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
             else:
                 log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status after init fail.")
             return
-    
+
     # Attempt to connect
     _connect_mqtt_client()
 
+
 # This is the new on_message callback
-## 接收并处理的入口(仅处理 beacon 定位信息)
 def on_message(client, userdata, msg):
     """Callback for when a PUBLISH message is received from the server."""
-    global main_event_loop # Access the main event loop
+    global main_event_loop  # Access the main event loop
 
     # log.info(f"MQTT Message Received: Topic: {msg.topic}") # Can be very noisy
     topic_parts = msg.topic.split('/')
@@ -518,9 +535,17 @@ def on_message(client, userdata, msg):
     report = parse_sensecap_payload(device_eui, measurement_id, msg.payload)
     if report:
         if main_event_loop and main_event_loop.is_running():
-            asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+            try:
+                future = asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+                future.add_done_callback(
+                    lambda f: log.error(f"Error in process_tracker_report for device {device_eui}: {f.exception()}, report: {report}")
+                    if f.exception() else None
+                )
+            except Exception as e:
+                log.error(f"Failed to schedule process_tracker_report for device {device_eui}: {e}", exc_info=True)
         else:
-            log.error("Main asyncio event loop not available or not running. Cannot schedule tracker report processing.")
+            log.error(
+                "Main asyncio event loop not available or not running. Cannot schedule tracker report processing.")
     else:
         log.warning(f"Failed to parse payload or no report generated for tracker {device_eui} from topic {msg.topic}")
 
@@ -565,21 +590,22 @@ async def process_tracker_report(report: TrackerReport):
             }}
         })
 
-        if tracker_states.get(report.trackerId, None):
-            tracker_states.get(report.trackerId, {}).sos = report.sos
+        previous_sos = tracker_states.get(report.trackerId, {}).sos
+
+        if not previous_sos:
+            previous_sos = 0
 
         time.sleep(2)
         now_loc_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
 
         # 检查设备SOS状态是否发生变化
-        previous_sos = tracker_states.get(report.trackerId, {}).get('sos', 2)
         current_sos = report.sos
-        
+
         # 如果状态发生变化，创建告警记录
         if previous_sos != current_sos and current_sos != 2:  # 排除未知状态
             # 更新设备SOS状态映射
             tracker_states.get(report.trackerId, {}).sos = current_sos
-            
+
             # 确定使用的定位信息和类型
             alarm_loc = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc', default_value=None)
             pos_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
@@ -588,39 +614,45 @@ async def process_tracker_report(report: TrackerReport):
             if not pos_type:
                 pos_type = 'unknown'
 
-            
             # 创建告警记录
             try:
                 # 将timestamp从毫秒转换为datetime对象
                 from datetime import datetime
                 alarm_time = datetime.fromtimestamp(report.timestamp / 1000.0)
-                
+
                 # 获取设备当前所在的地图
                 current_tracker_state = tracker_states.get(report.trackerId)
                 map_name = current_tracker_state.map if current_tracker_state and current_tracker_state.map else None
-                
+
                 alarm_record_dao.create_record(
-                    dev_eui=report.trackerId, 
-                    loc=alarm_loc, 
-                    pos_type=pos_type, 
+                    dev_eui=report.trackerId,
+                    loc=alarm_loc,
+                    pos_type=pos_type,
                     alarm_time=alarm_time,
                     sos=current_sos,
                     map_name=map_name
                 )
-                
+
                 log.info(f"设备 {report.trackerId} SOS状态变化: {previous_sos} -> {current_sos}，已创建告警记录")
             except Exception as e:
                 log.error(f"创建告警记录失败: {e}")
         else:
             # 如果状态没有变化，仍需更新映射以跟踪当前状态
             tracker_states.get(report.trackerId, {}).sos = current_sos
+            log.info(
+                f"设备 {report.trackerId} SOS无状态变化: previous_sos: {previous_sos}, current_sos: {current_sos}，不会创建告警记录")
+        return
+
+    # 非蓝牙定位, 不需要进入后面的部分
+    if len(report.detectedBeacons) == 0:
         return
 
     log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
     tracker_id = report.trackerId
     current_time_ms = int(time.time() * 1000)
     last_state = tracker_states.get(tracker_id)
-    last_known_pos = (last_state.x, last_state.y) if last_state and last_state.x is not None and last_state.y is not None else None
+    last_known_pos = (
+        last_state.x, last_state.y) if last_state and last_state.x is not None and last_state.y is not None else None
     dt = (current_time_ms - last_state.last_update_time) / 1000.0 if last_state else 0.1
 
     # Prepare position history from last state
@@ -628,13 +660,36 @@ async def process_tracker_report(report: TrackerReport):
 
     # log.info(f"Processing report for {tracker_id} with {len(report.detectedBeacons)} beacons.") # Can be noisy
 
+    # 选择地图
+    best_map = "unknown map"
+    best_beacons = []
+    max_beacon_count = 0
+
+    beacons_by_map = {}
+    for detected in report.detectedBeacons:
+        mac_formatted = detected.macAddress.replace(":", "")
+        beacon_info = beacon_holder.get_beacon(mac_formatted)
+        if beacon_info is None:
+            continue
+        if beacons_by_map.get(beacon_info.map, None) is None:
+            beacons_by_map[beacon_info.map] = []
+        beacons_by_map[beacon_info.map].append(detected)
+
+    for map_name, map_beacons in beacons_by_map.items():
+        if len(map_beacons) > max_beacon_count:
+            max_beacon_count = len(map_beacons)
+            best_map = map_name
+            best_beacons = map_beacons
+
+    log.info(f"device(id: {tracker_id}): choose map '{best_map}' length of beacons: {len(best_beacons)} ")
+
     calculated_position = positioning.calculate_position(
-        detected_beacons=report.detectedBeacons,
+        detected_beacons=best_beacons,
         miniprogram_config=web_ui_cfg,
-        device_id=tracker_id
+        device_id=tracker_id,
+        map_name=best_map
         # signal_propagation_factor is inside web_ui_cfg.settings
     )
-
 
     filtered_position: Optional[Tuple[float, float]] = None
     kf = kalman_filters.get(tracker_id)
@@ -655,12 +710,12 @@ async def process_tracker_report(report: TrackerReport):
 
         filtered_position = kf.get_position()
         # log.info(f"Filtered position for {tracker_id}: {filtered_position}") # Can be noisy
-        
+
         # Add new position to history
         if filtered_position:
             current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
 
-    elif kf: # No new calculation, but KF might have predicted
+    elif kf:  # No new calculation, but KF might have predicted
         kf.predict(dt)
         filtered_position = kf.get_position()
         # log.info(f"Position prediction (no new measurement) for {tracker_id}: {filtered_position}") # Can be noisy
@@ -675,7 +730,9 @@ async def process_tracker_report(report: TrackerReport):
     cutoff_time_ms = current_time_ms - history_time_window_ms
     current_position_history = [p for p in current_position_history if p[2] >= cutoff_time_ms]
 
-    log.info(f"device({tracker_id}) 最终定位: ${current_position_history}") # Can be noisy
+    log.info(f"device({tracker_id}) 最终定位: ${current_position_history}")  # Can be noisy
+
+    sos = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='4200', default_value=0)
     new_state = TrackerState(
         trackerId=tracker_id,
         x=filtered_position[0] if filtered_position else (last_state.x if last_state else None),
@@ -684,8 +741,10 @@ async def process_tracker_report(report: TrackerReport):
         last_known_measurement_time=report.timestamp,
         last_detected_beacons=report.detectedBeacons,
         position_history=current_position_history,
-        map=calculated_position[2]
+        map=best_map,
+        sos=sos
     )
+
     tracker_states[tracker_id] = new_state
 
     # Prepare data for WebSocket broadcast
@@ -702,9 +761,10 @@ async def process_tracker_report(report: TrackerReport):
     UplinkCollector.set(dev_eui=tracker_id, measurement_id='loc_type', value='bluetooth')
     enriched_detected_beacons = []
     if new_state.last_detected_beacons and web_ui_cfg and web_ui_cfg.beacons:
-        configured_beacons_map = {b.macAddress: b for b in web_ui_cfg.beacons if b.macAddress} # Create a map for quick lookup by MAC
+        configured_beacons_map = {b.macAddress: b for b in web_ui_cfg.beacons if
+                                  b.macAddress}  # Create a map for quick lookup by MAC
         for detected_b in new_state.last_detected_beacons:
-            enriched_b_data = detected_b.model_dump() # Start with macAddress, rssi, etc. from DetectedBeacon
+            enriched_b_data = detected_b.model_dump()  # Start with macAddress, rssi, etc. from DetectedBeacon
             configured_b = configured_beacons_map.get(detected_b.macAddress)
             if configured_b:
                 enriched_b_data['txPower'] = configured_b.txPower
@@ -713,29 +773,31 @@ async def process_tracker_report(report: TrackerReport):
                 enriched_b_data['configured_y'] = configured_b.y
             else:
                 # If no matching configured beacon by MAC, fill with None or defaults for consistency if needed
-                enriched_b_data['txPower'] = None 
+                enriched_b_data['txPower'] = None
                 enriched_b_data['name'] = 'Unknown Beacon'
                 enriched_b_data['configured_x'] = None
                 enriched_b_data['configured_y'] = None
             enriched_detected_beacons.append(enriched_b_data)
     else:
         # Fallback if no web_ui_cfg.beacons or no detected_beacons, send basic detected beacon info
-        enriched_detected_beacons = [b.model_dump() for b in new_state.last_detected_beacons] if new_state.last_detected_beacons else []
+        enriched_detected_beacons = [b.model_dump() for b in
+                                     new_state.last_detected_beacons] if new_state.last_detected_beacons else []
 
     tracker_data_payload = {
         "trackerId": new_state.trackerId,
-        "timestamp": new_state.last_update_time, 
-        "position": position_payload, 
-        "last_detected_beacons": enriched_detected_beacons, # Use the enriched list
+        "timestamp": new_state.last_update_time,
+        "position": position_payload,
+        "last_detected_beacons": enriched_detected_beacons,  # Use the enriched list
         "position_history": new_state.position_history,
-        "map": calculated_position[2],
+        "map": best_map,
         "sos": report.sos
     }
 
     await manager.broadcast({
-        "type": "tracker_update", 
+        "type": "tracker_update",
         "data": {tracker_id: tracker_data_payload}
     })
+
 
 # --- Configuration Loading for Web UI ---
 def load_web_ui_config() -> Optional[WebUIConfig]:
@@ -743,9 +805,9 @@ def load_web_ui_config() -> Optional[WebUIConfig]:
     if not os.path.exists(WEB_CONFIG_FILE_PATH):
         log.info(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH}. Initializing with defaults.")
         # Initialize with default if file doesn't exist
-        default_settings = WebUISettings() # Use direct model name
+        default_settings = WebUISettings()  # Use direct model name
         web_ui_cfg = WebUIConfig(map=None, beacons=[], settings=default_settings)
-        save_web_ui_config(web_ui_cfg) # Save the initial default config
+        save_web_ui_config(web_ui_cfg)  # Save the initial default config
         return web_ui_cfg
     try:
         with open(WEB_CONFIG_FILE_PATH, 'r') as f:
@@ -759,14 +821,16 @@ def load_web_ui_config() -> Optional[WebUIConfig]:
             #         beacon_map[beacon.macAddress] = beacon
             return web_ui_cfg
     except FileNotFoundError:
-        log.warning(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
-        return None # Should not happen if check above is correct
+        log.warning(
+            f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
+        return None  # Should not happen if check above is correct
     except json.JSONDecodeError as e:
         log.error(f"Error decoding JSON from Web UI config file {WEB_CONFIG_FILE_PATH}: {e}")
         return None
     except Exception as e:
         log.error(f"Failed to load Web UI configuration from {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
         return None
+
 
 def load_dashboard_config() -> Optional[DashboardConfig]:
     global dashboard_cfg, beacon_map
@@ -783,14 +847,16 @@ def load_dashboard_config() -> Optional[DashboardConfig]:
             beacon_holder.update_by_dashboard_config(dashboard_cfg)
             return dashboard_cfg
     except FileNotFoundError:
-        log.warning(f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
-        return None # Should not happen if check above is correct
+        log.warning(
+            f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
+        return None  # Should not happen if check above is correct
     except json.JSONDecodeError as e:
         log.error(f"Error decoding JSON from Dashboard config file {DASHBOARD_CONFIG_FILE_PATH}: {e}")
         return None
     except Exception as e:
         log.error(f"Failed to load Dashboard configuration from {DASHBOARD_CONFIG_FILE_PATH}: {e}", exc_info=True)
         return None
+
 
 def save_web_ui_config(config_data: WebUIConfig) -> bool:
     try:
@@ -802,21 +868,34 @@ def save_web_ui_config(config_data: WebUIConfig) -> bool:
         log.error(f"Failed to save Web UI configuration to {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
         return False
 
+
+def save_dashboard_config_to_file(config_data: DashboardConfig) -> bool:
+    try:
+        with open(DASHBOARD_CONFIG_FILE_PATH, 'w') as f:
+            json.dump(config_data.model_dump(mode='json'), f, indent=4)
+        log.info(f"Dashboard configuration saved successfully to {DASHBOARD_CONFIG_FILE_PATH}.")
+        return True
+    except Exception as e:
+        log.error(f"Failed to save Dashboard configuration to {DASHBOARD_CONFIG_FILE_PATH}: {e}", exc_info=True)
+        return False
+
+
 # --- FastAPI Event Handlers ---
 @app.on_event("startup")
 async def startup_event():
     """Runs on application startup. Loads both configurations and sets up MQTT."""
     global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg
-    
+
     # Capture the running event loop for thread-safe calls from MQTT callback
     main_event_loop = asyncio.get_running_loop()
-    
+
     log.info("Server startup sequence initiated.")
-    
+
     # Load server runtime configuration first as it might be needed by other components
     runtime_cfg = config_manager.load_server_runtime_config()
     if not runtime_cfg:
-        log.error("Critical: Server runtime configuration could not be loaded. MQTT and other services might not start.")
+        log.error(
+            "Critical: Server runtime configuration could not be loaded. MQTT and other services might not start.")
         # Depending on desired behavior, could raise an exception or proceed with limited functionality
     else:
         log.info(f"Server runtime configuration loaded. MQTT enabled: {runtime_cfg.mqtt.enabled}")
@@ -824,28 +903,31 @@ async def startup_event():
     # Load miniprogram configuration
     miniprogram_cfg = config_manager.load_miniprogram_config()
     if not miniprogram_cfg:
-        log.warning("Miniprogram configuration (map_beacon_config.json) not found or failed to load. Positioning may be affected.")
+        log.warning(
+            "Miniprogram configuration (map_beacon_config.json) not found or failed to load. Positioning may be affected.")
     else:
         # log.info("Miniprogram configuration (map_beacon_config.json) loaded.") # Reduced verbosity
         pass
 
     # Load Web UI configuration
-    web_ui_cfg = load_web_ui_config() # This will create a default if not found
+    web_ui_cfg = load_web_ui_config()  # This will create a default if not found
     if not web_ui_cfg:
-        log.warning("Web UI configuration (web_config.json) not found or failed to load. Web UI may not function as expected initially.")
+        log.warning(
+            "Web UI configuration (web_config.json) not found or failed to load. Web UI may not function as expected initially.")
     else:
         # log.info("Web UI configuration (web_config.json) loaded/initialized.") # Reduced verbosity
         pass
 
     if runtime_cfg and runtime_cfg.mqtt.enabled:
-        setup_mqtt() # Initialize and connect MQTT client
+        setup_mqtt()  # Initialize and connect MQTT client
     else:
         log.info("MQTT client is disabled in server runtime configuration. Skipping MQTT setup.")
         global mqtt_connection_status
         mqtt_connection_status = "disabled"
-        await broadcast_mqtt_status() # Inform clients that MQTT is disabled
-    
+        await broadcast_mqtt_status()  # Inform clients that MQTT is disabled
+
     log.info("Server startup complete.")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -858,6 +940,7 @@ async def shutdown_event():
         log.info("MQTT client disconnected.")
     log.info("Application shutdown complete.")
 
+
 # --- API Endpoints ---
 @app.get("/")
 async def read_root():
@@ -866,12 +949,13 @@ async def read_root():
     client_html_path = "../client/index.html"
     # Check if file exists? Better handled by StaticFiles mount, but good practice.
     if os.path.exists(client_html_path):
-         return FileResponse(client_html_path)
+        return FileResponse(client_html_path)
     else:
-         log.error(f"Client HTML file not found at expected path: {client_html_path}")
-         # Return a simple message or raise 404
-         # raise HTTPException(status_code=404, detail="Client frontend not found")
-         return {"message": "Backend running. Client frontend not found."}
+        log.error(f"Client HTML file not found at expected path: {client_html_path}")
+        # Return a simple message or raise 404
+        # raise HTTPException(status_code=404, detail="Client frontend not found")
+        return {"message": "Backend running. Client frontend not found."}
+
 
 @app.post("/api/config/upload", status_code=200)
 async def upload_miniprogram_config(config_content: MiniprogramConfig, response: Response):
@@ -883,16 +967,18 @@ async def upload_miniprogram_config(config_content: MiniprogramConfig, response:
     try:
         # config_content is already parsed by FastAPI into MiniprogramConfig model
         if config_manager.save_miniprogram_config(config_content):
-            miniprogram_cfg = config_manager.get_miniprogram_config() # Reload and update global cache
+            miniprogram_cfg = config_manager.get_miniprogram_config()  # Reload and update global cache
             log.info("Miniprogram configuration uploaded and reloaded successfully.")
             # Broadcast update to WebSocket clients
-            await manager.broadcast({"type": "config_update", "data": miniprogram_cfg.model_dump() if miniprogram_cfg else {}})
+            await manager.broadcast(
+                {"type": "config_update", "data": miniprogram_cfg.model_dump() if miniprogram_cfg else {}})
             return {"message": "Miniprogram configuration uploaded successfully."}
         else:
             raise HTTPException(status_code=500, detail="Failed to save miniprogram configuration.")
-    except Exception as e: # Catch any other unexpected errors
+    except Exception as e:  # Catch any other unexpected errors
         log.error(f"Error processing uploaded miniprogram config: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Invalid configuration data: {e}")
+
 
 @app.get("/api/config", response_model=Optional[MiniprogramConfig])
 async def get_api_miniprogram_config():
@@ -909,10 +995,10 @@ async def get_api_miniprogram_config():
 
 @app.post("/api/test/push_sos")
 async def push_sos(report: TrackerReport):
-
     report.timestamp = int(time.time()) * 1000
     if main_event_loop and main_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+
 
 # @app.get("/api/test")
 # async def api_test():
@@ -922,10 +1008,10 @@ async def push_sos(report: TrackerReport):
 
 @app.get("/api/list_alarm")
 async def list_device_alarms(
-    device_eui: str = Query(..., description="设备EUI"),
-    page: int = Query(1, ge=1, description="页码，从1开始"),
-    page_size: int = Query(20, ge=1, le=100, description="每页记录数，最大100"),
-    map_name: Optional[str] = Query(None, description="地图名称，可选筛选条件")
+        device_eui: str = Query(..., description="设备EUI"),
+        page: int = Query(1, ge=1, description="页码，从1开始"),
+        page_size: int = Query(20, ge=1, le=100, description="每页记录数，最大100"),
+        map_name: Optional[str] = Query(None, description="地图名称，可选筛选条件")
 ):
     """
     查询设备报警记录，支持分页和地图筛选
@@ -977,13 +1063,14 @@ async def get_trackers():
     """Returns the current state of all known trackers."""
     return tracker_states
 
+
 @app.get("/api/server-runtime-config", response_model=Optional[config_manager.ServerRuntimeConfig])
 async def get_api_server_runtime_config():
-    global runtime_cfg, mqtt_connection_status # Ensure mqtt_connection_status is accessible
+    global runtime_cfg, mqtt_connection_status  # Ensure mqtt_connection_status is accessible
     # Ensure runtime_cfg is loaded
     if runtime_cfg is None:
-        config_manager.load_server_runtime_config() # Attempt to load if not already loaded by startup
-    
+        config_manager.load_server_runtime_config()  # Attempt to load if not already loaded by startup
+
     if runtime_cfg:
         # Create a copy to avoid modifying the global cache directly with transient status
         config_to_send = runtime_cfg.model_copy(deep=True)
@@ -991,42 +1078,43 @@ async def get_api_server_runtime_config():
             config_to_send.mqtt.live_mqtt_status = mqtt_connection_status
             # Mask password before sending to client
             if config_to_send.mqtt.password:
-                 config_to_send.mqtt.password = config_manager.PASSWORD_PLACEHOLDER
+                config_to_send.mqtt.password = config_manager.PASSWORD_PLACEHOLDER
         return config_to_send
     return None
+
 
 @app.post("/api/server-runtime-config", status_code=200)
 async def update_api_server_runtime_config(config_payload: config_manager.ServerRuntimeConfig):
     global runtime_cfg, mqtt_client, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
     try:
         # log.info("Received request to update server runtime configuration.") # Reduced verbosity
-        
+
         # Determine if MQTT settings that require a reconnect have changed
         mqtt_reconnect_needed = False
         if runtime_cfg and runtime_cfg.mqtt and config_payload.mqtt:
             if (
-                runtime_cfg.mqtt.brokerHost != config_payload.mqtt.brokerHost or
-                runtime_cfg.mqtt.brokerPort != config_payload.mqtt.brokerPort or
-                runtime_cfg.mqtt.username != config_payload.mqtt.username or
-                (config_payload.mqtt.password != config_manager.PASSWORD_PLACEHOLDER and 
-                 config_payload.mqtt.password is not None and # Ensure new password is not None
-                 runtime_cfg.mqtt.password != config_payload.mqtt.password) or # This comparison is tricky due to placeholder
-                runtime_cfg.mqtt.clientID != config_payload.mqtt.clientID or
-                runtime_cfg.mqtt.applicationID != config_payload.mqtt.applicationID or # If appID changes, topic changes
-                runtime_cfg.mqtt.topicPattern != config_payload.mqtt.topicPattern # If topic pattern changes
+                    runtime_cfg.mqtt.brokerHost != config_payload.mqtt.brokerHost or
+                    runtime_cfg.mqtt.brokerPort != config_payload.mqtt.brokerPort or
+                    runtime_cfg.mqtt.username != config_payload.mqtt.username or
+                    (config_payload.mqtt.password != config_manager.PASSWORD_PLACEHOLDER and
+                     config_payload.mqtt.password is not None and  # Ensure new password is not None
+                     runtime_cfg.mqtt.password != config_payload.mqtt.password) or  # This comparison is tricky due to placeholder
+                    runtime_cfg.mqtt.clientID != config_payload.mqtt.clientID or
+                    runtime_cfg.mqtt.applicationID != config_payload.mqtt.applicationID or  # If appID changes, topic changes
+                    runtime_cfg.mqtt.topicPattern != config_payload.mqtt.topicPattern  # If topic pattern changes
             ):
                 mqtt_reconnect_needed = True
-            
+
             # If MQTT is being enabled and was previously disabled or misconfigured, or if it was intentionally disconnected
             if config_payload.mqtt.enabled and not runtime_cfg.mqtt.enabled:
                 mqtt_reconnect_needed = True
             elif config_payload.mqtt.enabled and is_mqtt_intentionally_disconnected:
-                 mqtt_reconnect_needed = True # If user enables it again after manual disconnect
+                mqtt_reconnect_needed = True  # If user enables it again after manual disconnect
 
         # Save the new configuration (this handles the password placeholder logic internally)
         success, new_cfg = config_manager.save_server_runtime_config(config_payload)
         if success and new_cfg:
-            runtime_cfg = new_cfg # Update global runtime_cfg with the effectively saved one
+            runtime_cfg = new_cfg  # Update global runtime_cfg with the effectively saved one
             log.info("Server runtime configuration updated successfully.")
 
             # Handle MQTT client based on changes
@@ -1037,21 +1125,23 @@ async def update_api_server_runtime_config(config_payload: config_manager.Server
                 # Disconnection will be handled by manual API call or if essential config (like broker) is removed.
                 # if not config_payload.mqtt.enabled: <--- REMOVED THIS CONDITION
                 # Consider if removing broker host should trigger disconnect if connected
-                if not config_payload.mqtt.brokerHost and (mqtt_connection_status == "connected" or mqtt_connection_status == "connecting"):
+                if not config_payload.mqtt.brokerHost and (
+                        mqtt_connection_status == "connected" or mqtt_connection_status == "connecting"):
                     log.info("MQTT broker host removed from config. Disconnecting client.")
                     disconnect_mqtt_client()
-                    mqtt_connection_status = "misconfigured" # Mark as misconfigured
+                    mqtt_connection_status = "misconfigured"  # Mark as misconfigured
                     if main_event_loop and main_event_loop.is_running():
-                         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
+                        asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
                 elif mqtt_reconnect_needed:
                     log.info("MQTT configuration changed that requires reconnect. Reconnecting...")
                     # Disconnect existing client before reconnecting with new settings
-                    if mqtt_client and (mqtt_connection_status == "connected" or mqtt_connection_status == "connecting"):
-                        disconnect_mqtt_client(broadcast=False) # Disconnect silently first
-                    
+                    if mqtt_client and (
+                            mqtt_connection_status == "connected" or mqtt_connection_status == "connecting"):
+                        disconnect_mqtt_client(broadcast=False)  # Disconnect silently first
+
                     # Re-initialize and connect. setup_mqtt will use the new runtime_cfg.
-                    is_mqtt_intentionally_disconnected = False # Clear this flag as we intend to connect
-                    setup_mqtt(force_reconnect=True) 
+                    is_mqtt_intentionally_disconnected = False  # Clear this flag as we intend to connect
+                    setup_mqtt(force_reconnect=True)
                 else:
                     # log.info("MQTT settings updated, but no immediate reconnect needed (e.g. only Kalman params changed or MQTT already aligned).") # Reduced verbosity
                     pass
@@ -1063,22 +1153,24 @@ async def update_api_server_runtime_config(config_payload: config_manager.Server
         log.error(f"Error updating server runtime config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 @app.get("/api/mqtt-status")
 async def get_mqtt_connection_status():
     return {"status": mqtt_connection_status}
+
 
 @app.post("/api/mqtt/connect", status_code=200)
 async def api_mqtt_connect():
     global runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
     # log.info("API call to connect MQTT.") # Reduced verbosity
-    
+
     # Reload runtime_cfg to ensure latest settings are used for connection attempt
     current_runtime_cfg = config_manager.load_server_runtime_config()
     if not current_runtime_cfg or not current_runtime_cfg.mqtt:
         log.warning("MQTT Connect API: Runtime configuration or MQTT section not found.")
         raise HTTPException(status_code=400, detail="MQTT configuration not available.")
-    
-    runtime_cfg = current_runtime_cfg # Update global runtime_cfg
+
+    runtime_cfg = current_runtime_cfg  # Update global runtime_cfg
 
     if not runtime_cfg.mqtt.enabled:
         log.info("MQTT Connect API: MQTT is disabled in configuration. Cannot connect manually unless enabled first.")
@@ -1086,25 +1178,28 @@ async def api_mqtt_connect():
         # return {"message": "MQTT is disabled in configuration. Please enable it first in Server Runtime Configuration then try connecting."}
         raise HTTPException(status_code=400, detail="MQTT is disabled in configuration. Enable it via settings first.")
 
-    is_mqtt_intentionally_disconnected = False # User intends to connect
-    
+    is_mqtt_intentionally_disconnected = False  # User intends to connect
+
     # Attempt to setup/connect. setup_mqtt handles initialization if needed.
-    setup_mqtt(force_reconnect=True) # Force reconnect will bypass the is_mqtt_intentionally_disconnected check within setup_mqtt
+    setup_mqtt(
+        force_reconnect=True)  # Force reconnect will bypass the is_mqtt_intentionally_disconnected check within setup_mqtt
 
     # setup_mqtt and its chain will update mqtt_connection_status and broadcast.
     # The status returned here might be "connecting" or the result of the attempt.
     # Give a slight delay for connection attempt to progress before returning status
-    await asyncio.sleep(0.1) # Small delay
+    await asyncio.sleep(0.1)  # Small delay
     return {"message": "MQTT connection process initiated.", "current_status": mqtt_connection_status}
+
 
 @app.post("/api/mqtt/disconnect", status_code=200)
 async def api_mqtt_disconnect():
     global mqtt_connection_status
     # log.info("API call to disconnect MQTT.") # Reduced verbosity
-    disconnect_mqtt_client() # This function sets is_mqtt_intentionally_disconnected = True
+    disconnect_mqtt_client()  # This function sets is_mqtt_intentionally_disconnected = True
     # Give a slight delay for disconnection to reflect
-    await asyncio.sleep(0.1) 
+    await asyncio.sleep(0.1)
     return {"message": "MQTT disconnect process initiated.", "current_status": mqtt_connection_status}
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -1128,7 +1223,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     # TODO: Implement logic to stop Bluetooth scanning here
                     # For now, send a confirmation that scan stopped.
                     await manager.broadcast({"type": "info", "message": "Scanning stopped."})
-                elif message.get("action") == "request_initial_data": # Example action, kept for now
+                elif message.get("action") == "request_initial_data":  # Example action, kept for now
                     # Send initial data if needed
                     await manager.broadcast({"type": "initial_data", "payload": "some_initial_state"})
                 else:
@@ -1143,7 +1238,8 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
     except Exception as e:
         log.error(f"WebSocket error for client {websocket.client}: {e}", exc_info=True)
-        manager.disconnect(websocket) # Ensure disconnect on error
+        manager.disconnect(websocket)  # Ensure disconnect on error
+
 
 # --- Web UI Configuration Endpoints ---
 @app.post("/api/configuration/web", status_code=200)
@@ -1151,7 +1247,7 @@ async def upload_web_ui_config(config_content: WebUIConfig, response: Response):
     global web_ui_cfg
     try:
         if save_web_ui_config(config_content):
-            web_ui_cfg = config_content # Update in-memory cache
+            web_ui_cfg = config_content  # Update in-memory cache
             # log.info("Web UI configuration successfully received and saved.") # Reduced verbosity
             return {"message": "Web UI configuration saved successfully."}
         else:
@@ -1159,7 +1255,9 @@ async def upload_web_ui_config(config_content: WebUIConfig, response: Response):
     except Exception as e:
         log.error(f"Error processing uploaded Web UI configuration: {e}", exc_info=True)
         # It's good practice to re-raise HTTPException or return a proper error response
-        raise HTTPException(status_code=500, detail=f"Internal server error while saving Web UI configuration: {str(e)}")
+        raise HTTPException(status_code=500,
+                            detail=f"Internal server error while saving Web UI configuration: {str(e)}")
+
 
 @app.get("/api/configuration/web", response_model=Optional[WebUIConfig])
 async def get_web_ui_config():
@@ -1167,13 +1265,13 @@ async def get_web_ui_config():
     # Ensure it's loaded on first request if not already by startup (though startup should handle it)
     if web_ui_cfg is None:
         # log.info("Web UI config not in memory, attempting to load from file for GET request.") # Reduced verbosity
-        load_web_ui_config() # Attempt to load it if somehow missed by startup or cleared
-    
+        load_web_ui_config()  # Attempt to load it if somehow missed by startup or cleared
+
     if web_ui_cfg:
         return web_ui_cfg
     else:
         log.warning("GET /api/configuration/web: No Web UI configuration available after load attempt.")
-        return WebUIConfig(map=None, beacons=[], settings=WebUISettings()) # Use direct model name
+        return WebUIConfig(map=None, beacons=[], settings=WebUISettings())  # Use direct model name
 
 
 @app.get("/api/configuration/dashboard", response_model=Optional[DashboardConfig])
@@ -1190,6 +1288,26 @@ async def get_dashboard_config():
         log.warning("GET /api/configuration/dashboard: No Dashboard configuration available after load attempt.")
         return DashboardConfig(maps=None)  # Use direct model name
 
+
+@app.post("/api/configuration/dashboard", status_code=200)
+async def save_dashboard_config(config_content: DashboardConfig, response: Response):
+    """Saves the dashboard configuration to file and updates in-memory cache."""
+    global dashboard_cfg
+    try:
+        if save_dashboard_config_to_file(config_content):
+            dashboard_cfg = config_content  # Update in-memory cache
+            # Update beacon holder with new dashboard config
+            beacon_holder.update_by_dashboard_config(dashboard_cfg)
+            log.info("Dashboard configuration successfully received and saved.")
+            return {"message": "Dashboard configuration saved successfully."}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save Dashboard configuration to file.")
+    except Exception as e:
+        log.error(f"Error processing uploaded Dashboard configuration: {e}", exc_info=True)
+        raise HTTPException(status_code=500,
+                            detail=f"Internal server error while saving Dashboard configuration: {str(e)}")
+
+
 @app.get("/api/default-test-config")
 async def get_default_test_config():
     if not os.path.exists(DEFAULT_TEST_CONFIG_PATH):
@@ -1204,7 +1322,8 @@ async def get_default_test_config():
         log.error(f"Error reading default test config file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read default test configuration: {str(e)}")
 
-@app.get("/api/map-example-format") # New endpoint
+
+@app.get("/api/map-example-format")  # New endpoint
 async def get_map_example_format():
     if not os.path.exists(MAP_EXAMPLE_FORMAT_PATH):
         log.error(f"Map example format file not found at: {MAP_EXAMPLE_FORMAT_PATH}")
@@ -1217,51 +1336,53 @@ async def get_map_example_format():
         log.error(f"Error reading map example format file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read map example format: {str(e)}")
 
+
 @app.post("/api/allow_tracker-list", status_code=200)
 async def update_allow_tracker_list(request: TrackerListUpdateRequest):
     """更新tracker_list配置"""
     global runtime_cfg
-    
+
     try:
         # 验证tracker_list中的每个项目都是有效字符串
         if not isinstance(request.tracker_list, list):
             raise HTTPException(status_code=400, detail="tracker_list must be a list")
-        
+
         for item in request.tracker_list:
             if not isinstance(item, str):
                 raise HTTPException(status_code=400, detail="All items in tracker_list must be strings")
             if len(item.strip()) == 0:
                 raise HTTPException(status_code=400, detail="tracker_list items cannot be empty strings")
-        
+
         # 加载当前配置
         current_cfg = config_manager.load_server_runtime_config()
         if not current_cfg:
             raise HTTPException(status_code=500, detail="Cannot load server runtime configuration")
-        
+
         # 更新tracker_list，转为大写
         current_cfg.tracker_list = [item.strip().upper() for item in request.tracker_list]
-        
+
         # 保存配置
         success, new_cfg = config_manager.save_server_runtime_config(current_cfg)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to save tracker_list configuration")
-        
+
         # 更新全局配置
         runtime_cfg = new_cfg
-        
+
         log.info(f"tracker_list updated successfully. New list: {current_cfg.tracker_list}")
-        
+
         return {
-            "success": True, 
-            "message": "tracker_list updated successfully", 
+            "success": True,
+            "message": "tracker_list updated successfully",
             "tracker_list": current_cfg.tracker_list
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         log.error(f"Error updating tracker_list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 @app.get("/api/allow_tracker-list")
 async def get_allow_tracker_list():
@@ -1270,12 +1391,13 @@ async def get_allow_tracker_list():
         current_cfg = config_manager.load_server_runtime_config()
         if not current_cfg:
             return {"tracker_list": []}
-        
+
         return {"tracker_list": [item.upper() for item in current_cfg.tracker_list]}
-        
+
     except Exception as e:
         log.error(f"Error getting tracker_list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 @app.get("/api/list_paas_device")
 async def get_paas_devices():
@@ -1285,48 +1407,49 @@ async def get_paas_devices():
         current_cfg = config_manager.load_server_runtime_config()
         if not current_cfg or not current_cfg.paas_api_id or not current_cfg.paas_api_key:
             raise HTTPException(status_code=400, detail="PaaS API credentials not configured")
-        
+
         # 动态导入paas_client以避免循环导入
         from server.clients.paas_client import initialize_paas_client, get_paas_client
-        
+
         # 初始化PaaS客户端
         host = getattr(current_cfg, 'paas_host', 'https://sensecap.seeed.cc/openapi')  # 使用配置中的host或默认值
         username = current_cfg.paas_api_id
         password = current_cfg.paas_api_key
-        
+
         if not initialize_paas_client(host, username, password):
             raise HTTPException(status_code=500, detail="Failed to initialize PaaS client")
-        
+
         client = get_paas_client()
         if not client:
             raise HTTPException(status_code=500, detail="PaaS client not available")
-        
+
         # 获取设备列表
         devices = client.list_devices(device_type=2)
         if devices is None:
             raise HTTPException(status_code=500, detail="Failed to retrieve devices from PaaS")
-        
+
         # 转换为字典格式返回
         device_list = [device.to_dict() for device in devices]
-        
+
         return {
             "success": True,
             "data": device_list,
             "count": len(device_list)
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         log.error(f"Error getting PaaS devices: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 # --- Main Execution ---
 if __name__ == "__main__":
     # Load runtime config first for server port
     # config_manager loads both on import, so we can get it directly.
     rt_cfg = config_manager.get_server_runtime_config()
-    server_port = 8000 # Default
+    server_port = 8000  # Default
     if rt_cfg and rt_cfg.server and rt_cfg.server.port:
         server_port = rt_cfg.server.port
     else:
@@ -1338,4 +1461,4 @@ if __name__ == "__main__":
     load_dashboard_config()
     load_web_ui_config()
     # Uvicorn should be run from project root: uvicorn server.main:app --reload
-    uvicorn.run(app, host="0.0.0.0", port=server_port) 
+    uvicorn.run(app, host="0.0.0.0", port=server_port)

@@ -14,6 +14,93 @@
     "totalBeacons": "总信标数",
     "exitFullscreen": "退出全屏"
   },
+  "map": {
+    "mapDimensions": "地图尺寸",
+    "loadConfiguration": "加载配置以显示地图。"
+  },
+  "config": {
+    "saveToServer": "保存配置到服务器",
+    "noMapConfig": "没有地图配置，无法保存到服务器。请先创建或导入地图。",
+    "savingConfig": "正在保存配置到服务器...",
+    "configSaved": "配置已成功保存到服务器！",
+    "saveFailed": "保存配置到服务器失败",
+    "errorBeaconNotFound": "错误：尝试更新位置的信标未在已配置列表中找到。如果您正在编辑一个新信标，请确保从信标表单中点击'从地图更新坐标'。",
+    "title": "地图与信标配置",
+    "mapConfiguration": "地图配置",
+    "beaconConfiguration": "信标配置",
+    "importConfig": "导入配置",
+    "exportConfig": "导出配置",
+    "createNewMap": "创建新地图",
+    "loadFromFile": "从文件加载",
+    "management": {
+      "title": "配置管理",
+      "overview": "配置概览",
+      "totalMaps": "地图总数",
+      "totalBeacons": "信标总数",
+      "totalTrackers": "Tracker总数",
+      "onlineDevices": "在线设备数",
+      "mapBeaconConfig": "地图与信标配置",
+      "trackerConfig": "Tracker配置"
+    },
+    "mapSelector": {
+      "title": "地图选择",
+      "refresh": "刷新配置",
+      "noMaps": "暂无可用地图配置",
+      "noMapsHint": "请确保后端已加载地图配置文件",
+      "selectLabel": "选择地图:",
+      "selectPlaceholder": "请点击选择要查看的地图...",
+      "mapTab": "地图",
+      "beaconsTab": "信标",
+      "settingsTab": "设置"
+    },
+    "actions": {
+      "saveAllChanges": "保存所有更改",
+      "saveChanges": "保存更改",
+      "cancelAllChanges": "取消所有更改",
+      "cancel": "取消",
+      "create": "新建",
+      "edit": "编辑",
+      "delete": "删除",
+      "import": "导入配置",
+      "importTooltip": "导入WebUIConfig配置文件（包含地图、信标、设置）或地图JSON文件"
+    },
+    "status": {
+      "creating": "正在创建新地图",
+      "creatingHint": "请编辑地图内容后使用上方的\"保存更改\"按钮",
+      "editMode": "编辑模式已启用 - 您现在可以修改地图和信标配置，请使用上方的\"保存更改\"按钮",
+      "unsavedChanges": "检测到配置有更改 - 请使用上方的\"保存更改\"按钮保存"
+    },
+    "mapInfo": {
+      "title": "地图基本信息",
+      "name": "地图名称:",
+      "nameNotSet": "未设置",
+      "dimensions": "地图尺寸:",
+      "meters": "米",
+      "entities": "绘点数量:",
+      "entitiesUnit": "个",
+      "width": "地图宽度 (米):",
+      "height": "地图高度 (米):",
+      "widthPlaceholder": "宽度",
+      "heightPlaceholder": "高度",
+      "namePlaceholder": "请输入地图名称（最多10个字符）"
+    },
+    "mapPreview": {
+      "title": "地图预览",
+      "placementHint": "点击地图放置信标:",
+      "beaconSummary": "个信标已配置在此地图上"
+    },
+    "emptyState": {
+      "noMapSelected": "请选择要查看的地图",
+      "selectMapHint": "从上方下拉框中选择一个地图来查看和编辑配置"
+    },
+    "newMapModal": {
+      "title": "创建新地图",
+      "nameLabel": "地图名称：",
+      "namePlaceholder": "请输入地图名称（最多10个字符）",
+      "confirm": "确认",
+      "cancel": "取消"
+    }
+  },
   "tracker": {
     "trackers": "追踪器",
     "noTrackers": "尚未接收到追踪器数据。",
@@ -27,6 +114,24 @@
     "showTrails": "显示轨迹",
     "hideTrails": "隐藏轨迹",
     "sosAlert": "🚨 SOS 警报",
+    "sosRecovery": "报警恢复",
+    "statusChange": "状态变更",
+    "alarmRecords": "告警记录",
+    "noAlarmRecords": "该设备暂无告警记录",
+    "location": "位置",
+    "longitude": "经度",
+    "latitude": "纬度",
+    "map": "地图",
+    "positioningType": "定位方式",
+    "bluetoothPositioning": "蓝牙定位",
+    "gpsPositioning": "GPS定位",
+    "unknown": "未知",
+    "locationNotAvailable": "位置信息不可用",
+    "previousPage": "上一页",
+    "nextPage": "下一页",
+    "pageInfo": "第 {page} 页 / 共 {total} 页",
+    "unknownTime": "未知时间",
+    "timeFormatError": "时间格式错误",
     "mapViewer": "地图查看器",
     "mapTracker": "地图与追踪器",
     "selectMap": "选择地图",
@@ -47,26 +152,24 @@
     "onlineTrackers": "在线",
     "offlineTrackers": "离线",
     "sosAlerts": "SOS 警报",
-    "distributionByMap": "地图分布"
-  },
-  "map": {
-    "mapDimensions": "地图尺寸",
-    "loadConfiguration": "加载配置以显示地图。"
-  },
-  "config": {
-    "saveToServer": "保存配置到服务器",
-    "noMapConfig": "没有地图配置，无法保存到服务器。请先创建或导入地图。",
-    "savingConfig": "正在保存配置到服务器...",
-    "configSaved": "配置已成功保存到服务器！",
-    "saveFailed": "保存配置到服务器失败",
-    "errorBeaconNotFound": "错误：尝试更新位置的信标未在已配置列表中找到。如果您正在编辑一个新信标，请确保从信标表单中点击'从地图更新坐标'。",
-    "title": "地图与信标配置",
-    "mapConfiguration": "地图配置",
-    "beaconConfiguration": "信标配置",
-    "importConfig": "导入配置",
-    "exportConfig": "导出配置",
-    "createNewMap": "创建新地图",
-    "loadFromFile": "从文件加载"
+    "distributionByMap": "地图分布",
+    "configuration": {
+      "title": "Tracker设备配置",
+      "allowList": {
+        "title": "允许的Tracker列表",
+        "description": "配置允许连接和定位的Tracker设备列表。只有在此列表中的设备才会被系统处理。",
+        "inputPlaceholder": "输入Tracker EUI (例如: 2CF7F1C0530004AD)",
+        "add": "添加",
+        "current": "当前允许的Tracker",
+        "count": "个",
+        "remove": "移除此Tracker",
+        "saving": "保存中...",
+        "save": "保存配置",
+        "reload": "重新加载",
+        "empty": "暂无配置的Tracker设备",
+        "emptyHint": "添加Tracker EUI来允许设备连接"
+      }
+    }
   },
   "positioning": {
     "trilateration": "三边测量",
@@ -83,6 +186,7 @@
     "delete": "删除",
     "edit": "编辑",
     "add": "添加",
-    "close": "关闭"
+    "close": "关闭",
+    "back": "返回"
   }
 }

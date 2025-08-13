@@ -29,7 +29,7 @@ export const loadWebConfiguration = async () => {
 export const loadDashboardConfiguration = async () => {
   try {
     const response = await apiClient.get('/configuration/dashboard');
-    return response.data; // FastAPI should return the WebUIConfig model or null/default
+    return response.data; // FastAPI should return the DashboardConfig model or null/default
   } catch (error) {
     console.error('Error loading dashboard configuration from server:', error);
     // Enhance error handling: check error.response for server-side error details
@@ -39,6 +39,22 @@ export const loadDashboardConfiguration = async () => {
       throw new Error('Network error: Could not connect to server to load configuration.');
     } else {
       throw new Error(`Failed to load dashboard configuration: ${error.message}`);
+    }
+  }
+};
+
+export const saveDashboardConfiguration = async (dashboardConfig) => {
+  try {
+    const response = await apiClient.post('/configuration/dashboard', dashboardConfig);
+    return response.data; // Should return a success message, e.g., {"message": "..."}
+  } catch (error) {
+    console.error('Error saving dashboard configuration to server:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to save configuration.');
+    } else {
+      throw new Error(`Failed to save dashboard configuration: ${error.message}`);
     }
   }
 };
@@ -123,6 +139,55 @@ export const loadTrackers = async () => {
       throw new Error('Network error: Could not connect to server to load trackers.');
     } else {
       throw new Error(`Failed to load trackers: ${error.message}`);
+    }
+  }
+};
+
+// Tracker list management APIs
+export const loadAllowTrackerList = async () => {
+  try {
+    const response = await apiClient.get('/allow_tracker-list');
+    return response.data;
+  } catch (error) {
+    console.error('Error loading tracker list:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to load tracker list.');
+    } else {
+      throw new Error(`Failed to load tracker list: ${error.message}`);
+    }
+  }
+};
+
+export const saveAllowTrackerList = async (trackerList) => {
+  try {
+    const response = await apiClient.post('/allow_tracker-list', { tracker_list: trackerList });
+    return response.data;
+  } catch (error) {
+    console.error('Error saving tracker list:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to save tracker list.');
+    } else {
+      throw new Error(`Failed to save tracker list: ${error.message}`);
+    }
+  }
+};
+
+export const loadPaasDevices = async () => {
+  try {
+    const response = await apiClient.get('/list_paas_device');
+    return response.data;
+  } catch (error) {
+    console.error('Error loading PaaS devices:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to load PaaS devices.');
+    } else {
+      throw new Error(`Failed to load PaaS devices: ${error.message}`);
     }
   }
 };

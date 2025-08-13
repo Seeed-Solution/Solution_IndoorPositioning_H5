@@ -3,10 +3,10 @@
     <nav class="main-nav">
       <div class="nav-links">
         <!-- <router-link to="/" class="nav-link">Live Map</router-link> REMOVE THIS -->
-        <router-link to="/config-master" class="nav-link">{{ $t('nav.mapBeaconConfig') }}</router-link>
-        <router-link to="/config-local" class="nav-link">{{ $t('nav.localMode') }}</router-link>
         <router-link to="/config-tracker" class="nav-link">{{ $t('nav.mapTracker') }}</router-link>
+<!--        <router-link to="/config-local" class="nav-link">{{ $t('nav.localMode') }}</router-link>-->
         <router-link to="/map-dashboard?fullscreen=true" class="nav-link">{{ $t('nav.mapDashboard') }}</router-link>
+        <router-link to="/config" class="nav-link">{{ $t('nav.mapBeaconConfig') }}</router-link>
       </div>
       <LanguageSwitcher />
     </nav>

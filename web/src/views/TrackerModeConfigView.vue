@@ -94,7 +94,7 @@
           />
         </div>
         <div v-else class="no-map-selected">
-          <div class="empty-state">
+          <div classbu="empty-state">
             <i class="fas fa-map-marked-alt empty-state-icon"></i>
             <h3>{{ $t('tracker.noMapSelected') }}</h3>
             <p>{{ $t('tracker.selectMapToView') }}</p>
@@ -134,6 +134,8 @@ import { loadWebConfiguration, loadDashboardConfiguration, loadServerConfigurati
 
 const statusMessage = ref('');
 const statusMessageType = ref('info');
+// 用于触发统计数据刷新的响应式变量
+const statsRefreshTrigger = ref(0);
 
 // Available maps and selection
 const availableMaps = ref([]);
@@ -161,32 +163,91 @@ const filteredTrackerList = computed(() => {
         .sort((a, b) => (a.trackerId || '').localeCompare(b.trackerId || ''));
 });
 
-// Tracker statistics
+// Tracker statistics - 初始API数据 + WebSocket实时更新
 const trackerStats = computed(() => {
-    const totalTrackers = allTrackers.value.length;
+    // 包含刷新触发器以确保定时更新
+    statsRefreshTrigger.value;
+    
     const now = Date.now();
     const fifteenMinutesMs = 15 * 60 * 1000; // 15 minutes in milliseconds
     
-    // Calculate online/offline based on last_update_time from /api/trackers
-    const onlineTrackers = allTrackers.value.filter(tracker => {
-        if (!tracker.last_update_time) return false;
-        const lastUpdateTime = new Date(tracker.last_update_time).getTime();
-        return (now - lastUpdateTime) <= fifteenMinutesMs;
+    // 合并API数据和WebSocket数据
+    const allTrackerData = {};
+    
+    // 1. 先从API数据初始化所有设备状态
+    allTrackers.value.forEach(tracker => {
+        if (tracker.trackerId) {
+            allTrackerData[tracker.trackerId] = {
+                trackerId: tracker.trackerId,
+                timestamp: tracker.last_update_time ? new Date(tracker.last_update_time).getTime() : 0,
+                sos: tracker.sos !== undefined ? tracker.sos : 2,
+                map: tracker.map || 'unknown map',
+                isFromApi: true
+            };
+        }
+    });
+    
+    // 2. 用WebSocket实时数据覆盖/更新设备状态
+    const liveTrackers = Object.values(trackers.value);
+    liveTrackers.forEach(tracker => {
+        if (tracker.trackerId) {
+            // 如果已有API数据，则更新；如果没有，则新增
+            if (allTrackerData[tracker.trackerId]) {
+                // 更新现有设备的实时数据
+                allTrackerData[tracker.trackerId].timestamp = tracker.timestamp || allTrackerData[tracker.trackerId].timestamp;
+                allTrackerData[tracker.trackerId].sos = tracker.sos !== undefined ? tracker.sos : allTrackerData[tracker.trackerId].sos;
+                allTrackerData[tracker.trackerId].map = tracker.map || allTrackerData[tracker.trackerId].map;
+                allTrackerData[tracker.trackerId].isFromApi = false; // 标记为已被WebSocket更新
+            } else {
+                // 新增仅在WebSocket中出现的设备
+                allTrackerData[tracker.trackerId] = {
+                    trackerId: tracker.trackerId,
+                    timestamp: tracker.timestamp || 0,
+                    sos: tracker.sos !== undefined ? tracker.sos : 2,
+                    map: tracker.map || 'unknown map',
+                    isFromApi: false
+                };
+            }
+        }
+    });
+    
+    const allCombinedTrackers = Object.values(allTrackerData);
+    const totalTrackers = allCombinedTrackers.length;
+    
+    // Calculate online/offline based on timestamp
+    const onlineTrackers = allCombinedTrackers.filter(tracker => {
+        if (!tracker.timestamp) return false;
+        return (now - tracker.timestamp) <= fifteenMinutesMs;
     }).length;
     
     const offlineTrackers = totalTrackers - onlineTrackers;
     
-    // Count trackers by map using live tracker data
-    const liveTrackers = Object.values(trackers.value);
+    // Count trackers by map
     const trackersByMap = {};
-    liveTrackers.forEach(tracker => {
-        if (tracker.map) {
+    allCombinedTrackers.forEach(tracker => {
+        if (tracker.map && tracker.map !== 'unknown map') {
             trackersByMap[tracker.map] = (trackersByMap[tracker.map] || 0) + 1;
         }
     });
     
-    // Count SOS trackers from live data
-    const sosTrackers = liveTrackers.filter(tracker => tracker.sos === 1).length;
+    // Count SOS trackers
+    const sosTrackers = allCombinedTrackers.filter(tracker => tracker.sos === 1).length;
+    
+    // 调试日志 - 显示统计信息
+    if (allCombinedTrackers.length > 0) {
+        const apiCount = allCombinedTrackers.filter(t => t.isFromApi).length;
+        const wsCount = allCombinedTrackers.filter(t => !t.isFromApi).length;
+        console.log('[TrackerStats] Combined data summary:', {
+            total: totalTrackers,
+            fromApi: apiCount,
+            updatedByWS: wsCount,
+            online: onlineTrackers,
+            offline: offlineTrackers,
+            sosAlerts: sosTrackers,
+            maps: Object.keys(trackersByMap),
+            trackersByMap
+        });
+    }
     
     return {
         total: totalTrackers,
@@ -249,7 +310,7 @@ const connectWebSocket = () => {
         wsStatus.value = 'connected'; 
         showStatus('Connected to server', 'success');
         loadAvailableMaps();
-        loadAllTrackers();
+        loadAllTrackers(); // 恢复API调用，获取初始设备状态
         fetchFullServerConfig();    
     };
     
@@ -269,6 +330,11 @@ const connectWebSocket = () => {
                     if (updatedTrackerId && message.data[updatedTrackerId]) {
                         const newTrackerData = message.data[updatedTrackerId];
                         
+                        console.log(`[DEBUG] WebSocket update for ${updatedTrackerId}: original sos=${newTrackerData.sos}, type=${typeof newTrackerData.sos}`);
+                        // SOS值：0=恢复, 1=触发, 2=未知，确保正确处理0值
+                        const finalSos = newTrackerData.sos !== undefined ? newTrackerData.sos : 2;
+                        console.log(`[DEBUG] Final sos value: ${finalSos}, type=${typeof finalSos}`);
+                        
                         const trackerInstanceData = {
                             trackerId: newTrackerData.trackerId,
                             map: newTrackerData.map,
@@ -278,7 +344,7 @@ const connectWebSocket = () => {
                                 accuracy: newTrackerData.position.accuracy
                             } : null,
                             timestamp: newTrackerData.timestamp,
-                            sos: newTrackerData.sos || false,
+                            sos: finalSos,
                             sos_happen: newTrackerData.sos_happen,
                             last_detected_beacons: newTrackerData.last_detected_beacons 
                                 ? newTrackerData.last_detected_beacons.map(b => ({ ...b })) 
@@ -289,6 +355,21 @@ const connectWebSocket = () => {
                         };
 
                         trackers.value[updatedTrackerId] = trackerInstanceData;
+                    }
+                }
+            } else if (message.type === 'tracker_sos') {
+                console.log('[TrackerMode] Processing tracker_sos. Data:', message.data);
+                if (isMqttEffectivelyEnabled.value) {
+                    const updatedTrackerId = Object.keys(message.data)[0];
+                    if (updatedTrackerId && message.data[updatedTrackerId]) {
+                        if (!trackers.value[updatedTrackerId]) {
+                            console.log('[TrackerMode] Tracker not found for SOS update:', updatedTrackerId);
+                            return;
+                        }
+                        const newTrackerEvent = message.data[updatedTrackerId];
+                        trackers.value[updatedTrackerId].sos = newTrackerEvent.sos;
+                        trackers.value[updatedTrackerId].sos_happen = newTrackerEvent.timestamp;
+                        console.log(`[TrackerMode] Updated SOS status for ${updatedTrackerId}: sos=${newTrackerEvent.sos}, timestamp=${newTrackerEvent.timestamp}`);
                     }
                 }
             } else if (message.type === 'mqtt_status_update') { 
@@ -325,7 +406,15 @@ const showStatus = (msg, type = 'info') => {
 const loadAllTrackers = async () => {
   try {
     const trackersData = await loadTrackers();
-    allTrackers.value = Array.isArray(trackersData) ? trackersData : [];
+    // Convert tracker states object to array format
+    if (Array.isArray(trackersData)) {
+      allTrackers.value = trackersData;
+    } else if (trackersData && typeof trackersData === 'object') {
+      // Convert object to array of tracker states
+      allTrackers.value = Object.values(trackersData);
+    } else {
+      allTrackers.value = [];
+    }
     console.log(`Loaded ${allTrackers.value.length} total trackers from server`);
   } catch (error) {
     console.error('Error loading all trackers:', error);
@@ -424,9 +513,17 @@ const isMqttEffectivelyEnabled = computed(() => {
   return currentServerConfig.value?.mqtt?.enabled && liveMqttStatusForServerSettings.value !== 'disabled';
 });
 
+// 定时器引用
+let statsUpdateInterval = null;
+
 onMounted(() => {
     connectWebSocket();
     document.addEventListener('click', handleClickOutside);
+    
+    // 启动统计数据更新定时器，每30秒刷新一次在线/离线状态
+    statsUpdateInterval = setInterval(() => {
+        statsRefreshTrigger.value++;
+    }, 30000); // 30秒
 });
 
 onUnmounted(() => { 
@@ -435,6 +532,11 @@ onUnmounted(() => {
         ws.value.close(); 
     }
     document.removeEventListener('click', handleClickOutside);
+    
+    // 清理定时器
+    if (statsUpdateInterval) {
+        clearInterval(statsUpdateInterval);
+    }
 });
 
 </script>

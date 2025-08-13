@@ -89,7 +89,8 @@ def calculate_position(
     detected_beacons: List[DetectedBeacon],
     miniprogram_config: MiniprogramConfig, # Changed from ConfigData to MiniprogramConfig
     last_known_position: Optional[Tuple[float, float]] = None,
-    device_id: str = ""
+    device_id: str = "",
+    map_name: str = "unknown map"
     ) -> Optional[Tuple[float, float, str]]:
     """
     Main function to calculate position from detected beacons and miniprogram_config.
@@ -136,7 +137,7 @@ def calculate_position(
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             if distance > 0.1 and distance < 100:
-                beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance, beacon_info.map))
+                beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance))
                 log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:
                 log.warning(f"device(id: {device_id}): Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to invalid calculated distance: {distance:.2f}m (RSSI: {detected.rssi}, Tx: {beacon_info.txPower})")
@@ -148,37 +149,16 @@ def calculate_position(
     #     return None
 
     # Group beacons by map to avoid cross-map positioning
-    beacons_by_map = {}
-    for x, y, distance, map_name in beacons_with_coords_dist:
-        if map_name not in beacons_by_map:
-            beacons_by_map[map_name] = []
-        beacons_by_map[map_name].append((x, y, distance))
 
-    # Select the map with the most beacons for better positioning accuracy
-    best_map = None
-    best_beacons = []
-    max_beacon_count = 0
-    
-    for map_name, map_beacons in beacons_by_map.items():
-        if len(map_beacons) > max_beacon_count:
-            max_beacon_count = len(map_beacons)
-            best_map = map_name
-            best_beacons = map_beacons
-
-    if len(best_beacons) < 3:
-        log.info(f"device(id: {device_id}): choose map '{best_map}' length of beacons: {len(best_beacons)} ")
+    log.info(f"device(id: {device_id}): choose map '{map_name}' length of beacons: {len(beacons_with_coords_dist)} ")
+    if len(beacons_with_coords_dist) < 2:
+        log.info(f"device(id: {device_id}): length of beacons: {len(beacons_with_coords_dist)} less than 2 in map '{map_name}'"
+                 f", can not positioning")
         return None
 
-    log.info(f"device(id: {device_id}) Using map '{best_map}' with {len(best_beacons)} beacons for positioning")
+    log.info(f"device(id: {device_id}) Using map '{map_name}' with {len(beacons_with_coords_dist)} beacons for positioning")
     # log.info(f"device(id: {device_id}) 完成蓝牙测距, best_beacons:{best_beacons}")
-    estimated_position = multilateration_least_squares(best_beacons, initial_guess=last_known_position)
-
-    if estimated_position:
-        estimated_position = estimated_position + (best_map,)
-        log.info(f"device(id: {device_id}): Multilateration successful. Estimated position: {estimated_position}")
-    else:
-        estimated_position = estimated_position + (None,)
-        log.info("device(id: {device_id}): Multilateration failed to estimate a position.")
+    estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
     return estimated_position
 
 # --- Kalman Filter Implementation ---
