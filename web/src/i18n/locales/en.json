@@ -1,6 +1,6 @@
 {
   "nav": {
-    "mapBeaconConfig": "Map & Beacon Configuration",
+    "mapBeaconConfig": "Configuration",
     "localMode": "Local Mode",
     "mapTracker": "Map & Tracker",
     "mapDashboard": "Map Dashboard"

@@ -1,6 +1,6 @@
 {
   "nav": {
-    "mapBeaconConfig": "地图与信标配置",
+    "mapBeaconConfig": "系统设置",
     "localMode": "本地模式",
     "mapTracker": "地图与追踪器",
     "mapDashboard": "地图仪表盘"
