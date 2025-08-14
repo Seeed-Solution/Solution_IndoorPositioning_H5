@@ -56,9 +56,14 @@
     <div class="map-selector card">
       <div class="card-header">
         <h2>{{ t('config.mapSelector.title') }}</h2>
-        <button @click="loadDashboardConfigurationData" :disabled="isLoadingConfig" class="button-primary">
-          {{ isLoadingConfig ? t('common.loading') : t('config.mapSelector.refresh') }}
-        </button>
+        <div class="header-actions">
+          <button @click="exportDashboardConfiguration" class="export-config-btn">
+            <i class="fas fa-download"></i> {{ t('config.actions.downloadAllMaps') }}
+          </button>
+          <button @click="loadDashboardConfigurationData" :disabled="isLoadingConfig" class="refresh-config-btn">
+            <i class="fas fa-sync-alt"></i> {{ isLoadingConfig ? t('common.loading') : t('config.mapSelector.refresh') }}
+          </button>
+        </div>
       </div>
       <div class="card-content">
         <div v-if="availableMaps.length === 0" class="no-maps-message">
@@ -606,6 +611,57 @@ const loadDashboardConfigurationData = async () => {
     availableMaps.value = [];
   } finally {
     isLoadingConfig.value = false;
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  }
+};
+
+// 导出仪表板配置
+const exportDashboardConfiguration = async () => {
+  try {
+    configStatusMessage.value = '正在导出配置...';
+    
+    // 从后端获取最新的配置数据
+    const dashboardData = await loadDashboardConfiguration();
+    
+    if (!dashboardData) {
+      configStatusMessage.value = '没有配置数据可导出';
+      setTimeout(() => { configStatusMessage.value = '' }, 3000);
+      return;
+    }
+    
+    // 生成文件名，包含当前时间戳
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `dashboard_config_${timestamp}.json`;
+    
+    // 将配置数据转换为格式化的JSON字符串
+    const jsonString = JSON.stringify(dashboardData, null, 2);
+    
+    // 创建Blob对象
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理资源
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    configStatusMessage.value = `配置已导出为 ${filename}`;
+    console.log('[ConfigurationSuiteView] Dashboard configuration exported:', filename);
+    
+  } catch (error) {
+    console.error('[ConfigurationSuiteView] Failed to export dashboard configuration:', error);
+    configStatusMessage.value = `导出失败: ${error.message}`;
+  } finally {
     setTimeout(() => { configStatusMessage.value = '' }, 5000);
   }
 };
@@ -2197,6 +2253,75 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.export-config-btn {
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 140px;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.export-config-btn:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.export-config-btn i {
+  font-size: 0.9rem;
+}
+
+.refresh-config-btn {
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 140px;
+  box-shadow: 0 2px 4px rgba(17, 153, 142, 0.3);
+}
+
+.refresh-config-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0f8578 0%, #32d96f 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(17, 153, 142, 0.4);
+}
+
+.refresh-config-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(17, 153, 142, 0.2);
+}
+
+.refresh-config-btn i {
+  font-size: 0.9rem;
 }
 
 .no-maps-message {

@@ -62,7 +62,8 @@
       "edit": "Edit",
       "delete": "Delete",
       "import": "Import Configuration",
-      "importTooltip": "Import WebUIConfig file (includes map, beacons, settings) or map JSON file"
+      "importTooltip": "Import WebUIConfig file (includes map, beacons, settings) or map JSON file",
+      "downloadAllMaps": "Download All Maps"
     },
     "status": {
       "creating": "Creating new map",

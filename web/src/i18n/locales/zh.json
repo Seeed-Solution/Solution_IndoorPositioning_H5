@@ -62,7 +62,8 @@
       "edit": "编辑",
       "delete": "删除",
       "import": "导入配置",
-      "importTooltip": "导入WebUIConfig配置文件（包含地图、信标、设置）或地图JSON文件"
+      "importTooltip": "导入WebUIConfig配置文件（包含地图、信标、设置）或地图JSON文件",
+      "downloadAllMaps": "下载所有地图"
     },
     "status": {
       "creating": "正在创建新地图",
