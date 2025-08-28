@@ -92,15 +92,23 @@ class DashboardConfig(BaseModel):
 # --- Models for Server-Side Runtime Configuration (e.g., server_runtime_config.json) ---
 
 class MqttServerConfig(BaseModel): # Renamed from MqttConfig to avoid clash if old one is kept temporarily
-    brokerHost: str
+    brokerHost: str = '127.0.0.1'
     brokerPort: int = 1883
     username: Optional[str] = None
     password: Optional[str] = None
-    applicationID: str # e.g., your OrgID
-    topicPattern: str  # e.g., "/device_sensor_data/{ApplicationID}/+/+/+/+"
+    applicationID: Optional[str] = None  # e.g., your OrgID
+    topicPattern: Optional[str] = None   # e.g., "/device_sensor_data/{ApplicationID}/+/+/+/+"
     clientID: Optional[str] = Field(default=None, validation_alias=AliasChoices('clientID', 'clientId'))
     enabled: bool = Field(default=True, description="Enable or disable MQTT client")
     live_mqtt_status: Optional[str] = Field(default=None, description="Live MQTT connection status, not saved to file")
+
+class SensecapMqttConfig(MqttServerConfig):
+    """SenseCap OpenStream MQTT configuration."""
+    pass
+
+class ChirpstackMqttConfig(MqttServerConfig):
+    """ChirpStack MQTT configuration."""
+    pass
 
 class WebServerConfig(BaseModel): # Renamed from ServerConfig
     port: int = Field(default=8000, description="Port for the FastAPI web server")
@@ -109,13 +117,75 @@ class KalmanParams(BaseModel):
     processVariance: float = Field(default=1.0, description="Kalman filter process variance Q")
     measurementVariance: float = Field(default=10.0, description="Kalman filter measurement variance R")
 
+class WebhookSetting(BaseModel):
+    enable: bool = False
+    host: Optional[str] = None
+    headers: Optional[dict[str, str]] = {}
+
+
 class ServerRuntimeConfig(BaseModel):
-    mqtt: MqttServerConfig
-    server: WebServerConfig
-    kalman: KalmanParams
-    tracker_list: list[str] = [],
-    paas_api_id: str = "",
-    paas_api_key: str = ""
+    sensecapOpenStream: SensecapMqttConfig = SensecapMqttConfig(
+        enabled=False,
+        brokerHost='sensecap-openstream.seeed.cc',
+        brokerPort=1883
+    )
+    chirpStackMqtt: ChirpstackMqttConfig = ChirpstackMqttConfig(
+        enabled=False,
+        brokerHost='127.0.0.1',
+        brokerPort=1883
+    )
+    server: WebServerConfig = None
+    kalman: KalmanParams = None
+    tracker_list: list[str] = []
+    allow_all_tracker: bool = True
+    username: str = 'admin'
+    password: str = 'ctyshjdl'
+    webhook: WebhookSetting = WebhookSetting(enable=False)
+
+
+class PartialServerRuntimeConfig(BaseModel):
+    sensecapOpenStream: Optional[SensecapMqttConfig] = None
+    chirpStackMqtt: Optional[ChirpstackMqttConfig] = None
+    tracker_list: Optional[list[str]] = None
+    allow_all_tracker: Optional[bool] = None
+    username: Optional[str] = None
+    webhook: Optional[WebhookSetting] = None
+
+
+class PasswordChangeRequest(BaseModel):
+    """
+    密码修改请求模型
+    """
+    current_password: str = Field(..., description="当前密码")
+    new_password: str = Field(..., min_length=6, description="新密码，最少6位字符")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "current_password": "old_password_here",
+                "new_password": "new_password_here"
+            }
+        }
+
+
+class ServiceCredentialsRequest(BaseModel):
+    """
+    服务凭证设置请求模型
+    用于安全地设置各种服务的用户名和密码
+    """
+    service_type: str = Field(..., description="服务类型: sensecap, chirpstack, webhook")
+    username: Optional[str] = Field(None, description="用户名")
+    password: Optional[str] = Field(None, description="密码")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "service_type": "sensecap",
+                "username": "your_username",
+                "password": "your_password"
+            }
+        }
+
 
 
 # --- Tracker Data Models (remain largely unchanged) ---
@@ -133,6 +203,7 @@ class TrackerReport(BaseModel):
     sos: int = 2 # 0: 恢复, 1: 触发, 2: 未知
     locType: str = 'bluetooth'
     loc: dict[str, Any] = {}
+    sourceType: str = "sensecap"
 
 
 class TrackerState(BaseModel):

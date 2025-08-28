@@ -5,6 +5,13 @@
       <div class="map-view-wrapper">
         <div class="map-container">
           <canvas ref="mapCanvas" :width="canvasWidth" :height="canvasHeight" style="border: 1px solid #ccc;"></canvas>
+          <!-- 加载指示器 -->
+          <div v-if="isLoadingTrackers" class="loading-overlay">
+            <div class="loading-content">
+              <i class="fas fa-spinner fa-spin"></i>
+              <span>{{ t('tracker.loadingTrackers') || 'Loading trackers...' }}</span>
+            </div>
+          </div>
           <div v-if="config && config.map" class="map-info" style="display: none;">
             Map Dimensions: {{ config.map.width.toFixed(1) }}m x {{ config.map.height.toFixed(1) }}m
           </div>
@@ -151,6 +158,7 @@
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
+import { loadTrackers } from '@/services/configApiService.js';
 
 const { t } = useI18n();
 
@@ -173,17 +181,41 @@ const emit = defineEmits(['trails-toggled']);
 
 const mapCanvas = ref(null);
 
+// 本地 tracker 状态 - 用于预加载数据
+const localTrackers = ref({});
+const isLoadingTrackers = ref(false);
+
+// 合并 props trackers 和本地预加载的 trackers
+const mergedTrackers = computed(() => {
+    // 优先使用 props.trackers (WebSocket 实时数据)，如果没有则使用预加载的数据
+    let trackersToUse = {};
+    
+    if (props.trackers && Object.keys(props.trackers).length > 0) {
+        // 如果 props.trackers 有数据，使用它（WebSocket 实时数据）
+        if (Array.isArray(props.trackers)) {
+            // 如果是数组格式，转换为对象
+            trackersToUse = props.trackers.reduce((acc, tracker) => {
+                if (tracker.trackerId) {
+                    acc[tracker.trackerId] = tracker;
+                }
+                return acc;
+            }, {});
+        } else {
+            trackersToUse = props.trackers;
+        }
+    } else if (Object.keys(localTrackers.value).length > 0) {
+        // 如果 props.trackers 没有数据，使用预加载的数据
+        trackersToUse = localTrackers.value;
+    }
+    
+    return trackersToUse;
+});
+
 // 过滤出属于当前地图的 trackers（基于 map 字段）
 const filteredTrackers = computed(() => {
-    let allTrackers;
-    if (Array.isArray(props.trackers)) {
-        allTrackers = props.trackers;
-    } else {
-        allTrackers = Object.values(props.trackers || {});
-    }
+    const allTrackers = Object.values(mergedTrackers.value || {});
 
     if (!props.config?.map?.name || allTrackers.length === 0) {
-        // console.log(`[FilteredTrackers] 返回空数组 - config.map.name: ${props.config?.map?.name}, trackers数量: ${allTrackers.length}`);
         return [];
     }
     
@@ -396,6 +428,45 @@ const showAlarmLocationOnMap = (record) => {
     isBlinking.value = false;
     blinkingLocation.value = null;
   }, 3000);
+};
+
+// 预加载 tracker 数据的函数
+const preloadTrackers = async () => {
+  if (isLoadingTrackers.value) return;
+  
+  isLoadingTrackers.value = true;
+  try {
+    console.log('[MapPreview] Preloading trackers data from /api/trackers...');
+    const trackersData = await loadTrackers();
+    
+    // 处理返回的数据格式
+    if (trackersData) {
+      if (Array.isArray(trackersData)) {
+        // 如果是数组格式，转换为对象
+        localTrackers.value = trackersData.reduce((acc, tracker) => {
+          if (tracker.trackerId) {
+            acc[tracker.trackerId] = tracker;
+          }
+          return acc;
+        }, {});
+      } else if (typeof trackersData === 'object') {
+        // 如果是对象格式，直接使用
+        localTrackers.value = trackersData;
+      } else {
+        localTrackers.value = {};
+      }
+      
+      console.log(`[MapPreview] Successfully preloaded ${Object.keys(localTrackers.value).length} trackers`);
+    } else {
+      localTrackers.value = {};
+      console.log('[MapPreview] No tracker data received from API');
+    }
+  } catch (error) {
+    console.error('[MapPreview] Error preloading trackers:', error);
+    localTrackers.value = {};
+  } finally {
+    isLoadingTrackers.value = false;
+  }
 };
 
 const isTrackerInCurrentMap = (tracker) => {
@@ -757,7 +828,10 @@ const drawMap = (ctx) => {
 
 let resizeHandler;
 
-onMounted(() => {
+onMounted(async () => {
+  // 预加载 tracker 数据
+  await preloadTrackers();
+  
   updateCanvasSize();
   const ctx = mapCanvas.value?.getContext('2d');
   if (ctx) {
@@ -787,7 +861,7 @@ onUnmounted(() => {
 });
 
 // Watch for changes in config, trackers, trail visibility, or alarm panel and redraw
-watch([() => props.config, () => props.trackers, localShowTrails, showAlarmPanel, alarmRecords, isBlinking], () => {
+watch([() => props.config, () => props.trackers, mergedTrackers, localShowTrails, showAlarmPanel, alarmRecords, isBlinking], () => {
    const ctx = mapCanvas.value?.getContext('2d');
    if (ctx) {
        drawMap(ctx);
@@ -977,6 +1051,41 @@ canvas {
     display: block; /* Prevents extra space below canvas */
     max-width: 100%;
     height: auto;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e3e6ea;
+}
+
+.loading-content i {
+  font-size: 1.5rem;
+  color: #667eea;
+}
+
+.loading-content span {
+  color: #495057;
+  font-size: 0.9rem;
 }
 
 /* 告警记录视图样式 (完全替换tracker列表) */

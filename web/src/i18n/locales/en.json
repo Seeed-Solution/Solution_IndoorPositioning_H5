@@ -39,8 +39,8 @@
       "totalBeacons": "Total Beacons",
       "totalTrackers": "Total Trackers",
       "onlineDevices": "Online Devices",
-      "mapBeaconConfig": "Map & Beacon Configuration",
-      "trackerConfig": "Tracker Configuration"
+      "mapBeaconConfig": "Map Configuration",
+      "trackerConfig": "App Configuration"
     },
     "mapSelector": {
       "title": "Map Selection",
@@ -155,7 +155,7 @@
     "sosAlerts": "SOS Alerts",
     "distributionByMap": "Distribution by Map",
     "configuration": {
-      "title": "Tracker Device Configuration",
+      "title": "App Setting",
       "allowList": {
         "title": "Allowed Tracker List",
         "description": "Configure the list of trackers allowed to connect and be positioned. Only devices in this list will be processed by the system.",

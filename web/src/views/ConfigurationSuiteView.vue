@@ -328,80 +328,435 @@
       </div>
     </div>
 
-    <!-- Tracker配置标签内容 -->
+    <!-- App Configuration标签内容 -->
     <div v-if="activeMainTab === 'tracker'" class="main-tab-content">
-      <div class="tracker-config-section card">
+
+      <!-- 服务器运行时配置 -->
+      <div class="server-config-section card">
         <div class="card-header">
-          <h2><i class="fas fa-satellite-dish"></i> {{ t('tracker.configuration.title') }}</h2>
+          <h2><i class="fas fa-server"></i> Server Runtime Configuration</h2>
+          <div class="header-actions">
+            <template v-if="!isServerConfigEditMode">
+              <button 
+                @click="loadServerConfig"
+                class="reload-button"
+                :disabled="isLoadingServerConfig"
+              >
+                <i class="fas fa-sync-alt"></i> {{ isLoadingServerConfig ? 'Loading...' : 'Reload' }}
+              </button>
+              <button 
+                @click="enterEditMode"
+                class="edit-button"
+                :disabled="!serverConfig"
+              >
+                <i class="fas fa-edit"></i> Edit
+              </button>
+            </template>
+            <template v-else>
+              <button 
+                @click="saveServerConfigChanges"
+                class="save-button"
+                :disabled="isSavingServerConfig"
+              >
+                <i class="fas fa-save"></i> {{ isSavingServerConfig ? 'Saving...' : 'Save' }}
+              </button>
+              <button 
+                @click="cancelEditMode"
+                class="cancel-button"
+                :disabled="isSavingServerConfig"
+              >
+                <i class="fas fa-times"></i> Cancel
+              </button>
+            </template>
+          </div>
         </div>
         <div class="card-content">
-          <div class="config-section">
-            <h3>{{ t('tracker.configuration.allowList.title') }}</h3>
-            <p class="section-description">{{ t('tracker.configuration.allowList.description') }}</p>
+          <div v-if="serverConfig" class="server-config-form">
             
-            <div class="tracker-list-management">
-              <div class="input-group">
-                <input 
-                  type="text" 
-                  v-model="newTrackerEui"
-                  :placeholder="t('tracker.configuration.allowList.inputPlaceholder')"
-                  class="tracker-input"
-                  @keyup.enter="addTrackerToList"
-                />
-                <button 
-                  @click="addTrackerToList" 
-                  :disabled="!newTrackerEui.trim()"
-                  class="add-button"
-                >
-                  <i class="fas fa-plus"></i> {{ t('tracker.configuration.allowList.add') }}
-                </button>
+            <!-- MQTT SenseCAP OpenStream配置 -->
+            <div class="config-section mqtt-config-section">
+              <div class="mqtt-header">
+                <div class="mqtt-title">
+                  <i class="fas fa-satellite"></i>
+                  <h3>SenseCAP OpenStream MQTT</h3>
+                </div>
+                <div class="mqtt-toggle">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      v-model="serverConfig.sensecapOpenStream.enabled"
+                      class="toggle-input"
+                      :disabled="!isServerConfigEditMode"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">
+                    {{ serverConfig.sensecapOpenStream.enabled ? 'Enabled' : 'Disabled' }}
+                  </span>
+                </div>
               </div>
               
-              <div v-if="allowTrackerList.length > 0" class="tracker-list">
-                <h4>{{ t('tracker.configuration.allowList.current') }} ({{ allowTrackerList.length }}{{ t('tracker.configuration.allowList.count') }}):</h4>
-                <div class="tracker-items">
-                  <div 
-                    v-for="(eui, index) in allowTrackerList" 
-                    :key="index"
-                    class="tracker-item"
-                  >
-                    <span class="tracker-eui">{{ eui }}</span>
+              <div v-if="!serverConfig.sensecapOpenStream.enabled" class="mqtt-disabled-state">
+                <p><i class="fas fa-info-circle"></i> Enable to configure SenseCAP OpenStream MQTT connection</p>
+              </div>
+              
+              <div v-else class="mqtt-config-content">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Broker Host:</label>
+                    <input type="text" v-model="serverConfig.sensecapOpenStream.brokerHost" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'sensecap-openstream.seeed.cc'" />
+                  </div>
+                  <div class="form-group">
+                    <label>Broker Port:</label>
+                    <input type="number" v-model.number="serverConfig.sensecapOpenStream.brokerPort" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'1883'" />
+                  </div>
+                  <div class="form-group">
+                    <label>Application ID: <span class="required-indicator">*</span></label>
+                    <input type="text" v-model="serverConfig.sensecapOpenStream.applicationID" class="form-input" :class="{ 'error': sensecapValidationErrors.applicationID }" :disabled="!isServerConfigEditMode" required />
+                    <span v-if="sensecapValidationErrors.applicationID" class="error-message">{{ sensecapValidationErrors.applicationID }}</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Username: <span class="required-indicator">*</span></label>
+                    <input type="text" v-model="serverConfig.sensecapOpenStream.username" class="form-input" :class="{ 'error': sensecapValidationErrors.username }" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.sensecapOpenStream.applicationID ? `org-${serverConfig.sensecapOpenStream.applicationID}` : 'Auto-generated when Application ID is set'" required />
+                    <span v-if="sensecapValidationErrors.username" class="error-message">{{ sensecapValidationErrors.username }}</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Password: <span class="required-indicator">*</span></label>
+                    <input type="password" v-model="serverConfig.sensecapOpenStream.password" class="form-input" :class="{ 'error': sensecapValidationErrors.password }" placeholder="Enter password" :disabled="!isServerConfigEditMode" required />
+                    <span v-if="sensecapValidationErrors.password" class="error-message">{{ sensecapValidationErrors.password }}</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Topic Pattern: <span class="required-indicator">*</span></label>
+                    <input type="text" v-model="serverConfig.sensecapOpenStream.topicPattern" class="form-input" :class="{ 'error': sensecapValidationErrors.topicPattern }" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.sensecapOpenStream.applicationID ? `/device_sensor_data/${serverConfig.sensecapOpenStream.applicationID}/+/+/+/+` : 'Auto-generated when Application ID is set'" required />
+                    <span v-if="sensecapValidationErrors.topicPattern" class="error-message">{{ sensecapValidationErrors.topicPattern }}</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Client ID: <span class="required-indicator">*</span></label>
+                    <input type="text" v-model="serverConfig.sensecapOpenStream.clientID" class="form-input" :class="{ 'error': sensecapValidationErrors.clientID }" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.sensecapOpenStream.applicationID ? `org-${serverConfig.sensecapOpenStream.applicationID}-XXXXXX` : 'Auto-generated when Application ID is set'" required />
+                    <span v-if="sensecapValidationErrors.clientID" class="error-message">{{ sensecapValidationErrors.clientID }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MQTT ChirpStack配置 -->
+            <div class="config-section mqtt-config-section">
+              <div class="mqtt-header">
+                <div class="mqtt-title">
+                  <i class="fas fa-broadcast-tower"></i>
+                  <h3>ChirpStack MQTT</h3>
+                </div>
+                <div class="mqtt-toggle">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      v-model="serverConfig.chirpStackMqtt.enabled"
+                      class="toggle-input"
+                      :disabled="!isServerConfigEditMode"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">
+                    {{ serverConfig.chirpStackMqtt.enabled ? 'Enabled' : 'Disabled' }}
+                  </span>
+                </div>
+              </div>
+              
+              <div v-if="!serverConfig.chirpStackMqtt.enabled" class="mqtt-disabled-state">
+                <p><i class="fas fa-info-circle"></i> Enable to configure ChirpStack MQTT connection</p>
+              </div>
+              
+              <div v-else class="mqtt-config-content">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Broker Host: <span class="required-indicator">*</span></label>
+                    <input type="text" v-model="serverConfig.chirpStackMqtt.brokerHost" class="form-input" :class="{ 'error': chirpstackValidationErrors.brokerHost }" :disabled="!isServerConfigEditMode" :placeholder="'127.0.0.1'" required />
+                    <span v-if="chirpstackValidationErrors.brokerHost" class="error-message">{{ chirpstackValidationErrors.brokerHost }}</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Broker Port:</label>
+                    <input type="number" v-model.number="serverConfig.chirpStackMqtt.brokerPort" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'1883'" />
+                  </div>
+                  <div class="form-group">
+                    <label>Application ID: <span class="required-indicator">*</span></label>
+                    <input type="text" v-model="serverConfig.chirpStackMqtt.applicationID" class="form-input" :class="{ 'error': chirpstackValidationErrors.applicationID }" :disabled="!isServerConfigEditMode" required />
+                    <span v-if="chirpstackValidationErrors.applicationID" class="error-message">{{ chirpstackValidationErrors.applicationID }}</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Topic Pattern:</label>
+                    <input type="text" v-model="serverConfig.chirpStackMqtt.topicPattern" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.chirpStackMqtt.applicationID ? `application/${serverConfig.chirpStackMqtt.applicationID}/device/+/event/up` : 'Auto-generated when Application ID is set'" />
+                  </div>
+                  <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" v-model="serverConfig.chirpStackMqtt.username" class="form-input" :disabled="!isServerConfigEditMode" />
+                  </div>
+                  <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" v-model="serverConfig.chirpStackMqtt.password" class="form-input" placeholder="Enter new password or leave blank to keep current" :disabled="!isServerConfigEditMode" />
+                  </div>
+                  <div class="form-group">
+                    <label>Client ID:</label>
+                    <input type="text" v-model="serverConfig.chirpStackMqtt.clientID" class="form-input" :disabled="!isServerConfigEditMode" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Web Server和Kalman Filter配置已屏蔽，不允许用户修改 -->
+
+            <!-- 认证配置 -->
+            <div class="config-section mqtt-config-section">
+              <div class="mqtt-header">
+                <div class="mqtt-title">
+                  <i class="fas fa-user-shield"></i>
+                  <h3>Authentication</h3>
+                </div>
+              </div>
+              
+              <div class="mqtt-config-content">
+                <!-- 用户名配置 -->
+                <div class="form-group-inline">
+                  <label>Username:</label>
+                  <input 
+                    type="text" 
+                    v-model="serverConfig.username" 
+                    class="form-input" 
+                    :disabled="!isServerConfigEditMode" 
+                  />
+                </div>
+
+                <!-- 密码配置 -->
+                <div class="form-group-inline">
+                  <label>Password:</label>
+                  <div class="password-section">
+                    <div class="password-info">
+                      <span class="password-placeholder">••••••••</span>
+                      <span class="password-hint">Password is encrypted and hidden for security</span>
+                    </div>
                     <button 
-                      @click="removeTrackerFromList(index)"
-                      class="remove-button"
-                      :title="t('tracker.configuration.allowList.remove')"
+                      @click="openPasswordModal"
+                      class="change-password-button"
+                      :disabled="!isServerConfigEditMode"
                     >
-                      <i class="fas fa-trash"></i>
+                      <i class="fas fa-key"></i> Change Password
                     </button>
                   </div>
                 </div>
-                
-                <div class="tracker-actions">
-                  <button 
-                    @click="saveTrackerList"
-                    class="save-button"
-                    :disabled="isSavingTrackers"
-                  >
-                    <i class="fas fa-save"></i> 
-                    {{ isSavingTrackers ? t('tracker.configuration.allowList.saving') : t('tracker.configuration.allowList.save') }}
-                  </button>
-                  <button 
-                    @click="loadTrackerList"
-                    class="reload-button"
-                  >
-                    <i class="fas fa-sync-alt"></i> {{ t('tracker.configuration.allowList.reload') }}
-                  </button>
+              </div>
+            </div>
+
+            <!-- Webhook配置 -->
+            <div class="config-section mqtt-config-section">
+              <div class="mqtt-header">
+                <div class="mqtt-title">
+                  <i class="fas fa-external-link-alt"></i>
+                  <h3>Webhook</h3>
+                </div>
+                <div class="mqtt-toggle">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      v-model="serverConfig.webhook.enable"
+                      :disabled="!isServerConfigEditMode"
+                      class="toggle-input"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">
+                    {{ serverConfig.webhook.enable ? 'Enabled' : 'Disabled' }}
+                  </span>
                 </div>
               </div>
               
-              <div v-else class="empty-tracker-list">
-                <i class="fas fa-satellite-dish empty-icon"></i>
-                <p>{{ t('tracker.configuration.allowList.empty') }}</p>
-                <p class="hint">{{ t('tracker.configuration.allowList.emptyHint') }}</p>
+              <div v-if="!serverConfig.webhook.enable" class="mqtt-disabled-state">
+                <p><i class="fas fa-info-circle"></i> Enable to configure webhook notifications</p>
+              </div>
+              
+              <div v-else class="mqtt-config-content">
+                <!-- Host URL配置 -->
+                <div class="form-group-inline">
+                  <label>Host URL:</label>
+                  <input 
+                    type="url" 
+                    v-model="serverConfig.webhook.host" 
+                    class="form-input" 
+                    placeholder="https://your-webhook-endpoint.com/api/notify" 
+                    :disabled="!isServerConfigEditMode"
+                  />
+                </div>
+                
+                <!-- Headers配置 -->
+                <div class="webhook-headers-section">
+                  <h4>HTTP Headers</h4>
+                  <div class="webhook-headers-management">
+                    <div class="header-add-section">
+                      <div class="header-inputs">
+                        <input 
+                          type="text" 
+                          v-model="newHeaderName"
+                          placeholder="Header name (e.g., Authorization)"
+                          class="header-name-input"
+                          :disabled="!isServerConfigEditMode"
+                        />
+                        <input 
+                          type="text" 
+                          v-model="newHeaderValue"
+                          placeholder="Header value (e.g., Bearer token123)"
+                          class="header-value-input"
+                          :disabled="!isServerConfigEditMode"
+                        />
+                        <button 
+                          @click="addWebhookHeader"
+                          :disabled="!newHeaderName.trim() || !newHeaderValue.trim() || !isServerConfigEditMode"
+                          class="add-header-button"
+                        >
+                          <i class="fas fa-plus"></i> Add
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div v-if="webhookHeadersList.length > 0" class="headers-list">
+                      <div class="headers-list-title">
+                        <span>Current Headers ({{ webhookHeadersList.length }}):</span>
+                      </div>
+                      <div class="header-items">
+                        <div 
+                          v-for="(header, index) in webhookHeadersList" 
+                          :key="index"
+                          class="header-item"
+                        >
+                          <div class="header-info">
+                            <span class="header-name">{{ header.name }}:</span>
+                            <span class="header-value">{{ header.value }}</span>
+                          </div>
+                          <button 
+                            @click="removeWebhookHeader(index)"
+                            class="remove-header-button"
+                            title="Remove this header"
+                          >
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div v-else class="empty-headers">
+                      <i class="fas fa-list-alt empty-icon"></i>
+                      <p>No custom headers configured</p>
+                      <p class="hint">Add headers like Authorization, Content-Type, etc.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
+            <!-- Tracker访问控制 -->
+            <div class="config-section mqtt-config-section">
+              <div class="mqtt-header">
+                <div class="mqtt-title">
+                  <i class="fas fa-satellite-dish"></i>
+                  <h3>Tracker Access Control</h3>
+                </div>
+                <div class="mqtt-toggle">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      v-model="serverConfig.allow_all_tracker"
+                      :disabled="!isServerConfigEditMode"
+                      class="toggle-input"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">
+                    {{ serverConfig.allow_all_tracker ? 'Allow All' : 'Restricted' }}
+                  </span>
+                </div>
+              </div>
+              
+              <div v-if="serverConfig.allow_all_tracker" class="mqtt-disabled-state">
+                <p><i class="fas fa-unlock"></i> All trackers are allowed to connect to the system</p>
+              </div>
+              
+              <div v-else class="mqtt-config-content">
+                <div class="tracker-restriction-info">
+                  <p class="restriction-description">
+                    <i class="fas fa-shield-alt"></i>
+                    Only trackers in the allowed list can connect and be positioned by the system.
+                  </p>
+                </div>
+                
+                <div class="tracker-list-management">
+                  <div class="input-group">
+                    <input 
+                      type="text" 
+                      v-model="newTrackerEui"
+                      :placeholder="t('tracker.configuration.allowList.inputPlaceholder')"
+                      class="tracker-input"
+                      @keyup.enter="addTrackerToList"
+                      :disabled="!isServerConfigEditMode"
+                    />
+                    <button 
+                      @click="addTrackerToList" 
+                      :disabled="!newTrackerEui.trim() || !isServerConfigEditMode"
+                      class="add-button"
+                    >
+                      <i class="fas fa-plus"></i> {{ t('tracker.configuration.allowList.add') }}
+                    </button>
+                  </div>
+                  
+                  <div v-if="allowTrackerList.length > 0" class="tracker-list">
+                    <h4>{{ t('tracker.configuration.allowList.current') }} ({{ allowTrackerList.length }}{{ t('tracker.configuration.allowList.count') }}):</h4>
+                    <div class="tracker-items">
+                      <div 
+                        v-for="(eui, index) in allowTrackerList" 
+                        :key="index"
+                        class="tracker-item"
+                      >
+                        <span class="tracker-eui">{{ eui }}</span>
+                        <button 
+                          @click="removeTrackerFromList(index)"
+                          class="remove-button"
+                          :title="t('tracker.configuration.allowList.remove')"
+                        >
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div class="tracker-actions">
+                      <button 
+                        @click="saveTrackerList"
+                        class="save-button"
+                        :disabled="isSavingTrackers || !isServerConfigEditMode"
+                      >
+                        <i class="fas fa-save"></i> 
+                        {{ isSavingTrackers ? t('tracker.configuration.allowList.saving') : t('tracker.configuration.allowList.save') }}
+                      </button>
+                      <button 
+                        @click="loadTrackerList"
+                        :disabled="!isServerConfigEditMode"
+                        class="reload-button"
+                      >
+                        <i class="fas fa-sync-alt"></i> {{ t('tracker.configuration.allowList.reload') }}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div v-else class="empty-tracker-list">
+                    <i class="fas fa-satellite-dish empty-icon"></i>
+                    <p>{{ t('tracker.configuration.allowList.empty') }}</p>
+                    <p class="hint">{{ t('tracker.configuration.allowList.emptyHint') }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          
+          <div v-else class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading server configuration...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -454,6 +809,130 @@
         </form>
       </div>
     </div>
+
+    <!-- 密码修改弹窗 -->
+    <div v-if="showPasswordModal" class="modal-overlay">
+      <div class="modal-content password-modal">
+        <div class="modal-header">
+          <h4><i class="fas fa-key"></i> Change Password</h4>
+          <button @click="closePasswordModal" class="modal-close-button">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="changePassword">
+            <div class="form-group">
+              <label for="currentPassword">Current Password:</label>
+              <input 
+                type="password" 
+                id="currentPassword"
+                v-model="passwordForm.currentPassword" 
+                class="form-input"
+                :class="{ 'error': passwordErrors.currentPassword }"
+                placeholder="Enter current password"
+                required
+              />
+              <span v-if="passwordErrors.currentPassword" class="error-message">
+                {{ passwordErrors.currentPassword }}
+              </span>
+            </div>
+            
+            <div class="form-group">
+              <label for="newPassword">New Password:</label>
+              <input 
+                type="password" 
+                id="newPassword"
+                v-model="passwordForm.newPassword" 
+                class="form-input"
+                :class="{ 'error': passwordErrors.newPassword }"
+                placeholder="Enter new password"
+                required
+              />
+              <span v-if="passwordErrors.newPassword" class="error-message">
+                {{ passwordErrors.newPassword }}
+              </span>
+            </div>
+            
+            <div class="form-group">
+              <label for="confirmPassword">Confirm New Password:</label>
+              <input 
+                type="password" 
+                id="confirmPassword"
+                v-model="passwordForm.confirmPassword" 
+                class="form-input"
+                :class="{ 'error': passwordErrors.confirmPassword }"
+                placeholder="Confirm new password"
+                required
+              />
+              <span v-if="passwordErrors.confirmPassword" class="error-message">
+                {{ passwordErrors.confirmPassword }}
+              </span>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button 
+            @click="changePassword"
+            class="btn-primary"
+            :disabled="isChangingPassword || !isPasswordFormValid"
+          >
+            <i class="fas fa-save"></i> 
+            {{ isChangingPassword ? 'Changing...' : 'Change Password' }}
+          </button>
+          <button 
+            @click="closePasswordModal"
+            class="btn-secondary"
+            :disabled="isChangingPassword"
+          >
+            <i class="fas fa-times"></i> Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 凭证设置模态框 -->
+  <div v-if="showCredentialsModal" class="modal-overlay" @click="closeCredentialsModal">
+    <div class="credentials-modal" @click.stop>
+      <div class="modal-header">
+        <h3>Set {{ currentServiceType }} Credentials</h3>
+        <button @click="closeCredentialsModal" class="close-btn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Username:</label>
+          <input 
+            type="text" 
+            v-model="credentialsForm.username" 
+            class="form-input"
+            :placeholder="getServiceTypeName(currentServiceType) + ' username'"
+          />
+        </div>
+        <div class="form-group">
+          <label>Password:</label>
+          <input 
+            type="password" 
+            v-model="credentialsForm.password" 
+            class="form-input"
+            :placeholder="getServiceTypeName(currentServiceType) + ' password'"
+          />
+        </div>
+        <div v-if="credentialsError" class="error-message">
+          {{ credentialsError }}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="saveCredentials" class="save-btn" :disabled="credentialsSaving">
+          <i class="fas fa-save"></i> 
+          {{ credentialsSaving ? 'Saving...' : 'Save Credentials' }}
+        </button>
+        <button @click="closeCredentialsModal" class="cancel-btn" :disabled="credentialsSaving">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -468,7 +947,10 @@ import {
   saveDashboardConfiguration,
   loadAllowTrackerList,
   saveAllowTrackerList,
-  loadTrackers
+  loadTrackers,
+  loadServerConfiguration,
+  saveServerConfiguration,
+  changePassword as changePasswordAPI
 } from '@/services/configApiService.js';
 
 // i18n setup
@@ -520,7 +1002,59 @@ const newTrackerEui = ref('');
 const allowTrackerList = ref([]);
 const isSavingTrackers = ref(false);
 const trackersData = ref({}); // 用于存储tracker实时状态
+
+// 服务器配置相关
+const serverConfig = ref(null);
+const originalServerConfig = ref(null); // 保存原始配置用于取消操作
+const isLoadingServerConfig = ref(false);
+const isSavingServerConfig = ref(false);
+const isServerConfigEditMode = ref(false); // 编辑模式状态
+const webhookHeadersJson = ref('{}');
+
+// Webhook headers管理
+const newHeaderName = ref('');
+const newHeaderValue = ref('');
+const webhookHeadersList = ref([]);
 const allTrackers = ref([]); // 所有trackers数据（用于在线统计）
+
+// 密码修改相关状态
+const showPasswordModal = ref(false);
+const isChangingPassword = ref(false);
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+});
+const passwordErrors = ref({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+});
+
+// 凭证设置相关状态
+const showCredentialsModal = ref(false);
+const currentServiceType = ref('');
+const credentialsSaving = ref(false);
+const credentialsForm = ref({
+  username: '',
+  password: ''
+});
+const credentialsError = ref('');
+
+// SenseCap验证错误状态
+const sensecapValidationErrors = ref({
+  applicationID: '',
+  username: '',
+  password: '',
+  topicPattern: '',
+  clientID: ''
+});
+
+// ChirpStack验证错误状态
+const chirpstackValidationErrors = ref({
+  brokerHost: '',
+  applicationID: ''
+});
 
 // 计算属性
 const selectedMapConfig = computed(() => {
@@ -571,6 +1105,19 @@ const onlineTrackersCount = computed(() => {
     const lastUpdateTime = new Date(tracker.last_update_time).getTime();
     return (now - lastUpdateTime) <= fifteenMinutesMs;
   }).length;
+});
+
+// 密码表单验证计算属性
+const isPasswordFormValid = computed(() => {
+  return passwordForm.value.currentPassword.trim() !== '' &&
+         passwordForm.value.newPassword.trim() !== '' &&
+         passwordForm.value.confirmPassword.trim() !== '' &&
+         passwordForm.value.newPassword === passwordForm.value.confirmPassword &&
+         passwordForm.value.newPassword.length >= 6 &&
+         passwordForm.value.currentPassword !== passwordForm.value.newPassword &&
+         !passwordErrors.value.currentPassword &&
+         !passwordErrors.value.newPassword &&
+         !passwordErrors.value.confirmPassword;
 });
 
 const recentActiveTrackersCount = computed(() => {
@@ -1589,7 +2136,8 @@ onMounted(async () => {
   await Promise.all([
     loadDashboardConfigurationData(),
     loadTrackersData(), // 加载tracker状态数据用于统计
-    loadTrackerList()   // 加载tracker配置列表
+    loadTrackerList(),   // 加载tracker配置列表
+    loadServerConfig()   // 加载服务器配置
   ]);
 });
 
@@ -1598,6 +2146,63 @@ watch(() => activeMainTab.value, async (newTab) => {
   if (newTab === 'tracker') {
     await loadTrackerList();
     await loadTrackersData(); // 刷新tracker状态
+    if (!serverConfig.value) {
+      await loadServerConfig(); // 如果还没加载服务器配置，则加载
+    }
+  }
+});
+
+// 监听SenseCap OpenStream applicationID变化，自动更新username和topic
+watch(() => serverConfig.value?.sensecapOpenStream?.applicationID, (newApplicationId, oldApplicationId) => {
+  if (isServerConfigEditMode.value && serverConfig.value?.sensecapOpenStream) {
+    updateSensecapDefaultValues();
+    // 清除相关字段的验证错误
+    if (sensecapValidationErrors.value.applicationID) {
+      sensecapValidationErrors.value.applicationID = '';
+    }
+  }
+}, { immediate: false });
+
+// 监听字段变化，清除对应的验证错误
+watch(() => serverConfig.value?.sensecapOpenStream?.username, () => {
+  if (sensecapValidationErrors.value.username) {
+    sensecapValidationErrors.value.username = '';
+  }
+});
+
+watch(() => serverConfig.value?.sensecapOpenStream?.password, () => {
+  if (sensecapValidationErrors.value.password) {
+    sensecapValidationErrors.value.password = '';
+  }
+});
+
+watch(() => serverConfig.value?.sensecapOpenStream?.topicPattern, () => {
+  if (sensecapValidationErrors.value.topicPattern) {
+    sensecapValidationErrors.value.topicPattern = '';
+  }
+});
+
+watch(() => serverConfig.value?.sensecapOpenStream?.clientID, () => {
+  if (sensecapValidationErrors.value.clientID) {
+    sensecapValidationErrors.value.clientID = '';
+  }
+});
+
+// 监听ChirpStack MQTT applicationID变化，自动更新topic
+watch(() => serverConfig.value?.chirpStackMqtt?.applicationID, (newApplicationId, oldApplicationId) => {
+  if (isServerConfigEditMode.value && serverConfig.value?.chirpStackMqtt) {
+    updateChirpstackDefaultValues();
+    // 清除相关字段的验证错误
+    if (chirpstackValidationErrors.value.applicationID) {
+      chirpstackValidationErrors.value.applicationID = '';
+    }
+  }
+}, { immediate: false });
+
+// 监听ChirpStack字段变化，清除对应的验证错误
+watch(() => serverConfig.value?.chirpStackMqtt?.brokerHost, () => {
+  if (chirpstackValidationErrors.value.brokerHost) {
+    chirpstackValidationErrors.value.brokerHost = '';
   }
 });
 
@@ -2124,6 +2729,625 @@ const loadTrackersData = async () => {
     console.error('加载tracker数据失败:', error);
     allTrackers.value = [];
     trackersData.value = {};
+  }
+};
+
+// 服务器配置相关方法
+const loadServerConfig = async () => {
+  try {
+    isLoadingServerConfig.value = true;
+    const response = await loadServerConfiguration();
+    serverConfig.value = response;
+    
+    // 加载webhook headers到列表管理
+    loadWebhookHeadersFromConfig();
+    
+    // 初始化webhook headers JSON显示（保留兼容性）
+    if (response && response.webhook && response.webhook.headers) {
+      webhookHeadersJson.value = JSON.stringify(response.webhook.headers, null, 2);
+    } else {
+      webhookHeadersJson.value = '{}';
+    }
+    
+    configStatusMessage.value = 'Server configuration loaded successfully';
+    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+  } catch (error) {
+    console.error('加载服务器配置失败:', error);
+    configStatusMessage.value = `Failed to load server configuration: ${error.message}`;
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  } finally {
+    isLoadingServerConfig.value = false;
+  }
+};
+
+const saveServerConfig = async () => {
+  try {
+    isSavingServerConfig.value = true;
+    
+    // 创建要保存的配置副本（不包含密码字段）
+    const configToSave = {};
+    
+    // SenseCAP OpenStream MQTT 配置
+    if (serverConfig.value.sensecapOpenStream) {
+      configToSave.sensecapOpenStream = {
+        brokerHost: serverConfig.value.sensecapOpenStream.brokerHost,
+        brokerPort: serverConfig.value.sensecapOpenStream.brokerPort,
+        username: serverConfig.value.sensecapOpenStream.username,
+        password: serverConfig.value.sensecapOpenStream.password,
+        applicationID: serverConfig.value.sensecapOpenStream.applicationID,
+        topicPattern: serverConfig.value.sensecapOpenStream.topicPattern,
+        clientID: serverConfig.value.sensecapOpenStream.clientID,
+        enabled: serverConfig.value.sensecapOpenStream.enabled
+      };
+    }
+    
+    // ChirpStack MQTT 配置
+    if (serverConfig.value.chirpStackMqtt) {
+      configToSave.chirpStackMqtt = {
+        brokerHost: serverConfig.value.chirpStackMqtt.brokerHost,
+        brokerPort: serverConfig.value.chirpStackMqtt.brokerPort,
+        username: serverConfig.value.chirpStackMqtt.username,
+        password: serverConfig.value.chirpStackMqtt.password,
+        applicationID: serverConfig.value.chirpStackMqtt.applicationID,
+        topicPattern: serverConfig.value.chirpStackMqtt.topicPattern,
+        clientID: serverConfig.value.chirpStackMqtt.clientID,
+        enabled: serverConfig.value.chirpStackMqtt.enabled
+      };
+    }
+    
+    // Tracker配置
+    configToSave.tracker_list = serverConfig.value.tracker_list;
+    configToSave.allow_all_tracker = serverConfig.value.allow_all_tracker;
+    
+    // 用户名 (Authentication的密码不提交)
+    configToSave.username = serverConfig.value.username;
+    // 注意：不提交Authentication部分的password字段
+    
+    // Webhook配置
+    if (serverConfig.value.webhook) {
+      configToSave.webhook = {
+        enabled: serverConfig.value.webhook.enabled,
+        url: serverConfig.value.webhook.url,
+        authorization: serverConfig.value.webhook.authorization
+      };
+      
+      // 处理webhook headers
+      if (configToSave.webhook.enabled) {
+        try {
+          configToSave.webhook.headers = JSON.parse(webhookHeadersJson.value);
+        } catch (error) {
+          throw new Error('Invalid JSON format in webhook headers');
+        }
+      }
+    }
+    
+    await saveServerConfiguration(configToSave);
+    configStatusMessage.value = 'Server configuration saved successfully';
+    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+  } catch (error) {
+    console.error('保存服务器配置失败:', error);
+    configStatusMessage.value = `Failed to save server configuration: ${error.message}`;
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  } finally {
+    isSavingServerConfig.value = false;
+  }
+};
+
+// Webhook headers管理方法
+const addWebhookHeader = () => {
+  const name = newHeaderName.value.trim();
+  const value = newHeaderValue.value.trim();
+  
+  if (!name || !value) {
+    return;
+  }
+  
+  // 检查是否已存在相同名称的header
+  const existingIndex = webhookHeadersList.value.findIndex(h => h.name.toLowerCase() === name.toLowerCase());
+  if (existingIndex !== -1) {
+    // 更新现有header的值
+    webhookHeadersList.value[existingIndex].value = value;
+  } else {
+    // 添加新header
+    webhookHeadersList.value.push({ name, value });
+  }
+  
+  // 清空输入框
+  newHeaderName.value = '';
+  newHeaderValue.value = '';
+  
+  // 更新serverConfig中的headers
+  updateServerConfigHeaders();
+};
+
+const removeWebhookHeader = (index) => {
+  if (index >= 0 && index < webhookHeadersList.value.length) {
+    webhookHeadersList.value.splice(index, 1);
+    updateServerConfigHeaders();
+  }
+};
+
+const updateServerConfigHeaders = () => {
+  if (serverConfig.value && serverConfig.value.webhook) {
+    const headersObj = {};
+    webhookHeadersList.value.forEach(header => {
+      headersObj[header.name] = header.value;
+    });
+    serverConfig.value.webhook.headers = headersObj;
+  }
+};
+
+const loadWebhookHeadersFromConfig = () => {
+  // 从serverConfig加载headers到列表
+  if (serverConfig.value && serverConfig.value.webhook && serverConfig.value.webhook.headers) {
+    webhookHeadersList.value = Object.entries(serverConfig.value.webhook.headers).map(([name, value]) => ({
+      name,
+      value
+    }));
+  } else {
+    webhookHeadersList.value = [];
+  }
+};
+
+const updateWebhookHeaders = () => {
+  // 保留这个方法以兼容现有代码，但现在不再使用JSON编辑方式
+  console.warn('updateWebhookHeaders is deprecated, use header list management instead');
+};
+
+// 编辑模式相关方法
+const enterEditMode = () => {
+  // 保存原始配置用于取消操作
+  originalServerConfig.value = JSON.parse(JSON.stringify(serverConfig.value));
+  isServerConfigEditMode.value = true;
+  configStatusMessage.value = 'Edit mode enabled - You can now modify server configuration';
+  setTimeout(() => { configStatusMessage.value = '' }, 3000);
+};
+
+const cancelEditMode = () => {
+  // 恢复原始配置
+  if (originalServerConfig.value) {
+    serverConfig.value = JSON.parse(JSON.stringify(originalServerConfig.value));
+    loadWebhookHeadersFromConfig(); // 重新加载webhook headers
+  }
+  isServerConfigEditMode.value = false;
+  originalServerConfig.value = null;
+  configStatusMessage.value = 'Changes cancelled - Configuration restored';
+  setTimeout(() => { configStatusMessage.value = '' }, 3000);
+};
+
+const saveServerConfigChanges = async () => {
+  try {
+    isSavingServerConfig.value = true;
+    
+    // 如果SenseCap OpenStream启用，验证必填字段
+    if (serverConfig.value.sensecapOpenStream?.enabled && !validateSensecapConfig()) {
+      configStatusMessage.value = 'Please fill in all required fields for SenseCap OpenStream';
+      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      return;
+    }
+    
+    // 如果ChirpStack MQTT启用，验证必填字段
+    if (serverConfig.value.chirpStackMqtt?.enabled && !validateChirpstackConfig()) {
+      configStatusMessage.value = 'Please fill in all required fields for ChirpStack MQTT';
+      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      return;
+    }
+    
+    // 只发送允许修改的字段 - 实现部分更新
+    const configToSave = {};
+    
+    // SenseCAP OpenStream MQTT 配置
+    if (serverConfig.value.sensecapOpenStream) {
+      configToSave.sensecapOpenStream = {
+        brokerHost: serverConfig.value.sensecapOpenStream.brokerHost,
+        brokerPort: serverConfig.value.sensecapOpenStream.brokerPort,
+        username: serverConfig.value.sensecapOpenStream.username,
+        password: serverConfig.value.sensecapOpenStream.password,
+        applicationID: serverConfig.value.sensecapOpenStream.applicationID,
+        topicPattern: serverConfig.value.sensecapOpenStream.topicPattern,
+        clientID: serverConfig.value.sensecapOpenStream.clientID,
+        enabled: serverConfig.value.sensecapOpenStream.enabled
+      };
+    }
+    
+    // ChirpStack MQTT 配置
+    if (serverConfig.value.chirpStackMqtt) {
+      configToSave.chirpStackMqtt = {
+        brokerHost: serverConfig.value.chirpStackMqtt.brokerHost,
+        brokerPort: serverConfig.value.chirpStackMqtt.brokerPort,
+        username: serverConfig.value.chirpStackMqtt.username,
+        password: serverConfig.value.chirpStackMqtt.password,
+        applicationID: serverConfig.value.chirpStackMqtt.applicationID,
+        topicPattern: serverConfig.value.chirpStackMqtt.topicPattern,
+        clientID: serverConfig.value.chirpStackMqtt.clientID,
+        enabled: serverConfig.value.chirpStackMqtt.enabled
+      };
+    }
+    
+    // Tracker Access Control 配置
+    configToSave.tracker_list = serverConfig.value.tracker_list;
+    configToSave.allow_all_tracker = serverConfig.value.allow_all_tracker;
+    
+    // Authentication 配置 (不提交password)
+    configToSave.username = serverConfig.value.username;
+    // 注意：不提交Authentication部分的password，密码通过专门的密码修改接口设置
+    
+    // Webhook 配置
+    if (serverConfig.value.webhook) {
+      const headersObj = {};
+      webhookHeadersList.value.forEach(header => {
+        headersObj[header.name] = header.value;
+      });
+      
+      configToSave.webhook = {
+        enable: serverConfig.value.webhook.enable,
+        host: serverConfig.value.webhook.host,
+        headers: headersObj
+      };
+    }
+    
+    console.log('部分配置保存内容:', configToSave);
+    
+    await saveServerConfiguration(configToSave);
+    
+    // 保存成功后退出编辑模式
+    isServerConfigEditMode.value = false;
+    originalServerConfig.value = null;
+    
+    configStatusMessage.value = 'Server configuration saved successfully';
+    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+  } catch (error) {
+    console.error('保存服务器配置失败:', error);
+    configStatusMessage.value = `Failed to save server configuration: ${error.message}`;
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  } finally {
+    isSavingServerConfig.value = false;
+  }
+};
+
+// 密码修改相关方法
+const openPasswordModal = () => {
+  // 重置表单
+  passwordForm.value = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  // 清除错误信息
+  passwordErrors.value = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  showPasswordModal.value = true;
+};
+
+const closePasswordModal = () => {
+  if (isChangingPassword.value) {
+    return; // 正在更改密码时不允许关闭
+  }
+  showPasswordModal.value = false;
+  // 重置表单
+  passwordForm.value = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  // 清除错误信息
+  passwordErrors.value = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+};
+
+const validatePasswordForm = () => {
+  // 清除之前的错误
+  passwordErrors.value = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+
+  let isValid = true;
+
+  // 验证当前密码
+  if (!passwordForm.value.currentPassword.trim()) {
+    passwordErrors.value.currentPassword = 'Current password is required';
+    isValid = false;
+  }
+
+  // 验证新密码
+  if (!passwordForm.value.newPassword.trim()) {
+    passwordErrors.value.newPassword = 'New password is required';
+    isValid = false;
+  } else if (passwordForm.value.newPassword.length < 6) {
+    passwordErrors.value.newPassword = 'Password must be at least 6 characters long';
+    isValid = false;
+  } else if (passwordForm.value.newPassword === passwordForm.value.currentPassword) {
+    passwordErrors.value.newPassword = 'New password must be different from current password';
+    isValid = false;
+  }
+
+  // 验证确认密码
+  if (!passwordForm.value.confirmPassword.trim()) {
+    passwordErrors.value.confirmPassword = 'Please confirm your new password';
+    isValid = false;
+  } else if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    passwordErrors.value.confirmPassword = 'Passwords do not match';
+    isValid = false;
+  }
+
+  return isValid;
+};
+
+const changePassword = async () => {
+  if (!validatePasswordForm() || !isPasswordFormValid.value) {
+    return;
+  }
+
+  try {
+    isChangingPassword.value = true;
+    
+    // 使用专门的密码修改API
+    await changePasswordAPI(passwordForm.value.currentPassword, passwordForm.value.newPassword);
+    
+    // 更新本地配置
+    serverConfig.value.password = passwordForm.value.newPassword;
+    if (originalServerConfig.value) {
+      originalServerConfig.value.password = passwordForm.value.newPassword;
+    }
+    
+    configStatusMessage.value = 'Password changed successfully';
+    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    
+    // 关闭弹窗
+    closePasswordModal();
+    
+  } catch (error) {
+    console.error('修改密码失败:', error);
+    
+    // 根据错误类型设置具体的错误信息
+    if (error.message.includes('Current password is incorrect')) {
+      passwordErrors.value.currentPassword = 'Current password is incorrect';
+    } else if (error.message.includes('New password must be different')) {
+      passwordErrors.value.newPassword = 'New password must be different from current password';
+    } else if (error.message.includes('at least 6 characters')) {
+      passwordErrors.value.newPassword = 'Password must be at least 6 characters long';
+    } else {
+      passwordErrors.value.currentPassword = `Failed to change password: ${error.message}`;
+    }
+  } finally {
+    isChangingPassword.value = false;
+  }
+};
+
+// 生成6位随机数字
+const generateRandomSixDigits = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// 验证SenseCap配置字段
+const validateSensecapConfig = () => {
+  sensecapValidationErrors.value = {
+    applicationID: '',
+    username: '',
+    password: '',
+    topicPattern: '',
+    clientID: ''
+  };
+
+  let isValid = true;
+
+  if (!serverConfig.value?.sensecapOpenStream) {
+    return false;
+  }
+
+  const config = serverConfig.value.sensecapOpenStream;
+
+  // 验证Application ID
+  if (!config.applicationID || !config.applicationID.trim()) {
+    sensecapValidationErrors.value.applicationID = 'Application ID is required';
+    isValid = false;
+  }
+
+  // 验证Username
+  if (!config.username || !config.username.trim()) {
+    sensecapValidationErrors.value.username = 'Username is required';
+    isValid = false;
+  }
+
+  // 验证Password
+  if (!config.password || !config.password.trim()) {
+    sensecapValidationErrors.value.password = 'Password is required';
+    isValid = false;
+  }
+
+  // 验证Topic Pattern
+  if (!config.topicPattern || !config.topicPattern.trim()) {
+    sensecapValidationErrors.value.topicPattern = 'Topic Pattern is required';
+    isValid = false;
+  }
+
+  // 验证Client ID
+  if (!config.clientID || !config.clientID.trim()) {
+    sensecapValidationErrors.value.clientID = 'Client ID is required';
+    isValid = false;
+  }
+
+  return isValid;
+};
+
+// 验证ChirpStack配置字段
+const validateChirpstackConfig = () => {
+  chirpstackValidationErrors.value = {
+    brokerHost: '',
+    applicationID: ''
+  };
+
+  let isValid = true;
+
+  if (!serverConfig.value?.chirpStackMqtt) {
+    return false;
+  }
+
+  const config = serverConfig.value.chirpStackMqtt;
+
+  // 验证Broker Host
+  if (!config.brokerHost || !config.brokerHost.trim()) {
+    chirpstackValidationErrors.value.brokerHost = 'Broker Host is required';
+    isValid = false;
+  }
+
+  // 验证Application ID
+  if (!config.applicationID || !config.applicationID.trim()) {
+    chirpstackValidationErrors.value.applicationID = 'Application ID is required';
+    isValid = false;
+  }
+
+  return isValid;
+};
+
+// 更新ChirpStack默认值
+const updateChirpstackDefaultValues = () => {
+  if (!serverConfig.value || !serverConfig.value.chirpStackMqtt) {
+    return;
+  }
+  
+  const applicationId = serverConfig.value.chirpStackMqtt.applicationID;
+  
+  // 设置默认值
+  if (!serverConfig.value.chirpStackMqtt.brokerHost) {
+    serverConfig.value.chirpStackMqtt.brokerHost = '127.0.0.1';
+  }
+  if (!serverConfig.value.chirpStackMqtt.brokerPort) {
+    serverConfig.value.chirpStackMqtt.brokerPort = 1883;
+  }
+  
+  // 如果填写了applicationID，自动更新topicPattern
+  if (applicationId && applicationId.trim()) {
+    const trimmedAppId = applicationId.trim();
+    
+    // 自动更新topic: application/{applicationID}/device/+/event/up
+    serverConfig.value.chirpStackMqtt.topicPattern = `application/${trimmedAppId}/device/+/event/up`;
+  } else {
+    // 如果applicationID为空，清空相关字段
+    serverConfig.value.chirpStackMqtt.topicPattern = '';
+  }
+};
+
+// 更新SenseCap默认值
+const updateSensecapDefaultValues = () => {
+  if (!serverConfig.value || !serverConfig.value.sensecapOpenStream) {
+    return;
+  }
+  
+  const applicationId = serverConfig.value.sensecapOpenStream.applicationID;
+  
+  // 设置默认值
+  if (!serverConfig.value.sensecapOpenStream.brokerHost) {
+    serverConfig.value.sensecapOpenStream.brokerHost = 'sensecap-openstream.seeed.cc';
+  }
+  if (!serverConfig.value.sensecapOpenStream.brokerPort) {
+    serverConfig.value.sensecapOpenStream.brokerPort = 1883;
+  }
+  
+  // 如果填写了applicationID，自动更新username、topicPattern和clientID
+  if (applicationId && applicationId.trim()) {
+    const trimmedAppId = applicationId.trim();
+    
+    // 自动更新用户名: org-{applicationId}
+    serverConfig.value.sensecapOpenStream.username = `org-${trimmedAppId}`;
+    
+    // 自动更新topic: /device_sensor_data/${applicationId}/+/+/+/+
+    serverConfig.value.sensecapOpenStream.topicPattern = `/device_sensor_data/${trimmedAppId}/+/+/+/+`;
+    
+    // 自动更新client ID: org-{applicationId}-{六位随机数}
+    serverConfig.value.sensecapOpenStream.clientID = `org-${trimmedAppId}-${generateRandomSixDigits()}`;
+  } else {
+    // 如果applicationID为空，清空相关字段
+    serverConfig.value.sensecapOpenStream.username = '';
+    serverConfig.value.sensecapOpenStream.topicPattern = '';
+    serverConfig.value.sensecapOpenStream.clientID = '';
+  }
+};
+
+// 凭证设置相关方法
+const openCredentialsModal = (serviceType) => {
+  currentServiceType.value = serviceType;
+  credentialsForm.value = {
+    username: '',
+    password: ''
+  };
+  credentialsError.value = '';
+  showCredentialsModal.value = true;
+};
+
+const closeCredentialsModal = () => {
+  if (credentialsSaving.value) {
+    return; // 正在保存时不允许关闭
+  }
+  showCredentialsModal.value = false;
+  currentServiceType.value = '';
+  credentialsForm.value = {
+    username: '',
+    password: ''
+  };
+  credentialsError.value = '';
+};
+
+const getServiceTypeName = (serviceType) => {
+  const typeNames = {
+    'sensecap': 'SenseCAP OpenStream',
+    'chirpstack': 'ChirpStack MQTT',
+    'webhook': 'Webhook'
+  };
+  return typeNames[serviceType] || serviceType;
+};
+
+const saveCredentials = async () => {
+  if (!credentialsForm.value.username || !credentialsForm.value.password) {
+    credentialsError.value = 'Both username and password are required';
+    return;
+  }
+
+  credentialsSaving.value = true;
+  credentialsError.value = '';
+
+  try {
+    const response = await fetch('/api/set-service-credentials', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        service_type: currentServiceType.value,
+        username: credentialsForm.value.username,
+        password: credentialsForm.value.password
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to save credentials');
+    }
+
+    const result = await response.json();
+    console.log('Credentials saved successfully:', result);
+    
+    // 显示成功消息
+    configStatusMessage.value = `${getServiceTypeName(currentServiceType.value)} credentials saved successfully!`;
+    setTimeout(() => {
+      configStatusMessage.value = '';
+    }, 3000);
+    
+    closeCredentialsModal();
+    
+  } catch (error) {
+    console.error('Failed to save credentials:', error);
+    credentialsError.value = error.message;
+  } finally {
+    credentialsSaving.value = false;
   }
 };
 
@@ -3278,6 +4502,912 @@ select {
 .empty-tracker-list .hint {
   font-size: 0.9rem;
   opacity: 0.8;
+}
+
+/* 服务器配置样式 */
+.server-config-section {
+  margin-top: 2rem;
+}
+
+.server-config-form {
+  padding: 1rem 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+.form-input,
+.form-textarea {
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: 'Courier New', monospace;
+}
+
+.checkbox-group {
+  flex-direction: row;
+  align-items: center;
+}
+
+.checkbox-group label {
+  margin-bottom: 0;
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+.server-config-actions {
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.server-config-actions .save-button {
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.server-config-actions .save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.server-config-actions .save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6c757d;
+}
+
+.loading-state i {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.header-actions .reload-button {
+  padding: 0.5rem 1rem;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+
+.header-actions .reload-button:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.header-actions .reload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.header-actions .edit-button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.header-actions .edit-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  transform: translateY(-1px);
+}
+
+.header-actions .edit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.header-actions .save-button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.header-actions .save-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.header-actions .save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.header-actions .cancel-button {
+  padding: 0.5rem 1rem;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.header-actions .cancel-button:hover:not(:disabled) {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.header-actions .cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* MQTT配置区域特殊样式 */
+.mqtt-config-section {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  margin-bottom: 2rem;
+}
+
+.mqtt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.mqtt-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mqtt-title i {
+  font-size: 1.2rem;
+  color: #667eea;
+}
+
+.mqtt-title h3 {
+  margin: 0;
+  color: #495057;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.mqtt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.toggle-input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+.toggle-label {
+  font-weight: 500;
+  color: #495057;
+  min-width: 70px;
+}
+
+.mqtt-disabled-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+  background: white;
+  border-radius: 6px;
+  border: 2px dashed #dee2e6;
+}
+
+.mqtt-disabled-state p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.mqtt-disabled-state i {
+  margin-right: 0.5rem;
+  color: #17a2b8;
+}
+
+.mqtt-config-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Tracker限制信息样式 */
+.tracker-restriction-info {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #e8f4f8;
+  border: 1px solid #bee5eb;
+  border-radius: 6px;
+}
+
+.restriction-description {
+  margin: 0;
+  color: #0c5460;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.restriction-description i {
+  margin-right: 0.5rem;
+  color: #17a2b8;
+}
+
+/* Allow All状态样式调整 */
+.mqtt-disabled-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+  background: white;
+  border-radius: 6px;
+  border: 2px dashed #dee2e6;
+}
+
+.mqtt-disabled-state .fas.fa-unlock {
+  color: #28a745;
+}
+
+/* Webhook配置专用样式 */
+.form-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group-inline label {
+  min-width: 100px;
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 0;
+}
+
+.form-group-inline .form-input {
+  flex: 1;
+}
+
+.webhook-headers-section {
+  margin-top: 1.5rem;
+}
+
+.webhook-headers-section h4 {
+  margin: 0 0 1rem 0;
+  color: #495057;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.webhook-headers-management {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 1rem;
+  background: #f8f9fa;
+}
+
+.header-add-section {
+  margin-bottom: 1rem;
+}
+
+.header-inputs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.header-name-input,
+.header-value-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.header-name-input {
+  max-width: 200px;
+}
+
+.add-header-button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.add-header-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.add-header-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.headers-list {
+  border-top: 1px solid #dee2e6;
+  padding-top: 1rem;
+}
+
+.headers-list-title {
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+.header-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.header-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.header-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-name {
+  font-weight: 600;
+  color: #495057;
+  min-width: 120px;
+}
+
+.header-value {
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+  background: #f8f9fa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #e9ecef;
+}
+
+.remove-header-button {
+  padding: 0.25rem 0.5rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.3s ease;
+}
+
+.remove-header-button:hover {
+  background: #c82333;
+}
+
+.empty-headers {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.empty-headers .empty-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #adb5bd;
+}
+
+.empty-headers p {
+  margin: 0.25rem 0;
+}
+
+.empty-headers .hint {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .mqtt-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .mqtt-toggle {
+    align-self: flex-end;
+  }
+  
+  .header-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .header-name-input {
+    max-width: none;
+  }
+  
+  .header-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .header-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+  }
+  
+  .header-name {
+    min-width: auto;
+  }
+  
+  /* 密码部分响应式 */
+  .password-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .change-password-button {
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  
+  .password-modal {
+    width: 98%;
+    max-width: none;
+    margin: 1rem;
+  }
+}
+
+/* 密码区域专用样式 */
+.password-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.password-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.password-placeholder {
+  font-family: monospace;
+  font-size: 1.1rem;
+  color: #6c757d;
+  letter-spacing: 2px;
+}
+
+.password-hint {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.change-password-button {
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
+  color: #495057;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+.change-password-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e0a800 0%, #e67e22 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+}
+
+.change-password-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 密码弹窗专用样式 */
+.password-modal {
+  max-width: 500px;
+  width: 95%;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.2rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-header h4 i {
+  color: #ffc107;
+}
+
+.modal-close-button {
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 1.2rem;
+  transition: color 0.3s ease;
+  border-radius: 4px;
+}
+
+.modal-close-button:hover {
+  color: #495057;
+  background: #f8f9fa;
+}
+
+.modal-body {
+  margin-bottom: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.password-modal .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.password-modal .form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.password-modal .form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.password-modal .form-input:focus {
+  outline: none;
+  border-color: #ffc107;
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.1);
+}
+
+.password-modal .form-input.error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.password-modal .error-message {
+  margin-top: 0.5rem;
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 凭证设置相关样式 */
+.password-config-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.password-placeholder {
+  flex: 1;
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.set-credentials-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.set-credentials-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.set-credentials-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.credentials-modal {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.credentials-modal .modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.credentials-modal .modal-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+}
+
+.credentials-modal .modal-body {
+  padding: 1.5rem;
+}
+
+.credentials-modal .modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.credentials-modal .save-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.credentials-modal .save-btn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.credentials-modal .save-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.credentials-modal .cancel-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.credentials-modal .cancel-btn:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.credentials-modal .close-btn {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: color 0.2s ease;
+}
+
+.credentials-modal .close-btn:hover {
+  color: #dc3545;
+}
+
+.credentials-modal .error-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* 必填字段样式 */
+.required-indicator {
+  color: #dc3545;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+.form-input.error {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+.error-message {
+  display: block;
+  margin-top: 0.5rem;
+  color: #dc3545;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 增强必填字段的视觉提示 */
+.form-group:has(.required-indicator) .form-input {
+  border-left: 3px solid #007bff;
+}
+
+.form-group:has(.required-indicator) .form-input:focus {
+  border-left: 3px solid #007bff;
+}
+
+.form-group:has(.required-indicator) .form-input.error {
+  border-left: 3px solid #dc3545;
 }
 
 </style> 

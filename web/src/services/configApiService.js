@@ -192,4 +192,34 @@ export const loadPaasDevices = async () => {
   }
 };
 
+// 专用密码修改API
+export const changePassword = async (currentPassword, newPassword) => {
+  try {
+    const response = await apiClient.post('/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error changing password:', error);
+    if (error.response) {
+      // 根据不同状态码处理不同类型的错误
+      const status = error.response.status;
+      const detail = error.response.data.detail || error.message;
+      
+      if (status === 401) {
+        throw new Error('Current password is incorrect');
+      } else if (status === 400) {
+        throw new Error(detail);
+      } else {
+        throw new Error(`Server error (${status}): ${detail}`);
+      }
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to change password.');
+    } else {
+      throw new Error(`Failed to change password: ${error.message}`);
+    }
+  }
+};
+
 // You might add other API calls related to configuration here later. 

@@ -27,6 +27,7 @@ import random
 from server.components.beacon_holder import beacon_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.components.uplink_collector import UplinkCollector
+import requests
 # from server.clients.paas_client import get_sensecap_client, initialize_sensecap_client
 
 # Import project modules
@@ -45,8 +46,8 @@ from server import config_manager
 from server import positioning
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
-    MiniprogramConfig, WebUIConfig, DashboardConfig,
-    WebUISettings  # Import WebUISettings directly
+    MiniprogramConfig, WebUIConfig, DashboardConfig,MqttServerConfig,
+    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest  # Import WebUISettings directly
 )
 from server.positioning import KalmanFilter2D
 
@@ -92,7 +93,8 @@ is_mqtt_intentionally_disconnected: bool = False  # Flag for manual disconnects
 
 tracker_states: Dict[str, TrackerState] = {}  # Stores the latest state for each tracker
 kalman_filters: Dict[str, KalmanFilter2D] = {}  # Stores Kalman filter instance per tracker
-mqtt_client: Optional[mqtt.Client] = None
+mqtt_clients: Dict[str, Optional[mqtt.Client]] = {}  # Multiple MQTT clients for different data sources
+mqtt_connection_statuses: Dict[str, str] = {}  # Connection status for each data source
 beacon_map: Dict[str, WebUIBeaconConfig] = {}
 
 allow_tracker_list: list[str] = []
@@ -140,11 +142,11 @@ manager = ConnectionManager()
 ## 广播当前 mqtt 状态
 async def broadcast_mqtt_status():
     """Helper to broadcast the current MQTT status via WebSocket."""
-    global mqtt_connection_status, main_event_loop, manager
+    global mqtt_connection_statuses, main_event_loop, manager
     if main_event_loop and main_event_loop.is_running():
-        # log.info(f"Broadcasting MQTT status: {mqtt_connection_status}") # Reduced verbosity
+        # log.info(f"Broadcasting MQTT status: {mqtt_connection_statuses}") # Reduced verbosity
         asyncio.run_coroutine_threadsafe(
-            manager.broadcast({"type": "mqtt_status_update", "data": {"status": mqtt_connection_status}}),
+            manager.broadcast({"type": "mqtt_status_update", "data": {"statuses": mqtt_connection_statuses}}),
             main_event_loop
         )
     else:
@@ -154,28 +156,39 @@ async def broadcast_mqtt_status():
 ## mqtt client 连接配置文件中的 broker成功后, 并按要求订阅 topic
 def on_connect(client, userdata, flags, rc):
     """Callback when connected to MQTT Broker."""
-    global runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
+    global runtime_cfg, mqtt_connection_statuses, is_mqtt_intentionally_disconnected, main_event_loop
+    
+    # Get the data source type from userdata (we'll set this when creating the client)
+    source_type = userdata.get('source_type', 'unknown') if userdata else 'unknown'
+    
     if rc == 0:
-        log.info("MQTT Broker: Connected!")
-        mqtt_connection_status = "connected"
+        log.info(f"MQTT Broker: Connected to {source_type}!")
+        mqtt_connection_statuses[source_type] = "connected"
         is_mqtt_intentionally_disconnected = False  # Clear flag on successful connect
-        # RESTORED SUBSCRIPTION LOGIC:
-        if runtime_cfg and runtime_cfg.mqtt and runtime_cfg.mqtt.topicPattern and runtime_cfg.mqtt.applicationID:
-            try:
-                topic = runtime_cfg.mqtt.topicPattern.format(ApplicationID=runtime_cfg.mqtt.applicationID)
-                client.subscribe(topic)
-                log.info(f"Subscribed to topic: {topic}")
-            except KeyError as e:
-                log.error(f"Error formatting MQTT topicPattern. Ensure 'ApplicationID' is a valid key: {e}")
-            except Exception as e:
-                log.error(f"Error during MQTT subscription: {e}")
-        else:
-            log.error("MQTT configuration (topicPattern or applicationID) missing in runtime_cfg. Cannot subscribe.")
+        
+        # Subscribe based on source type
+        if runtime_cfg:
+            mqtt_config = None
+            if source_type == 'sensecap' and hasattr(runtime_cfg, 'sensecapOpenStream'):
+                mqtt_config = runtime_cfg.sensecapOpenStream
+            elif source_type == 'chirpstack' and hasattr(runtime_cfg, 'chirpStackMqtt'):
+                mqtt_config = runtime_cfg.chirpStackMqtt
+            
+            if mqtt_config and mqtt_config.topicPattern and mqtt_config.applicationID:
+                try:
+                    topic = mqtt_config.topicPattern.format(ApplicationID=mqtt_config.applicationID)
+                    client.subscribe(topic)
+                    log.info(f"Subscribed to {source_type} topic: {topic}")
+                except KeyError as e:
+                    log.error(f"Error formatting {source_type} MQTT topicPattern. Ensure 'ApplicationID' is a valid key: {e}")
+                except Exception as e:
+                    log.error(f"Error during {source_type} MQTT subscription: {e}")
+            else:
+                log.error(f"{source_type} MQTT configuration (topicPattern or applicationID) missing in runtime_cfg. Cannot subscribe.")
     else:
-        log.error(f"MQTT Broker: Failed to connect, return code {rc}")
-        # If it failed to connect, it's not "intentionally disconnected" in a way that should prevent retries if configured
-        mqtt_connection_status = "error"
-        # Schedule broadcast_mqtt_status on the main event loop
+        log.error(f"MQTT Broker: Failed to connect to {source_type}, return code {rc}")
+        mqtt_connection_statuses[source_type] = "error"
+        
     if main_event_loop and main_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
     else:
@@ -185,17 +198,20 @@ def on_connect(client, userdata, flags, rc):
 ## 断开后输出日志, main eventloop 还在运行则广播 mqtt 状态
 def on_disconnect(client, userdata, rc):
     """Callback for when the client disconnects from the MQTT Broker."""
-    global mqtt_connection_status, is_mqtt_intentionally_disconnected, runtime_cfg, main_event_loop
+    global mqtt_connection_statuses, is_mqtt_intentionally_disconnected, runtime_cfg, main_event_loop
+    
+    # Get the data source type from userdata
+    source_type = userdata.get('source_type', 'unknown') if userdata else 'unknown'
+    
     if rc == 0 and is_mqtt_intentionally_disconnected:
-        log.info("MQTT Broker: Disconnected gracefully by user request.")
-        mqtt_connection_status = "disconnected"
-        # is_mqtt_intentionally_disconnected remains true until a connect attempt
+        log.info(f"MQTT Broker: Disconnected gracefully from {source_type} by user request.")
+        mqtt_connection_statuses[source_type] = "disconnected"
     elif rc == 0:
-        log.info("MQTT Broker: Disconnected gracefully (not by direct user request).")
-        mqtt_connection_status = "disconnected"
+        log.info(f"MQTT Broker: Disconnected gracefully from {source_type} (not by direct user request).")
+        mqtt_connection_statuses[source_type] = "disconnected"
     else:
-        log.error(f"MQTT Broker: Unexpected disconnection, return code {rc}.")
-        mqtt_connection_status = "error"
+        log.error(f"MQTT Broker: Unexpected disconnection from {source_type}, return code {rc}.")
+        mqtt_connection_statuses[source_type] = "error"
 
     # Schedule broadcast_mqtt_status on the main event loop
     if main_event_loop and main_event_loop.is_running():
@@ -203,23 +219,136 @@ def on_disconnect(client, userdata, rc):
     else:
         log.warning("on_disconnect: Main event loop not available for broadcasting MQTT status.")
 
-    # Optional: Auto-reconnect logic if not intentionally disconnected and enabled in config
-    # For now, Paho's default loop_start() handles some retry, but this could be more explicit.
-    # if not is_mqtt_intentionally_disconnected and runtime_cfg and runtime_cfg.mqtt.enabled:
-    #     log.info("Attempting to reconnect MQTT...")
-    #     # Be careful with immediate retries; consider a backoff strategy
-    #     # For simplicity, relying on Paho's internal or manual reconnect via UI for now.
-    #     pass
+
+## 解析从 chirpstack 中收到的数据
+def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[TrackerReport]:
+    """
+    Parses ChirpStack MQTT payload for beacon data.
+    ChirpStack typically sends uplink data in a different format than SenseCAP.
+    Topic format example: application/[appID]/device/[devEUI]/event/up
+    Payload example: {"applicationID":"1","applicationName":"indoor-positioning",
+                     "deviceName":"tracker-001","devEUI":"2CF7F1C0530004AD",
+                     "rxInfo":[...],"txInfo":{...},"object":{"beacons":[{"mac":"C3:00:00:3E:7D:DA","rssi":-53}]}}
+    """
+    topic_parts = topic.split('/')
+    if len(topic_parts) < 6 or topic_parts[0] != 'application' or topic_parts[2] != 'device':
+        log.warning(f"Received message on unexpected ChirpStack topic structure: {topic}")
+        return
+    device_eui = topic_parts[3].upper()
+    try:
+        data = json.loads(payload_bytes.decode('utf-8'))
+        log.debug(f"Raw ChirpStack MQTT data for {device_eui}: {data}")
+
+        # Extract beacon data from object field
+        object_data = data.get("object", {})
+        messages = object_data.get("messages", [])
+
+        if not messages or len(messages) == 0:
+            log.warning(f"device: {device_eui}, empty packet. so break. ")
+            return None
+
+        payload_timestamp = 0
+        beacon_values = []
+        gps_value = {}
+        sos_value = 0
+        for entry in messages[0]:
+            if entry.get('timestamp', 0):
+                payload_timestamp = int(entry.get('timestamp', 0))
+            measurement_id = entry.get('measurementId', 0)
+            measurement_value = entry.get('measurementValue', 0)
+            if measurement_value:
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id,
+                                    value=entry.get('measurementValue', 0))
+
+            match measurement_id:
+                case '4197':
+                    gps_value['alt'] = entry.get('measurementValue', 0)
+                case '4198':
+                    gps_value['lon'] = entry.get('measurementValue', 0)
+                case '5002':
+                    beacon_values = entry.get('measurementValue', 0)
+                case '4200':
+                    event_list = entry.get('measurementValue', 0)
+                    for event in event_list:
+                        if event.get("id", 0) == 7:
+                            sos_value = 1
+
+        if len(gps_value) > 0:
+            return TrackerReport(
+                trackerId=device_eui,
+                timestamp=payload_timestamp,
+                sos=sos_value,
+                locType="gps",
+                loc=gps_value,
+                sourceType="chirpstack"
+            )
+
+        if not beacon_values or len(beacon_values) == 0:
+            log.info(f'Detected tracker SOS from ChirpStack: {device_eui}, value: {sos_value}')
+            return TrackerReport(
+                trackerId=device_eui,
+                timestamp=payload_timestamp,
+                sos=sos_value
+            )
+
+        if not isinstance(beacon_values, list):
+            log.warning(f"Invalid 'beacons' data in ChirpStack payload for {device_eui}. Expected list.")
+            return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, detectedBeacons=[], loc={})
+
+        detected_beacons_list = []
+        for beacon_data in beacon_values:
+            if not isinstance(beacon_data, dict):
+                continue
+
+            mac_address = beacon_data.get("mac") or beacon_data.get("macAddress")
+            rssi_val = beacon_data.get("rssi")
+
+            if mac_address and rssi_val is not None:
+                try:
+                    mac_addr_upper = str(mac_address).upper()
+                    rssi_int = int(rssi_val)
+                    detected = DetectedBeacon(
+                        macAddress=mac_addr_upper,
+                        rssi=rssi_int
+                    )
+                    detected_beacons_list.append(detected)
+                except (ValueError, TypeError) as conv_err:
+                    log.warning(f"Could not convert ChirpStack beacon data for {device_eui}: {beacon_data} - {conv_err}")
+
+        return TrackerReport(
+            trackerId=device_eui,
+            timestamp=payload_timestamp,
+            detectedBeacons=detected_beacons_list,
+            locType="bluetooth",
+            loc={},
+            sourceType="chirpstack"
+        )
+
+    except json.JSONDecodeError:
+        log.error(f"Failed to decode JSON payload from ChirpStack for {device_eui}: {payload_bytes.decode('utf-8', errors='ignore')}")
+        return None
+    except Exception as e:
+        log.error(f"Error processing ChirpStack MQTT payload for tracker '{device_eui}': {e}", exc_info=True)
+        return None
 
 
 ## 解析从 sensecap openstream 中收到的数据
-def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: bytes) -> Optional[TrackerReport]:
+def parse_sensecap_payload(topic: str, payload_bytes: bytes) -> Optional[TrackerReport]:
     """
     Parses the SenseCAP-like payload (JSON string) for beacon data.
     Assumes topic provides DeviceEUI, and payload contains timestamp and beacon list.
     Payload example: {"value":[{"mac":"C3:00:00:3E:7D:DA","rssi":"-53"}, ...],"timestamp":1746522494000}
     """
+    device_eui = ''
+    measurement_id = ''
     try:
+        # SenseCAP topic format: /device_sensor_data/{ApplicationID}/+/+/+/+/+
+        topic_parts = topic.split('/')
+        if not topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
+            log.warning(f"Received message on unexpected SenseCAP topic structure: {topic}")
+            return
+        device_eui = topic_parts[3].upper()
+        measurement_id = topic_parts[6]
         data = json.loads(payload_bytes.decode('utf-8'))
         # log.debug(f"Raw SenseCAP MQTT data for {device_eui}: {data}") # DEBUG
 
@@ -325,229 +454,229 @@ def parse_sensecap_payload(device_eui: str, measurement_id: str, payload_bytes: 
 
 
 ## 创建 mqtt client 连接到 broker
-def _initialize_mqtt_client():
-    """Creates and configures an MQTT client instance based on runtime_cfg."""
-    global mqtt_client, runtime_cfg
-
-    if not runtime_cfg or not runtime_cfg.mqtt:
-        log.warning("MQTT runtime configuration not available for client initialization.")
+def _initialize_mqtt_client(source_type: str, mqtt_config: MqttServerConfig):
+    """Creates and configures an MQTT client instance for a specific data source."""
+    if not mqtt_config:
+        log.warning(f"MQTT configuration not available for {source_type} client initialization.")
         return None
+        
     code = random.randint(100000, 999999)
-    # runtime_cfg.mqtt.clientID.format(clientID=code)
-    runtime_cfg.mqtt.clientID = runtime_cfg.mqtt.clientID.replace("{clientID}", str(code))
-    mqtt_cfg = runtime_cfg.mqtt
+    if not mqtt_config.clientID:
+        mqtt_config.clientID = "client-{clientID}"
+    client_id = mqtt_config.clientID.replace("{clientID}", str(code)) if mqtt_config.clientID else f"{source_type}_client_{code}"
+    
     try:
-        client_id_to_use = mqtt_cfg.clientID
+        new_client = mqtt.Client(client_id=client_id)
 
-        if client_id_to_use:
-            new_client = mqtt.Client(client_id=client_id_to_use)
-        else:
-            new_client = mqtt.Client()
+        if mqtt_config.username and mqtt_config.password:
+            new_client.username_pw_set(mqtt_config.username, mqtt_config.password)
 
-        if mqtt_cfg.username and mqtt_cfg.password:
-            new_client.username_pw_set(mqtt_cfg.username, mqtt_cfg.password)
-
+        # Set userdata to identify the source type in callbacks
+        new_client.user_data_set({"source_type": source_type})
+        
         new_client.on_connect = on_connect
         new_client.on_disconnect = on_disconnect
         new_client.on_message = on_message
-        log.info(f"本次 mqtt-client: {client_id_to_use}")
+        
+        log.info(f"Initialized {source_type} MQTT client: {client_id}")
         return new_client
     except Exception as e:
-        log.error(f"Error initializing MQTT client: {e}", exc_info=True)
+        log.error(f"Error initializing {source_type} MQTT client: {e}", exc_info=True)
         return None
 
 
-## 实际的 mqtt 连接函数, 除了初始化 mqtt client 还负责日志记录, 连接状态管理
-def _connect_mqtt_client():
-    """Attempts to connect the global mqtt_client to the broker."""
-    global mqtt_client, runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
-
-    if not runtime_cfg or not runtime_cfg.mqtt or not mqtt_client:
-        log.warning("MQTT client or configuration not ready for connection.")
-        if runtime_cfg and runtime_cfg.mqtt and not mqtt_client:
-            # log.info("Attempting to re-initialize MQTT client...") # Can be noisy
-            mqtt_client = _initialize_mqtt_client()
-            if not mqtt_client:
-                mqtt_connection_status = "error"
-                if main_event_loop and main_event_loop.is_running():
-                    asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-                else:
-                    log.warning(
-                        "_connect_mqtt_client: Main event loop not available for broadcasting MQTT status after init fail.")
-                return False  # Failed to initialize
+## 初始化所有 MQTT 客户端
+def _initialize_all_mqtt_clients():
+    """Initialize MQTT clients for all configured data sources."""
+    global mqtt_clients, runtime_cfg
+    
+    if not runtime_cfg:
+        log.warning("Runtime configuration not available for MQTT client initialization.")
+        return
+    
+    # Initialize SenseCAP OpenStream client
+    if hasattr(runtime_cfg, 'sensecapOpenStream') and runtime_cfg.sensecapOpenStream.enabled:
+        sensecap_client = _initialize_mqtt_client('sensecap', runtime_cfg.sensecapOpenStream)
+        if sensecap_client:
+            mqtt_clients['sensecap'] = sensecap_client
         else:
-            return False  # Not ready
-
-    mqtt_cfg = runtime_cfg.mqtt
-    if not mqtt_cfg.brokerHost:
-        log.warning("MQTT brokerHost not configured. Cannot connect.")
-        mqtt_connection_status = "misconfigured"
-        if main_event_loop and main_event_loop.is_running():
-            asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
+            mqtt_clients['sensecap'] = None
+    
+    # Initialize ChirpStack client  
+    if hasattr(runtime_cfg, 'chirpStackMqtt') and runtime_cfg.chirpStackMqtt.enabled:
+        chirpstack_client = _initialize_mqtt_client('chirpstack', runtime_cfg.chirpStackMqtt)
+        if chirpstack_client:
+            mqtt_clients['chirpstack'] = chirpstack_client
         else:
-            log.warning(
-                "_connect_mqtt_client: Main event loop not available for broadcasting MQTT status for misconfig.")
+            mqtt_clients['chirpstack'] = None
+
+
+## 连接单个 MQTT 客户端
+def _connect_mqtt_client(source_type: str):
+    """Attempts to connect a specific MQTT client to its broker."""
+    global mqtt_clients, runtime_cfg, mqtt_connection_statuses, is_mqtt_intentionally_disconnected, main_event_loop
+
+    if source_type not in mqtt_clients or mqtt_clients[source_type] is None:
+        log.warning(f"MQTT client for {source_type} not initialized.")
+        mqtt_connection_statuses[source_type] = "error"
         return False
 
-    if mqtt_connection_status == "connected" or mqtt_connection_status == "connecting":
-        # log.info(f"MQTT client already {mqtt_connection_status}. No action needed.") # Can be noisy
+    client = mqtt_clients[source_type]
+    mqtt_config = None
+    
+    if source_type == 'sensecap' and hasattr(runtime_cfg, 'sensecapOpenStream'):
+        mqtt_config = runtime_cfg.sensecapOpenStream
+    elif source_type == 'chirpstack' and hasattr(runtime_cfg, 'chirpStackMqtt'):
+        mqtt_config = runtime_cfg.chirpStackMqtt
+
+    if not mqtt_config or not mqtt_config.brokerHost:
+        log.warning(f"{source_type} MQTT brokerHost not configured. Cannot connect.")
+        mqtt_connection_statuses[source_type] = "misconfigured"
+        return False
+
+    current_status = mqtt_connection_statuses.get(source_type, "disconnected")
+    if current_status == "connected" or current_status == "connecting":
+        # log.info(f"{source_type} MQTT client already {current_status}. No action needed.") # Can be noisy
         return True
 
     try:
-        # log.info(f"Attempting to connect MQTT client to {mqtt_cfg.brokerHost}...") # Reduced verbosity
+        # log.info(f"Attempting to connect {source_type} MQTT client to {mqtt_config.brokerHost}...") # Reduced verbosity
         is_mqtt_intentionally_disconnected = False  # Clear flag before attempting connection
-        mqtt_connection_status = "connecting"
+        mqtt_connection_statuses[source_type] = "connecting"
+        
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-        else:
-            log.warning(
-                "_connect_mqtt_client: Main event loop not available for broadcasting MQTT status for connecting.")
 
-        mqtt_client.connect_async(mqtt_cfg.brokerHost, mqtt_cfg.brokerPort, 60)
-        mqtt_client.loop_start()  # loop_start is non-blocking and handles reconnects.
+        client.connect_async(mqtt_config.brokerHost, mqtt_config.brokerPort, 60)
+        client.loop_start()  # loop_start is non-blocking and handles reconnects.
+        log.info(f"{source_type} MQTT brokerHost is listening....")
         # Status will be updated by on_connect or on_disconnect callbacks
         return True
     except Exception as e:
-        log.error(f"Error during MQTT connect_async or loop_start: {e}", exc_info=True)
-        mqtt_connection_status = "error"
+        log.error(f"Error during {source_type} MQTT connect_async or loop_start: {e}", exc_info=True)
+        mqtt_connection_statuses[source_type] = "error"
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-        else:
-            log.warning("_connect_mqtt_client: Main event loop not available for broadcasting MQTT status on error.")
         return False
 
 
-def disconnect_mqtt_client(broadcast=True):
-    """Disconnects the MQTT client."""
-    global mqtt_client, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
-    is_mqtt_intentionally_disconnected = True
-    if mqtt_client:
-        try:
-            # log.info("Disconnecting MQTT client...") # Reduced verbosity
-            # Stop the loop first to prevent immediate auto-reconnect attempts by Paho
-            # Paho's disconnect might also trigger on_disconnect, where status is set.
-            mqtt_client.loop_stop()
-            mqtt_client.disconnect()
-            # on_disconnect should handle setting status to "disconnected" and broadcasting
-            # However, ensure status is set if on_disconnect isn't triggered as expected
-            if mqtt_connection_status != "disconnected":
-                mqtt_connection_status = "disconnected"
-                if broadcast:
-                    if main_event_loop and main_event_loop.is_running():
-                        asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-                    else:
-                        log.warning(
-                            "disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
-            # log.info("MQTT client disconnect initiated.") # Reduced verbosity
+## 连接所有 MQTT 客户端
+def _connect_all_mqtt_clients():
+    """Attempts to connect all initialized MQTT clients."""
+    global mqtt_clients
+    
+    for source_type in mqtt_clients.keys():
+        if mqtt_clients[source_type] is not None:
+            _connect_mqtt_client(source_type)
 
-        except Exception as e:
-            log.error(f"Error disconnecting MQTT client: {e}", exc_info=True)
-            mqtt_connection_status = "error"  # Or keep as is if disconnect failed partially
-            if broadcast:
-                if main_event_loop and main_event_loop.is_running():
-                    asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-                else:
-                    log.warning(
-                        "disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status on error.")
+
+def disconnect_mqtt_client(source_type: str = None, broadcast=True):
+    """Disconnects MQTT client(s). If source_type is None, disconnects all clients."""
+    global mqtt_clients, mqtt_connection_statuses, is_mqtt_intentionally_disconnected, main_event_loop
+    is_mqtt_intentionally_disconnected = True
+    
+    clients_to_disconnect = []
+    if source_type:
+        if source_type in mqtt_clients and mqtt_clients[source_type]:
+            clients_to_disconnect = [(source_type, mqtt_clients[source_type])]
     else:
-        log.info("MQTT client not initialized, cannot disconnect.")
-        mqtt_connection_status = "disconnected"  # Already effectively disconnected
-        if broadcast:
-            if main_event_loop and main_event_loop.is_running():
-                asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-            else:
-                log.warning(
-                    "disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status for not initialized.")
+        clients_to_disconnect = [(st, client) for st, client in mqtt_clients.items() if client is not None]
+    
+    for st, client in clients_to_disconnect:
+        try:
+            # log.info(f"Disconnecting {st} MQTT client...") # Reduced verbosity
+            client.loop_stop()
+            client.disconnect()
+            
+            # Ensure status is set if on_disconnect isn't triggered as expected
+            if mqtt_connection_statuses.get(st) != "disconnected":
+                mqtt_connection_statuses[st] = "disconnected"
+                
+        except Exception as e:
+            log.error(f"Error disconnecting {st} MQTT client: {e}", exc_info=True)
+            mqtt_connection_statuses[st] = "error"
+    
+    if broadcast:
+        if main_event_loop and main_event_loop.is_running():
+            asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
+        else:
+            log.warning("disconnect_mqtt_client: Main event loop not available for broadcasting MQTT status.")
+
+
+def disconnect_all_mqtt_clients(broadcast=True):
+    """Disconnects all MQTT clients."""
+    disconnect_mqtt_client(None, broadcast)
 
 
 ## 检查配置并连接 mqtt broker
 def setup_mqtt(force_reconnect: bool = False):
-    """Initializes and connects the MQTT client if enabled in runtime_cfg."""
-    global mqtt_client, runtime_cfg, mqtt_connection_status, main_event_loop, is_mqtt_intentionally_disconnected
+    """Initializes and connects MQTT clients for all enabled data sources."""
+    global mqtt_clients, runtime_cfg, mqtt_connection_statuses, main_event_loop, is_mqtt_intentionally_disconnected
 
     # Ensure runtime_cfg is loaded
     if not runtime_cfg:
         log.warning("Server runtime configuration not loaded. Cannot setup MQTT.")
-        mqtt_connection_status = "misconfigured"
+        mqtt_connection_statuses.clear()
+        mqtt_connection_statuses['general'] = "misconfigured"
         if main_event_loop and main_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
         else:
             log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status for no runtime_cfg.")
         return
 
-    if not runtime_cfg.mqtt:
-        log.info("MQTT configuration section missing. Skipping MQTT setup.")
-        mqtt_connection_status = "disabled"  # No MQTT config means disabled / not configured
-        if main_event_loop and main_event_loop.is_running():
-            asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-        else:
-            log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status for no mqtt_cfg.")
-        return
-
-    # log.info(f"MQTT setup called. Proceeding with setup for {runtime_cfg.mqtt.brokerHost if runtime_cfg.mqtt.brokerHost else 'No Broker Host'}.") # Can be noisy
+    log.info("MQTT setup called. Checking for enabled data sources...")
 
     if is_mqtt_intentionally_disconnected and not force_reconnect:
         log.info("MQTT was intentionally disconnected. Not reconnecting automatically unless forced.")
-        # Ensure status reflects this if it's not already 'disconnected'
-        if mqtt_connection_status != "disconnected":
-            mqtt_connection_status = "disconnected"
-            if main_event_loop and main_event_loop.is_running():
-                asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-            else:
-                log.warning(
-                    "setup_mqtt: Main event loop not available for broadcasting MQTT status for intentionally disconnected.")
         return
 
-    if not mqtt_client:
-        mqtt_client = _initialize_mqtt_client()
-        if not mqtt_client:
-            mqtt_connection_status = "error"  # Failed to initialize
-            if main_event_loop and main_event_loop.is_running():
-                asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-            else:
-                log.warning("setup_mqtt: Main event loop not available for broadcasting MQTT status after init fail.")
-            return
+    # Initialize all MQTT clients
+    _initialize_all_mqtt_clients()
 
-    # Attempt to connect
-    _connect_mqtt_client()
+    # Connect all initialized clients
+    _connect_all_mqtt_clients()
 
 
 # This is the new on_message callback
 def on_message(client, userdata, msg):
     """Callback for when a PUBLISH message is received from the server."""
-    global main_event_loop  # Access the main event loop
-
-    # log.info(f"MQTT Message Received: Topic: {msg.topic}") # Can be very noisy
-    topic_parts = msg.topic.split('/')
-    if not msg.topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
-        log.warning(f"Received message on unexpected or incomplete topic structure: {msg.topic}")
+    global main_event_loop, rt_cfg  # Access the main event loop
+    # Get the data source type from userdata
+    source_type = userdata.get('source_type', 'unknown') if userdata else 'unknown'
+    
+    # log.info(f"MQTT Message Received from {source_type}: Topic: {msg.topic}") # Can be very noisy
+    
+    # Parse message based on source type
+    device_eui = ''
+    report = None
+    if source_type == 'sensecap':
+        report = parse_sensecap_payload(msg.topic, msg.payload)
+    elif source_type == 'chirpstack':
+        # ChirpStack topic format: application/{applicationID}/device/+/event/up
+        report = parse_chirpstack_payload(msg.topic, msg.payload)
+    else:
+        log.warning(f"Unknown source type: {source_type}, topic: {msg.topic}")
         return
-    device_eui = topic_parts[3]
-    measurement_id = topic_parts[6]
-    # if measurement_id != "5002":
-    #     # log.debug(f"Ignoring message for tracker {device_eui}, MeasurementID is '{measurement_id}', not '5002'.") # DEBUG
-    #     return
 
-    if device_eui not in allow_tracker_list:
-        return
-
-    # log.info(f"Processing beacon data for tracker {device_eui} (MeasurementID: {measurement_id})") # Can be noisy
-    report = parse_sensecap_payload(device_eui, measurement_id, msg.payload)
     if report:
+        device_eui = report.trackerId
+        if not rt_cfg.allow_all_tracker and device_eui not in allow_tracker_list:
+            log.info(f"the device: {device_eui} not in allow_list, ignore this message.")
+            return
         if main_event_loop and main_event_loop.is_running():
             try:
                 future = asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
                 future.add_done_callback(
-                    lambda f: log.error(f"Error in process_tracker_report for device {device_eui}: {f.exception()}, report: {report}")
+                    lambda f: log.error(f"Error in process_tracker_report for device {report.trackerId} from {source_type}: {f.exception()}, report: {report}")
                     if f.exception() else None
                 )
             except Exception as e:
-                log.error(f"Failed to schedule process_tracker_report for device {device_eui}: {e}", exc_info=True)
+                log.error(f"Failed to schedule process_tracker_report for device {report.trackerId} from {source_type}: {e}", exc_info=True)
         else:
             log.error(
                 "Main asyncio event loop not available or not running. Cannot schedule tracker report processing.")
     else:
-        log.warning(f"Failed to parse payload or no report generated for tracker {device_eui} from topic {msg.topic}")
+        log.warning(f"Failed to parse payload or no report generated from {source_type} topic {msg.topic}")
 
 
 ## 计算定位结果
@@ -573,8 +702,8 @@ async def process_tracker_report(report: TrackerReport):
         }
         tracker_id = report.trackerId
 
-        # 暂时屏蔽 gps 定位数据
-        # await manager.broadcast({
+        # 暂时屏蔽gps定位消息
+        # await notify_tracker_state({
         #     "type": "tracker_update",
         #     "data": {tracker_id: tracker_data_payload}
         # })
@@ -582,7 +711,7 @@ async def process_tracker_report(report: TrackerReport):
 
     if report.sos != 2 and tracker_states.get(report.trackerId, None):
         log.info(f'broadcast tracker sos event: {report.trackerId}')
-        await manager.broadcast({
+        await notify_tracker_state({
             "type": "tracker_sos",
             "data": {report.trackerId: {
                 "timestamp": report.timestamp,
@@ -793,10 +922,31 @@ async def process_tracker_report(report: TrackerReport):
         "sos": report.sos
     }
 
-    await manager.broadcast({
+    await notify_tracker_state({
         "type": "tracker_update",
         "data": {tracker_id: tracker_data_payload}
     })
+
+
+
+async def notify_tracker_state(message: dict[str:dict]):
+    global rt_cfg
+    await manager.broadcast(message)
+    if rt_cfg.webhook.enable:
+        if rt_cfg.webhook.host and len(rt_cfg.webhook.host) > 0:
+            send_post_request(rt_cfg.webhook.host, message, rt_cfg.webhook.headers)
+
+
+def send_post_request(url: str, body: dict, headers: dict):
+    try:
+        response = requests.post(url, json=body, headers=headers)
+
+        if response.status_code < 400:
+            log.info(f"webhook performing successfully, host: {url}")
+        else:
+            log.error(f"webhook failed to execute, host: {url}\ncode:{response.status_code}\n{response.text}")
+    except requests.RequestException as e:
+        log.error(f"webhook failed to execute, host: {url}\nerror:{e}")
 
 
 # --- Configuration Loading for Web UI ---
@@ -898,7 +1048,7 @@ async def startup_event():
             "Critical: Server runtime configuration could not be loaded. MQTT and other services might not start.")
         # Depending on desired behavior, could raise an exception or proceed with limited functionality
     else:
-        log.info(f"Server runtime configuration loaded. MQTT enabled: {runtime_cfg.mqtt.enabled}")
+        log.info(f"Server runtime configuration loaded. MQTT enabled: {runtime_cfg}")
 
     # Load miniprogram configuration
     miniprogram_cfg = config_manager.load_miniprogram_config()
@@ -918,12 +1068,20 @@ async def startup_event():
         # log.info("Web UI configuration (web_config.json) loaded/initialized.") # Reduced verbosity
         pass
 
-    if runtime_cfg and runtime_cfg.mqtt.enabled:
-        setup_mqtt()  # Initialize and connect MQTT client
+    # Check if any MQTT sources are enabled and setup accordingly
+    any_mqtt_enabled = False
+    if runtime_cfg:
+        if hasattr(runtime_cfg, 'sensecapOpenStream') and runtime_cfg.sensecapOpenStream.enabled:
+            any_mqtt_enabled = True
+        if hasattr(runtime_cfg, 'chirpStackMqtt') and runtime_cfg.chirpStackMqtt.enabled:
+            any_mqtt_enabled = True
+    
+    if any_mqtt_enabled:
+        setup_mqtt()  # Initialize and connect MQTT clients
     else:
-        log.info("MQTT client is disabled in server runtime configuration. Skipping MQTT setup.")
-        global mqtt_connection_status
-        mqtt_connection_status = "disabled"
+        log.info("No MQTT data sources enabled in server runtime configuration. Skipping MQTT setup.")
+        global mqtt_connection_statuses
+        mqtt_connection_statuses = {"general": "disabled"}
         await broadcast_mqtt_status()  # Inform clients that MQTT is disabled
 
     log.info("Server startup complete.")
@@ -932,12 +1090,13 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Runs on application shutdown."""
-    global mqtt_client
+    global mqtt_clients
     log.info("Application shutdown...")
-    if mqtt_client and mqtt_client.is_connected():
-        mqtt_client.loop_stop()
-        mqtt_client.disconnect()
-        log.info("MQTT client disconnected.")
+    for source_type, client in mqtt_clients.items():
+        if client and client.is_connected():
+            client.loop_stop()
+            client.disconnect()
+            log.info(f"{source_type} MQTT client disconnected.")
     log.info("Application shutdown complete.")
 
 
@@ -1066,7 +1225,7 @@ async def get_trackers():
 
 @app.get("/api/server-runtime-config", response_model=Optional[config_manager.ServerRuntimeConfig])
 async def get_api_server_runtime_config():
-    global runtime_cfg, mqtt_connection_status  # Ensure mqtt_connection_status is accessible
+    global runtime_cfg, mqtt_connection_statuses  # Ensure mqtt_connection_statuses is accessible
     # Ensure runtime_cfg is loaded
     if runtime_cfg is None:
         config_manager.load_server_runtime_config()  # Attempt to load if not already loaded by startup
@@ -1074,77 +1233,116 @@ async def get_api_server_runtime_config():
     if runtime_cfg:
         # Create a copy to avoid modifying the global cache directly with transient status
         config_to_send = runtime_cfg.model_copy(deep=True)
-        if config_to_send.mqtt:
-            config_to_send.mqtt.live_mqtt_status = mqtt_connection_status
+        
+        # Handle SenseCAP OpenStream
+        if hasattr(config_to_send, 'sensecapOpenStream') and config_to_send.sensecapOpenStream:
             # Mask password before sending to client
+            if config_to_send.sensecapOpenStream.password:
+                config_to_send.sensecapOpenStream.password = config_manager.PASSWORD_PLACEHOLDER
+            # Add live status
+            config_to_send.sensecapOpenStream.live_mqtt_status = mqtt_connection_statuses.get('sensecap', 'disconnected')
+        
+        # Handle ChirpStack MQTT
+        if hasattr(config_to_send, 'chirpStackMqtt') and config_to_send.chirpStackMqtt:
+            # Mask password before sending to client
+            if config_to_send.chirpStackMqtt.password:
+                config_to_send.chirpStackMqtt.password = config_manager.PASSWORD_PLACEHOLDER
+            # Add live status
+            config_to_send.chirpStackMqtt.live_mqtt_status = mqtt_connection_statuses.get('chirpstack', 'disconnected')
+        
+        # Legacy MQTT handling (for backward compatibility)
+        if hasattr(config_to_send, 'mqtt') and config_to_send.mqtt:
             if config_to_send.mqtt.password:
                 config_to_send.mqtt.password = config_manager.PASSWORD_PLACEHOLDER
+            config_to_send.mqtt.live_mqtt_status = mqtt_connection_statuses.get('legacy', 'disconnected')
+                
         return config_to_send
     return None
 
 
 @app.post("/api/server-runtime-config", status_code=200)
-async def update_api_server_runtime_config(config_payload: config_manager.ServerRuntimeConfig):
-    global runtime_cfg, mqtt_client, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
+async def update_api_server_runtime_config(config_payload: PartialServerRuntimeConfig):
+    global runtime_cfg, mqtt_clients, mqtt_connection_statuses, is_mqtt_intentionally_disconnected, main_event_loop
     try:
         # log.info("Received request to update server runtime configuration.") # Reduced verbosity
 
-        # Determine if MQTT settings that require a reconnect have changed
-        mqtt_reconnect_needed = False
-        if runtime_cfg and runtime_cfg.mqtt and config_payload.mqtt:
-            if (
-                    runtime_cfg.mqtt.brokerHost != config_payload.mqtt.brokerHost or
-                    runtime_cfg.mqtt.brokerPort != config_payload.mqtt.brokerPort or
-                    runtime_cfg.mqtt.username != config_payload.mqtt.username or
-                    (config_payload.mqtt.password != config_manager.PASSWORD_PLACEHOLDER and
-                     config_payload.mqtt.password is not None and  # Ensure new password is not None
-                     runtime_cfg.mqtt.password != config_payload.mqtt.password) or  # This comparison is tricky due to placeholder
-                    runtime_cfg.mqtt.clientID != config_payload.mqtt.clientID or
-                    runtime_cfg.mqtt.applicationID != config_payload.mqtt.applicationID or  # If appID changes, topic changes
-                    runtime_cfg.mqtt.topicPattern != config_payload.mqtt.topicPattern  # If topic pattern changes
-            ):
-                mqtt_reconnect_needed = True
+        # Determine if MQTT settings that require reconnect have changed for each data source
+        sources_to_reconnect = set()
+        
+        # Check SenseCAP OpenStream changes
+        if (runtime_cfg and hasattr(runtime_cfg, 'sensecapOpenStream') and 
+            config_payload.sensecapOpenStream is not None):
+            old_sensecap = runtime_cfg.sensecapOpenStream
+            new_sensecap = config_payload.sensecapOpenStream
+            if (old_sensecap.brokerHost != new_sensecap.brokerHost or
+                old_sensecap.brokerPort != new_sensecap.brokerPort or
+                old_sensecap.username != new_sensecap.username or
+                (new_sensecap.password != config_manager.PASSWORD_PLACEHOLDER and
+                 new_sensecap.password is not None and
+                 old_sensecap.password != new_sensecap.password) or
+                old_sensecap.clientID != new_sensecap.clientID or
+                old_sensecap.applicationID != new_sensecap.applicationID or
+                old_sensecap.topicPattern != new_sensecap.topicPattern or
+                old_sensecap.enabled != new_sensecap.enabled):
+                sources_to_reconnect.add('sensecap')
+        
+        # Check ChirpStack changes
+        if (runtime_cfg and hasattr(runtime_cfg, 'chirpStackMqtt') and 
+            config_payload.chirpStackMqtt is not None):
+            old_chirpstack = runtime_cfg.chirpStackMqtt
+            new_chirpstack = config_payload.chirpStackMqtt
+            if (old_chirpstack.brokerHost != new_chirpstack.brokerHost or
+                old_chirpstack.brokerPort != new_chirpstack.brokerPort or
+                old_chirpstack.username != new_chirpstack.username or
+                (new_chirpstack.password != config_manager.PASSWORD_PLACEHOLDER and
+                 new_chirpstack.password is not None and
+                 old_chirpstack.password != new_chirpstack.password) or
+                old_chirpstack.clientID != new_chirpstack.clientID or
+                old_chirpstack.applicationID != new_chirpstack.applicationID or
+                old_chirpstack.topicPattern != new_chirpstack.topicPattern or
+                old_chirpstack.enabled != new_chirpstack.enabled):
+                sources_to_reconnect.add('chirpstack')
 
-            # If MQTT is being enabled and was previously disabled or misconfigured, or if it was intentionally disconnected
-            if config_payload.mqtt.enabled and not runtime_cfg.mqtt.enabled:
-                mqtt_reconnect_needed = True
-            elif config_payload.mqtt.enabled and is_mqtt_intentionally_disconnected:
-                mqtt_reconnect_needed = True  # If user enables it again after manual disconnect
-
-        # Save the new configuration (this handles the password placeholder logic internally)
-        success, new_cfg = config_manager.save_server_runtime_config(config_payload)
+        # Save the new configuration using partial update method
+        success, new_cfg = config_manager.save_partial_server_runtime_config(config_payload)
         if success and new_cfg:
             runtime_cfg = new_cfg  # Update global runtime_cfg with the effectively saved one
             log.info("Server runtime configuration updated successfully.")
 
-            # Handle MQTT client based on changes
-            if config_payload.mqtt:
-                # If MQTT settings are present in payload, but it's marked as not enabled (e.g. checkbox was there and unchecked)
-                # OR if the intention is to disable (though we removed the explicit 'enabled' flag check for disconnection here.
-                # For now, removing the direct 'enabled' flag check for disconnection here.
-                # Disconnection will be handled by manual API call or if essential config (like broker) is removed.
-                # if not config_payload.mqtt.enabled: <--- REMOVED THIS CONDITION
-                # Consider if removing broker host should trigger disconnect if connected
-                if not config_payload.mqtt.brokerHost and (
-                        mqtt_connection_status == "connected" or mqtt_connection_status == "connecting"):
-                    log.info("MQTT broker host removed from config. Disconnecting client.")
-                    disconnect_mqtt_client()
-                    mqtt_connection_status = "misconfigured"  # Mark as misconfigured
-                    if main_event_loop and main_event_loop.is_running():
-                        asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
-                elif mqtt_reconnect_needed:
-                    log.info("MQTT configuration changed that requires reconnect. Reconnecting...")
-                    # Disconnect existing client before reconnecting with new settings
-                    if mqtt_client and (
-                            mqtt_connection_status == "connected" or mqtt_connection_status == "connecting"):
-                        disconnect_mqtt_client(broadcast=False)  # Disconnect silently first
-
-                    # Re-initialize and connect. setup_mqtt will use the new runtime_cfg.
-                    is_mqtt_intentionally_disconnected = False  # Clear this flag as we intend to connect
-                    setup_mqtt(force_reconnect=True)
+            # Handle reconnect for changed data sources
+            for source_type in sources_to_reconnect:
+                log.info(f"{source_type} MQTT configuration changed that requires reconnect.")
+                
+                # Disconnect existing client if connected
+                current_status = mqtt_connection_statuses.get(source_type, "disconnected")
+                if current_status in ["connected", "connecting"]:
+                    disconnect_mqtt_client(source_type, broadcast=False)
+                
+                # Check if the source should be enabled
+                source_config = None
+                if source_type == 'sensecap' and hasattr(new_cfg, 'sensecapOpenStream'):
+                    source_config = new_cfg.sensecapOpenStream
+                elif source_type == 'chirpstack' and hasattr(new_cfg, 'chirpStackMqtt'):
+                    source_config = new_cfg.chirpStackMqtt
+                
+                if source_config and source_config.enabled and source_config.brokerHost:
+                    # Re-initialize and connect
+                    is_mqtt_intentionally_disconnected = False
+                    if source_type == 'sensecap':
+                        mqtt_clients['sensecap'] = _initialize_mqtt_client('sensecap', source_config)
+                        if mqtt_clients['sensecap']:
+                            _connect_mqtt_client('sensecap')
+                    elif source_type == 'chirpstack':
+                        mqtt_clients['chirpstack'] = _initialize_mqtt_client('chirpstack', source_config)
+                        if mqtt_clients['chirpstack']:
+                            _connect_mqtt_client('chirpstack')
                 else:
-                    # log.info("MQTT settings updated, but no immediate reconnect needed (e.g. only Kalman params changed or MQTT already aligned).") # Reduced verbosity
-                    pass
+                    # Mark as disabled if not enabled or no broker host
+                    mqtt_connection_statuses[source_type] = "disabled" if source_config and not source_config.enabled else "misconfigured"
+                    
+            if main_event_loop and main_event_loop.is_running():
+                asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
+                
             return {"message": "Server runtime configuration updated successfully."}
         else:
             log.error("Failed to save server runtime configuration to file.")
@@ -1154,51 +1352,137 @@ async def update_api_server_runtime_config(config_payload: config_manager.Server
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@app.post("/api/change-password", status_code=200)
+async def change_password(password_request: PasswordChangeRequest):
+    """
+    专用密码修改接口
+    验证当前密码后更新为新密码
+    """
+    global runtime_cfg
+    try:
+        log.info(f"Password change request received for verification")
+        
+        # 验证密码并更新
+        success, message, new_cfg = config_manager.verify_and_change_password(password_request)
+        
+        if success and new_cfg:
+            # 更新全局配置缓存
+            runtime_cfg = new_cfg
+            log.info("Password changed successfully")
+            
+            return {
+                "success": True,
+                "message": message
+            }
+        else:
+            # 密码验证失败或更新失败
+            log.warning(f"Password change failed: {message}")
+            
+            # 根据错误类型返回不同的HTTP状态码
+            if "incorrect" in message.lower():
+                # 当前密码错误 - 401 Unauthorized
+                raise HTTPException(status_code=401, detail=message)
+            elif "same" in message.lower() or "different" in message.lower():
+                # 新密码与当前密码相同 - 400 Bad Request
+                raise HTTPException(status_code=400, detail=message)
+            elif "characters" in message.lower():
+                # 密码长度不符合要求 - 400 Bad Request  
+                raise HTTPException(status_code=400, detail=message)
+            else:
+                # 其他服务器错误 - 500 Internal Server Error
+                raise HTTPException(status_code=500, detail=message)
+                
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error during password change: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/api/set-service-credentials", status_code=200)
+async def set_service_credentials(credentials_request: ServiceCredentialsRequest):
+    """
+    专用服务凭证设置接口
+    安全地设置各种服务的用户名和密码，不会将密码存储在可提交的配置文件中
+    支持的服务类型: sensecap, chirpstack, webhook
+    """
+    global runtime_cfg
+    try:
+        log.info(f"Service credentials setting request received for service: {credentials_request.service_type}")
+        
+        # 设置服务凭证
+        success, message, new_cfg = config_manager.set_service_credentials(credentials_request)
+        
+        if success and new_cfg:
+            # 更新全局配置缓存
+            runtime_cfg = new_cfg
+            log.info(f"Service credentials set successfully for: {credentials_request.service_type}")
+            
+            return {
+                "success": True,
+                "message": message,
+                "service_type": credentials_request.service_type
+            }
+        else:
+            # 设置失败
+            log.warning(f"Service credentials setting failed: {message}")
+            raise HTTPException(status_code=400, detail=message)
+                
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error during service credentials setting: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @app.get("/api/mqtt-status")
 async def get_mqtt_connection_status():
-    return {"status": mqtt_connection_status}
+    return {"statuses": mqtt_connection_statuses}
 
 
 @app.post("/api/mqtt/connect", status_code=200)
 async def api_mqtt_connect():
-    global runtime_cfg, mqtt_connection_status, is_mqtt_intentionally_disconnected, main_event_loop
+    global runtime_cfg, mqtt_connection_statuses, is_mqtt_intentionally_disconnected, main_event_loop
     # log.info("API call to connect MQTT.") # Reduced verbosity
 
     # Reload runtime_cfg to ensure latest settings are used for connection attempt
     current_runtime_cfg = config_manager.load_server_runtime_config()
-    if not current_runtime_cfg or not current_runtime_cfg.mqtt:
-        log.warning("MQTT Connect API: Runtime configuration or MQTT section not found.")
-        raise HTTPException(status_code=400, detail="MQTT configuration not available.")
+    if not current_runtime_cfg:
+        log.warning("MQTT Connect API: Runtime configuration not found.")
+        raise HTTPException(status_code=400, detail="Runtime configuration not available.")
 
     runtime_cfg = current_runtime_cfg  # Update global runtime_cfg
 
-    if not runtime_cfg.mqtt.enabled:
-        log.info("MQTT Connect API: MQTT is disabled in configuration. Cannot connect manually unless enabled first.")
-        # We could choose to enable it here, but for now, require it to be enabled in config first.
-        # return {"message": "MQTT is disabled in configuration. Please enable it first in Server Runtime Configuration then try connecting."}
-        raise HTTPException(status_code=400, detail="MQTT is disabled in configuration. Enable it via settings first.")
+    # Check if any MQTT sources are configured and enabled
+    any_enabled = False
+    if (hasattr(runtime_cfg, 'sensecapOpenStream') and runtime_cfg.sensecapOpenStream.enabled):
+        any_enabled = True
+    if (hasattr(runtime_cfg, 'chirpStackMqtt') and runtime_cfg.chirpStackMqtt.enabled):
+        any_enabled = True
+        
+    if not any_enabled:
+        raise HTTPException(status_code=400, detail="No MQTT data sources are enabled in configuration.")
 
     is_mqtt_intentionally_disconnected = False  # User intends to connect
 
-    # Attempt to setup/connect. setup_mqtt handles initialization if needed.
-    setup_mqtt(
-        force_reconnect=True)  # Force reconnect will bypass the is_mqtt_intentionally_disconnected check within setup_mqtt
+    # Attempt to setup/connect all enabled sources
+    setup_mqtt(force_reconnect=True)
 
-    # setup_mqtt and its chain will update mqtt_connection_status and broadcast.
-    # The status returned here might be "connecting" or the result of the attempt.
     # Give a slight delay for connection attempt to progress before returning status
     await asyncio.sleep(0.1)  # Small delay
-    return {"message": "MQTT connection process initiated.", "current_status": mqtt_connection_status}
+    return {"message": "MQTT connection process initiated.", "current_statuses": mqtt_connection_statuses}
 
 
 @app.post("/api/mqtt/disconnect", status_code=200)
 async def api_mqtt_disconnect():
-    global mqtt_connection_status
+    global mqtt_connection_statuses
     # log.info("API call to disconnect MQTT.") # Reduced verbosity
-    disconnect_mqtt_client()  # This function sets is_mqtt_intentionally_disconnected = True
+    disconnect_all_mqtt_clients()  # This function sets is_mqtt_intentionally_disconnected = True
     # Give a slight delay for disconnection to reflect
     await asyncio.sleep(0.1)
-    return {"message": "MQTT disconnect process initiated.", "current_status": mqtt_connection_status}
+    return {"message": "MQTT disconnect process initiated.", "current_statuses": mqtt_connection_statuses}
 
 
 @app.websocket("/ws")
@@ -1399,51 +1683,6 @@ async def get_allow_tracker_list():
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@app.get("/api/list_paas_device")
-async def get_paas_devices():
-    """获取PaaS平台设备列表"""
-    try:
-        # 获取当前配置中的PaaS认证信息
-        current_cfg = config_manager.load_server_runtime_config()
-        if not current_cfg or not current_cfg.paas_api_id or not current_cfg.paas_api_key:
-            raise HTTPException(status_code=400, detail="PaaS API credentials not configured")
-
-        # 动态导入paas_client以避免循环导入
-        from server.clients.paas_client import initialize_paas_client, get_paas_client
-
-        # 初始化PaaS客户端
-        host = getattr(current_cfg, 'paas_host', 'https://sensecap.seeed.cc/openapi')  # 使用配置中的host或默认值
-        username = current_cfg.paas_api_id
-        password = current_cfg.paas_api_key
-
-        if not initialize_paas_client(host, username, password):
-            raise HTTPException(status_code=500, detail="Failed to initialize PaaS client")
-
-        client = get_paas_client()
-        if not client:
-            raise HTTPException(status_code=500, detail="PaaS client not available")
-
-        # 获取设备列表
-        devices = client.list_devices(device_type=2)
-        if devices is None:
-            raise HTTPException(status_code=500, detail="Failed to retrieve devices from PaaS")
-
-        # 转换为字典格式返回
-        device_list = [device.to_dict() for device in devices]
-
-        return {
-            "success": True,
-            "data": device_list,
-            "count": len(device_list)
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        log.error(f"Error getting PaaS devices: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
 # --- Main Execution ---
 if __name__ == "__main__":
     # Load runtime config first for server port
@@ -1456,7 +1695,8 @@ if __name__ == "__main__":
         log.warning(f"Could not load server port from runtime config. Using default {server_port}.")
         # Fallback if server_runtime_config.json is missing or malformed for port.
 
-    allow_tracker_list = rt_cfg.tracker_list
+    if rt_cfg and len(rt_cfg.tracker_list) > 0:
+        allow_tracker_list = rt_cfg.tracker_list
     log.info(f"Starting Uvicorn server on host 0.0.0.0 port {server_port}")
     load_dashboard_config()
     load_web_ui_config()

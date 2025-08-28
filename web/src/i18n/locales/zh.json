@@ -39,8 +39,8 @@
       "totalBeacons": "信标总数",
       "totalTrackers": "Tracker总数",
       "onlineDevices": "在线设备数",
-      "mapBeaconConfig": "地图与信标配置",
-      "trackerConfig": "Tracker配置"
+      "mapBeaconConfig": "地图配置",
+      "trackerConfig": "应用配置"
     },
     "mapSelector": {
       "title": "地图选择",
@@ -155,7 +155,7 @@
     "sosAlerts": "SOS 警报",
     "distributionByMap": "地图分布",
     "configuration": {
-      "title": "Tracker设备配置",
+      "title": "应用设置",
       "allowList": {
         "title": "允许的Tracker列表",
         "description": "配置允许连接和定位的Tracker设备列表。只有在此列表中的设备才会被系统处理。",
