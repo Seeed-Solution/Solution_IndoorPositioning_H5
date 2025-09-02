@@ -10,10 +10,10 @@ if __name__ == "__main__":
         sys.path.insert(0, project_root)
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, Request
 from pydantic import BaseModel
 from typing import List, Optional
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import json
 import paho.mqtt.client as mqtt
@@ -24,10 +24,14 @@ import math
 from typing import List, Dict, Optional, Any, Tuple
 import os  # Keep one os import
 import random
+import hashlib
+import base64
 from server.components.beacon_holder import beacon_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.components.uplink_collector import UplinkCollector
 import requests
+from components.session_holder import session_holder
+
 # from server.clients.paas_client import get_sensecap_client, initialize_sensecap_client
 
 # Import project modules
@@ -47,7 +51,7 @@ from server import positioning
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
     MiniprogramConfig, WebUIConfig, DashboardConfig,MqttServerConfig,
-    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest  # Import WebUISettings directly
+    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest, LoginRequest  # Import WebUISettings directly
 )
 from server.positioning import KalmanFilter2D
 
@@ -110,10 +114,65 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
 
+    def _parse_basic_auth(self, auth_header: str) -> Optional[Tuple[str, str]]:
+        """解析HTTP Basic Authentication头部，返回(username, password)或None"""
+        try:
+            if not auth_header.startswith('Basic '):
+                return None
+            
+            # 移除'Basic '前缀并解码base64
+            encoded_credentials = auth_header[6:]
+            decoded_bytes = base64.b64decode(encoded_credentials)
+            decoded_str = decoded_bytes.decode('utf-8')
+            
+            # 分割用户名和密码
+            if ':' not in decoded_str:
+                return None
+                
+            username, password = decoded_str.split(':', 1)
+            return (username, password)
+        except Exception as e:
+            logging.warning(f"Error parsing Basic Auth header: {e}")
+            return None
+
+    def _verify_basic_auth(self, username: str, password: str) -> bool:
+        """验证Basic Auth凭据是否与runtime_config中的配置匹配"""
+        global runtime_cfg
+        if not runtime_cfg:
+            return False
+        return runtime_cfg.username == username and runtime_cfg.password == password
+
     async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        log.info(f"WebSocket client connected: {websocket.client}")
+        # 首先检查cookie认证
+        session_token = websocket.cookies.get("session_token")
+        if session_token and len(session_token) > 0 and session_holder.get(session_token):
+            logging.info(f"ws-session: {session_token}")
+            await websocket.accept()
+            self.active_connections.append(websocket)
+            log.info(f"WebSocket client connected via session: {websocket.client}")
+            return
+        
+        # 检查Authorization头部的Basic Auth
+        auth_header = websocket.headers.get("Authorization")
+        if auth_header:
+            credentials = self._parse_basic_auth(auth_header)
+            if credentials:
+                username, password = credentials
+                if self._verify_basic_auth(username, password):
+                    logging.info(f"ws-basic-auth: {username}")
+                    await websocket.accept()
+                    self.active_connections.append(websocket)
+                    log.info(f"WebSocket client connected via Basic Auth: {websocket.client}")
+                    return
+                else:
+                    logging.warning(f"WebSocket Basic Auth failed for user: {username}")
+            else:
+                logging.warning("WebSocket received invalid Authorization header format")
+        
+        # 认证失败，关闭连接
+        logging.warning(f"WebSocket connection rejected - no valid authentication: {websocket.client}")
+        await websocket.close(code=1008, reason="Authentication required")
+        return
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
@@ -823,7 +882,48 @@ async def process_tracker_report(report: TrackerReport):
     filtered_position: Optional[Tuple[float, float]] = None
     kf = kalman_filters.get(tracker_id)
 
-    if calculated_position:
+    if calculated_position and calculated_position[2] == 'approximate':
+        if not runtime_cfg.allow_area_location:
+            log.info(f"未启用区域定位, 丢弃消息: eui=>{report.trackerId}")
+            return
+
+        sos = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='4200', default_value=0)
+        new_state = TrackerState(
+            trackerId=tracker_id,
+            last_update_time=current_time_ms,
+            last_known_measurement_time=report.timestamp,
+            last_detected_beacons=report.detectedBeacons,
+            map=best_map,
+            sos=sos,
+            type=calculated_position[2],
+            radius=calculated_position[0]
+        )
+
+        tracker_states[tracker_id] = new_state
+        scanned_beacon = best_beacons[int(calculated_position[1])]
+        beacon_config = beacon_holder.get_beacon(scanned_beacon.macAddress)
+
+        enriched_b_data = {
+            'txPower': beacon_config.txPower,
+            'name': beacon_config.displayName,
+            'configured_x': beacon_config.x,
+            'configured_y': beacon_config.y
+        }
+        tracker_data_payload = {
+            "trackerId": tracker_id,
+            "timestamp": current_time_ms,
+            "radius": calculated_position[0],
+            "last_detected_beacons": [enriched_b_data],  # Use the enriched list
+            "map": best_map,
+            "sos": report.sos
+        }
+
+        await notify_tracker_state({
+            "type": "tracker_location_approximate",
+            "data": {tracker_id: tracker_data_payload}
+        })
+        return
+    elif calculated_position:
         # log.info(f"Calculated position for {tracker_id}: {calculated_position}") # Can be noisy
         if kf:
             kf.predict(dt)
@@ -1084,6 +1184,13 @@ async def startup_event():
         mqtt_connection_statuses = {"general": "disabled"}
         await broadcast_mqtt_status()  # Inform clients that MQTT is disabled
 
+    # 清理过期的会话记录
+    # try:
+    #     cleaned_count = session_holder.cleanup_expired_sessions()
+    #     log.info(f"Server startup: Cleaned {cleaned_count} expired sessions from database.")
+    # except Exception as e:
+    #     log.warning(f"Failed to cleanup expired sessions on startup: {e}")
+    
     log.info("Server startup complete.")
 
 
@@ -1437,6 +1544,137 @@ async def set_service_credentials(credentials_request: ServiceCredentialsRequest
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@app.post("/api/login", status_code=200)
+async def login(login_request: LoginRequest, response: Response):
+    """
+    用户登录接口
+    接收用户名和MD5计算后的密码摘要，验证通过后返回httponly cookie
+    """
+    global runtime_cfg
+    try:
+        log.info(f"Login request received for username: {login_request.username}")
+
+        # 验证用户名
+        if runtime_cfg.username != login_request.username:
+            log.warning(f"Login failed: invalid username '{login_request.username}'")
+            raise HTTPException(status_code=401, detail="用户名或密码错误")
+        
+        # 计算配置中密码的MD5摘要
+        config_password_md5 = hashlib.md5(runtime_cfg.password.encode('utf-8')).hexdigest()
+        
+        # 验证MD5密码摘要
+        if config_password_md5 != login_request.password.lower():
+            log.warning(f"Login failed: invalid password for username '{login_request.username}'")
+            raise HTTPException(status_code=401, detail="用户名或密码错误")
+        
+        log.info(f"Login successful for username: {login_request.username}")
+        
+        # 生成登录令牌 (简单的session token)
+        import secrets
+        session_token = secrets.token_urlsafe(32)
+
+        session_holder.set(session_token, 1, username=login_request.username)
+        
+        # 设置httponly cookie，有效期1天
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            max_age=86400,  # 1天 (24小时 * 60分钟 * 60秒)
+            httponly=True,
+            secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
+            samesite="lax"
+        )
+        
+        return {
+            "success": True,
+            "message": "登录成功",
+            "username": login_request.username
+        }
+        
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error during login: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/auth/check", status_code=200)
+async def check_auth(request: Request):
+    """
+    检查当前用户的登录状态
+    """
+    try:
+        session_token = request.cookies.get('session_token')
+        if not session_token:
+            raise HTTPException(status_code=401, detail="No session token")
+        
+        if not session_holder.get(session_token):
+            raise HTTPException(status_code=401, detail="Invalid session token")
+        
+        return {
+            "authenticated": True,
+            "message": "用户已登录"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error checking auth status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/api/auth/logout", status_code=200) 
+async def logout(request: Request, response: Response):
+    """
+    用户登出接口
+    清除session token和cookie
+    """
+    try:
+        session_token = request.cookies.get('session_token')
+        if session_token:
+            session_holder.remove(session_token)
+        
+        # 清除cookie
+        response.delete_cookie(
+            key="session_token",
+            httponly=True,
+            secure=False,
+            samesite="lax"
+        )
+        
+        return {
+            "success": True,
+            "message": "登出成功"
+        }
+        
+    except Exception as e:
+        log.error(f"Error during logout: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, next):
+    # 允许访问的公开路径
+    public_paths = ['/api/login', '/api/auth/check', '/ws', '/login', '/']
+    
+    # 检查是否为静态文件或公开API
+    if (request.url.path in public_paths or 
+        request.url.path.startswith('/static/') or
+        request.url.path.startswith('/assets/')):
+        return await next(request)
+    
+    # 对于API路径，检查认证状态
+    if request.url.path.startswith('/api/'):
+        session_token = request.cookies.get('session_token')
+        if not session_token:
+            return JSONResponse(status_code=401, content={"detail": "No session token"})
+
+        if not session_holder.get(session_token):
+            return JSONResponse(status_code=401, content={"detail": "Invalid or expired session"})
+    
+    return await next(request)
+
+
 @app.get("/api/mqtt-status")
 async def get_mqtt_connection_status():
     return {"statuses": mqtt_connection_statuses}
@@ -1681,6 +1919,7 @@ async def get_allow_tracker_list():
     except Exception as e:
         log.error(f"Error getting tracker_list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 
 # --- Main Execution ---

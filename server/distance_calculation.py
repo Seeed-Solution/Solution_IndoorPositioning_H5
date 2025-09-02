@@ -18,4 +18,4 @@ def calculate_distance(rssi: int, tx_power: int = -59, factor: float = 2.5) -> f
 -73: 1.9054607179632472
 
 """
-print(calculate_distance(rssi=-63, factor=2.5))
+print(calculate_distance(rssi=-66, factor=2.5))

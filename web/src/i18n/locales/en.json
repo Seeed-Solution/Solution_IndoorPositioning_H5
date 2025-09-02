@@ -177,6 +177,19 @@
     "leastSquares": "Least Squares", 
     "weightedCentroid": "Weighted Centroid"
   },
+  "login": {
+    "title": "Indoor Positioning",
+    "subtitle": "Please enter your username and password",
+    "username": "Username",
+    "password": "Password",
+    "usernamePlaceholder": "Please enter username",
+    "passwordPlaceholder": "Please enter password",
+    "loginButton": "Login",
+    "logging": "Logging in...",
+    "emptyFields": "Please fill in username and password",
+    "invalidCredentials": "Invalid username or password",
+    "loginError": "Login failed, please try again later"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
@@ -188,6 +201,7 @@
     "edit": "Edit",
     "add": "Add",
     "close": "Close",
-    "back": "Back"
+    "back": "Back",
+    "logout": "Logout"
   }
 }

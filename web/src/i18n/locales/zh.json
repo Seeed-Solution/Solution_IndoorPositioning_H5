@@ -177,6 +177,19 @@
     "leastSquares": "最小二乘法", 
     "weightedCentroid": "加权质心"
   },
+  "login": {
+    "title": "室内定位",
+    "subtitle": "请输入您的用户名和密码",
+    "username": "用户名",
+    "password": "密码",
+    "usernamePlaceholder": "请输入用户名",
+    "passwordPlaceholder": "请输入密码",
+    "loginButton": "登录",
+    "logging": "登录中...",
+    "emptyFields": "请填写用户名和密码",
+    "invalidCredentials": "用户名或密码错误",
+    "loginError": "登录失败，请稍后重试"
+  },
   "common": {
     "loading": "加载中...",
     "error": "错误",
@@ -188,6 +201,7 @@
     "edit": "编辑",
     "add": "添加",
     "close": "关闭",
-    "back": "返回"
+    "back": "返回",
+    "logout": "登出"
   }
 }

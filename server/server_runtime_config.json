@@ -30,6 +30,7 @@
   },
   "tracker_list": [],
   "allow_all_tracker": true,
+  "allow_area_location": true,
   "username": "admin",
   "password": "ctyshjdl",
   "webhook": {

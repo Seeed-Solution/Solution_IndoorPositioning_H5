@@ -5,9 +5,12 @@ from typing import List, Optional, TypeVar, Generic, Type, Any, Dict
 from datetime import datetime
 from sqlalchemy import create_engine, and_, desc
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import declarative_base
 
 T = TypeVar('T')  # Python model type
 S = TypeVar('S')  # SQLAlchemy table type
+
+Base = declarative_base()
 
 
 class BaseDao(Generic[T]):
@@ -23,9 +26,9 @@ class BaseDao(Generic[T]):
         self.model_class = model_class
         
         # 创建表结构
-        if not BaseDao._initialized:
+        if not self._initialized:
             self._create_tables()
-            BaseDao._initialized = True
+            self._initialized = True
     
     def _init_database(self):
         """初始化数据库连接和目录"""
@@ -37,8 +40,6 @@ class BaseDao(Generic[T]):
         BaseDao._session_factory = sessionmaker(bind=BaseDao._engine)
     
     def _create_tables(self):
-        """创建数据库表结构"""
-        from server.dao.device_alarm_record_dao import Base
         Base.metadata.create_all(BaseDao._engine)
     
     def _to_model(self, table_obj: S) -> T:

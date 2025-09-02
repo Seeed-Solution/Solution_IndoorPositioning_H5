@@ -2,12 +2,9 @@
 from datetime import datetime
 from typing import List, Tuple
 from sqlalchemy import Column, String, CHAR, DateTime, JSON, Integer, and_
-from sqlalchemy.orm import declarative_base
-from server.dao.base_dao import BaseDao
+from server.dao.base_dao import BaseDao, Base
 from server.models import DeviceAlarmRecord
 
-# SQLAlchemy 表定义
-Base = declarative_base()
 
 class DeviceAlarmRecordTable(Base):
     __tablename__ = 'device_alarm_record_list'

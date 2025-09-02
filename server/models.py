@@ -138,6 +138,7 @@ class ServerRuntimeConfig(BaseModel):
     kalman: KalmanParams = None
     tracker_list: list[str] = []
     allow_all_tracker: bool = True
+    allow_area_location: bool = True
     username: str = 'admin'
     password: str = 'ctyshjdl'
     webhook: WebhookSetting = WebhookSetting(enable=False)
@@ -187,6 +188,22 @@ class ServiceCredentialsRequest(BaseModel):
         }
 
 
+class LoginRequest(BaseModel):
+    """
+    登录请求模型
+    """
+    username: str = Field(..., description="用户名")
+    password: str = Field(..., description="密码")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "username": "admin",
+                "password": "5d41402abc4b2a76b9719d911017c592"
+            }
+        }
+
+
 
 # --- Tracker Data Models (remain largely unchanged) ---
 
@@ -194,6 +211,7 @@ class DetectedBeacon(BaseModel):
     macAddress: str = Field(..., description="BLE MAC address detected")
     major: Optional[int] = None
     minor: Optional[int] = None
+    name: Optional[str] = Field(default=None)
     rssi: int
 
 class TrackerReport(BaseModel):
@@ -218,6 +236,8 @@ class TrackerState(BaseModel):
     used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
     map: Optional[str] = "unknown"
     sos: int = 0
+    type: Optional[str] = "calculation"
+    radius: float = 0
 
 
 
@@ -257,6 +277,47 @@ class TrackerState(BaseModel):
 
 
 # --- Device Alarm Record Model ---
+
+@dataclass
+class UserSessionRecord:
+    session_token: str
+    username: str
+    login_time: datetime
+    expire_time: datetime
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，方便JSON序列化"""
+        data = asdict(self)
+        # 转换datetime为字符串
+        if self.login_time:
+            data['login_time'] = self.login_time.isoformat()
+        if self.expire_time:
+            data['expire_time'] = self.expire_time.isoformat()
+        return data
+
+    def to_json(self) -> str:
+        """转换为JSON字符串"""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'UserSessionRecord':
+        if 'login_time' in data and isinstance(data['login_time'], str):
+            data['login_time'] = datetime.fromisoformat(data['login_time'])
+        if 'expire_time' in data and isinstance(data['expire_time'], str):
+            data['expire_time'] = datetime.fromisoformat(data['expire_time'])
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'UserSessionRecord':
+        """从JSON字符串创建对象"""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+
+    def is_expired(self) -> bool:
+        """检查会话是否已过期"""
+        return datetime.now() > self.expire_time
+
+
 
 @dataclass
 class DeviceAlarmRecord:

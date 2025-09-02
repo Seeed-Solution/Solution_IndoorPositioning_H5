@@ -496,7 +496,7 @@
                   </div>
                   <div class="form-group">
                     <label>Client ID:</label>
-                    <input type="text" v-model="serverConfig.chirpStackMqtt.clientID" class="form-input" :disabled="!isServerConfigEditMode" />
+                    <input type="text" v-model="serverConfig.chirpStackMqtt.clientID" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'Auto-generated: client-xxxxxx'" />
                   </div>
                 </div>
               </div>
@@ -2749,6 +2749,11 @@ const loadServerConfig = async () => {
       webhookHeadersJson.value = '{}';
     }
     
+    // 自动生成缺失的Client ID
+    if (response && response.chirpStackMqtt) {
+      updateChirpstackDefaultValues();
+    }
+    
     configStatusMessage.value = 'Server configuration loaded successfully';
     setTimeout(() => { configStatusMessage.value = '' }, 3000);
   } catch (error) {
@@ -2898,6 +2903,12 @@ const updateWebhookHeaders = () => {
 const enterEditMode = () => {
   // 保存原始配置用于取消操作
   originalServerConfig.value = JSON.parse(JSON.stringify(serverConfig.value));
+  
+  // 进入编辑模式时，自动生成缺失的Client ID
+  if (serverConfig.value && serverConfig.value.chirpStackMqtt) {
+    updateChirpstackDefaultValues();
+  }
+  
   isServerConfigEditMode.value = true;
   configStatusMessage.value = 'Edit mode enabled - You can now modify server configuration';
   setTimeout(() => { configStatusMessage.value = '' }, 3000);
@@ -3127,6 +3138,16 @@ const generateRandomSixDigits = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// 生成6位随机字符 (字母和数字)
+const generateRandomSixChars = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 // 验证SenseCap配置字段
 const validateSensecapConfig = () => {
   sensecapValidationErrors.value = {
@@ -3222,6 +3243,11 @@ const updateChirpstackDefaultValues = () => {
   }
   if (!serverConfig.value.chirpStackMqtt.brokerPort) {
     serverConfig.value.chirpStackMqtt.brokerPort = 1883;
+  }
+  
+  // 如果client ID为空，自动生成 client-xxxxxx 格式
+  if (!serverConfig.value.chirpStackMqtt.clientID || !serverConfig.value.chirpStackMqtt.clientID.trim()) {
+    serverConfig.value.chirpStackMqtt.clientID = `client-${generateRandomSixChars()}`;
   }
   
   // 如果填写了applicationID，自动更新topicPattern

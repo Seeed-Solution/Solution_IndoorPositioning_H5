@@ -1,6 +1,6 @@
 <template>
   <div id="app-shell">
-    <nav class="main-nav">
+    <nav v-if="!isLoginPage" class="main-nav">
       <div class="nav-links">
         <!-- <router-link to="/" class="nav-link">Live Map</router-link> REMOVE THIS -->
         <router-link to="/config-tracker" class="nav-link">{{ $t('nav.mapTracker') }}</router-link>
@@ -8,14 +8,47 @@
         <router-link to="/map-dashboard?fullscreen=true" class="nav-link">{{ $t('nav.mapDashboard') }}</router-link>
         <router-link to="/config" class="nav-link">{{ $t('nav.mapBeaconConfig') }}</router-link>
       </div>
-      <LanguageSwitcher />
+      <div class="nav-right">
+        <LanguageSwitcher />
+        <button @click="handleLogout" class="logout-button" :title="$t('common.logout', '登出')">
+          <i class="fas fa-sign-out-alt"></i>
+          <span class="logout-text">{{ $t('common.logout', '登出') }}</span>
+        </button>
+      </div>
     </nav>
     <router-view />
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import { authService } from './services/authService.js'
+
+const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
+const isLoginPage = computed(() => route.path === '/login')
+
+const handleLogout = async () => {
+  try {
+    const success = await authService.logout()
+    if (success) {
+      // 登出成功，跳转到登录页面
+      router.push('/login')
+    } else {
+      console.error('Logout failed')
+      // 即使后端登出失败，也跳转到登录页面
+      router.push('/login')
+    }
+  } catch (error) {
+    console.error('Logout error:', error)
+    // 出错时也跳转到登录页面
+    router.push('/login')
+  }
+}
 </script>
 
 <style scoped>
@@ -42,6 +75,12 @@ import LanguageSwitcher from './components/LanguageSwitcher.vue'
   flex: 1;
 }
 
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .nav-link {
   color: var(--secondary-color); /* Medium gray for inactive links */
   text-decoration: none;
@@ -62,6 +101,41 @@ import LanguageSwitcher from './components/LanguageSwitcher.vue'
   color: var(--primary-color); /* Green text for active tab */
   border-bottom-color: var(--primary-color); /* Green underline for active tab */
   /* font-weight: 700; */ /* Active link is already 600, ensure it stands out or keep same */
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--secondary-color);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.logout-button:hover {
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+  background-color: rgba(245, 108, 108, 0.05);
+}
+
+.logout-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .logout-text {
+    display: none;
+  }
+  
+  .logout-button {
+    padding: 0.4rem 0.6rem;
+  }
 }
 
 /* The <router-view /> itself doesn't need styling unless it's wrapped */

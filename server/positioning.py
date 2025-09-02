@@ -22,10 +22,11 @@ def calculate_distance(rssi: int, tx_power: int, n: float = 2.5) -> float:
     distance = math.pow(10, exponent)
     return distance
 
+
 # --- NEW: Least Squares Multilateration ---
 ## beacons_with_dist: 蓝牙定位列表, 包括蓝牙的 x/y 坐标, 到设备的距离
 ## initial_guess 上次的定位
-def multilateration_least_squares(beacons_with_dist: List[Tuple[float, float, float]], initial_guess: Optional[Tuple[float, float]] = None) -> Optional[Tuple[float, float]]:
+def multilateration_least_squares(beacons_with_dist: List[Tuple[float, float, float, object]], initial_guess: Optional[Tuple[float, float]] = None) -> Optional[Tuple[float, float]]:
     """
     Calculates position using least squares optimization based on distances
     to known beacon coordinates.
@@ -107,8 +108,9 @@ def calculate_position(
     # Get signalPropagationFactor from the MiniprogramConfig settings
     n = miniprogram_config.settings.signalPropagationFactor
 
-    for detected in detected_beacons:
+    for index in range(len(detected_beacons)):
         beacon_info = None
+        detected = detected_beacons[index]
         if detected.macAddress:
 
             mac_formatted = detected.macAddress.replace(":", "")
@@ -137,7 +139,7 @@ def calculate_position(
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             if distance > 0.1 and distance < 100:
-                beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance))
+                beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance, index))
                 log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:
                 log.warning(f"device(id: {device_id}): Ignoring beacon {beacon_info.name or beacon_info.macAddress} due to invalid calculated distance: {distance:.2f}m (RSSI: {detected.rssi}, Tx: {beacon_info.txPower})")
@@ -151,10 +153,16 @@ def calculate_position(
     # Group beacons by map to avoid cross-map positioning
 
     log.info(f"device(id: {device_id}): choose map '{map_name}' length of beacons: {len(beacons_with_coords_dist)} ")
-    if len(beacons_with_coords_dist) < 2:
-        log.info(f"device(id: {device_id}): length of beacons: {len(beacons_with_coords_dist)} less than 2 in map '{map_name}'"
+    if len(beacons_with_coords_dist) == 0:
+        log.info(f"device(id: {device_id}): length of beacons: {len(beacons_with_coords_dist)} less than 1 in map '{map_name}'"
                  f", can not positioning")
         return None
+    elif len(beacons_with_coords_dist) == 1:
+        log.info(
+            f"device(id: {device_id}): length of beacons: {len(beacons_with_coords_dist)} less than 2 in map '{map_name}'"
+            f", only approximate localization")
+        # distance index type
+        return beacons_with_coords_dist[0][2], beacons_with_coords_dist[0][3], "approximate"
 
     log.info(f"device(id: {device_id}) Using map '{map_name}' with {len(beacons_with_coords_dist)} beacons for positioning")
     # log.info(f"device(id: {device_id}) 完成蓝牙测距, best_beacons:{best_beacons}")
