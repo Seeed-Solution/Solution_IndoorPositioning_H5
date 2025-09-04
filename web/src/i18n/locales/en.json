@@ -281,7 +281,8 @@
       "confirmPlaceholder": "Confirm new password",
       "changeTitle": "Change Password",
       "changing": "Changing...",
-      "changed": "Password changed successfully"
+      "changed": "Password changed successfully",
+      "successMessage": "Your password has been successfully updated"
     },
     "restart": {
       "button": "Restart Service",

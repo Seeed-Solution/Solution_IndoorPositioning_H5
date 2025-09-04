@@ -281,7 +281,8 @@
       "confirmPlaceholder": "请确认新密码",
       "changeTitle": "修改密码",
       "changing": "修改中...",
-      "changed": "密码修改成功"
+      "changed": "密码修改成功",
+      "successMessage": "您的密码已成功更新"
     },
     "restart": {
       "button": "重启服务",

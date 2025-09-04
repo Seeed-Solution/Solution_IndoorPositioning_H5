@@ -16,10 +16,10 @@ npm run dev &
 FRONTEND_PID=$!
 
 cd /app
-python -m server.main
+python -m server.main &
 BACKEND_PID=$!
 
 echo "Services started. Press Ctrl+C to stop."
 
-# Wait for both processes
-wait
+wait $BACKEND_PID
+echo "Services stopped. i ready to dead.."

@@ -6,7 +6,6 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY server/ ./server/
 COPY README.md ./
-COPY run_in_docker.sh ./
 COPY web/ ./web/
 COPY assets/ ./assets/
 
@@ -23,6 +22,7 @@ RUN cd /app/server  \
     && cd /app/web/ \
     && npm install
 
+COPY run_in_docker.sh ./
 
 # Expose ports
 EXPOSE 5173 8022

@@ -928,6 +928,22 @@
         </div>
       </div>
     </div>
+
+    <!-- 密码修改成功提示弹窗 -->
+    <div v-if="showPasswordSuccessModal" class="modal-overlay">
+      <div class="modal-content success-modal">
+        <div class="success-content">
+          <div class="success-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <h3>{{ t('server.password.changed') }}</h3>
+          <p>{{ t('server.password.successMessage') }}</p>
+          <button @click="closePasswordSuccessModal" class="btn-primary success-btn">
+            <i class="fas fa-check"></i> {{ t('common.confirm') || '确定' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 凭证设置模态框 -->
@@ -1058,6 +1074,7 @@ const allTrackers = ref([]); // 所有trackers数据（用于在线统计）
 
 // 密码修改相关状态
 const showPasswordModal = ref(false);
+const showPasswordSuccessModal = ref(false);
 const isChangingPassword = ref(false);
 const passwordForm = ref({
   currentPassword: '',
@@ -3118,6 +3135,12 @@ const closePasswordModal = () => {
   };
 };
 
+const closePasswordSuccessModal = () => {
+  showPasswordSuccessModal.value = false;
+  // 同时关闭密码修改弹窗
+  closePasswordModal();
+};
+
 const validatePasswordForm = () => {
   // 清除之前的错误
   passwordErrors.value = {
@@ -3177,10 +3200,10 @@ const changePassword = async () => {
       originalServerConfig.value.password = passwordForm.value.newPassword;
     }
     
-    // 关闭弹窗
-    closePasswordModal();
+    // 显示成功提示弹窗（密码修改弹窗暂时保持打开）
+    showPasswordSuccessModal.value = true;
     
-    // 显示成功提示
+    // 显示横幅提示
     configStatusMessage.value = t('server.password.changed');
     
     // 5秒后清除消息
@@ -5581,6 +5604,67 @@ select {
 
 .form-group:has(.required-indicator) .form-input.error {
   border-left: 3px solid #dc3545;
+}
+
+/* 密码修改成功提示弹窗样式 */
+.success-modal {
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.success-content {
+  padding: 2rem;
+}
+
+.success-icon {
+  margin-bottom: 1rem;
+}
+
+.success-icon i {
+  font-size: 3rem;
+  color: #28a745;
+  animation: successPulse 1s ease-in-out;
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.success-modal h3 {
+  margin: 0 0 0.5rem 0;
+  color: #28a745;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.success-modal p {
+  margin: 0 0 1.5rem 0;
+  color: #6c757d;
+  font-size: 1rem;
+}
+
+.success-btn {
+  min-width: 120px;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  box-shadow: 0 3px 6px rgba(40, 167, 69, 0.3);
+}
+
+.success-btn:hover {
+  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(40, 167, 69, 0.4);
 }
 
 </style> 
