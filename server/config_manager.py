@@ -265,6 +265,8 @@ def save_partial_server_runtime_config(partial_config: PartialServerRuntimeConfi
             
         if partial_config.allow_all_tracker is not None:
             updated_config.allow_all_tracker = partial_config.allow_all_tracker
+        if partial_config.allow_area_location is not None:
+            updated_config.allow_area_location = partial_config.allow_area_location
             
         if partial_config.username is not None:
             updated_config.username = partial_config.username

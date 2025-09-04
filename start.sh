@@ -22,7 +22,7 @@ pip install uvicorn[standard]
 # Start backend server
 echo "Starting backend server..."
 #python3 -m uvicorn server.main:app --host 0.0.0.0 --port 8022 &
-python3 server/main.py &
+python3 -m server.main &
 BACKEND_PID=$!
 
 # Give backend a moment to start

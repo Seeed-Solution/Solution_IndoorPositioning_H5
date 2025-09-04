@@ -153,13 +153,41 @@ const currentServerConfig = ref(null);
 
 // Computed properties
 const filteredTrackerList = computed(() => {
-    const allTrackers = Object.values(trackers.value);
     if (!selectedMapConfig.value || !selectedMapConfig.value.map) {
         return [];
     }
     
-    return allTrackers
-        .filter(tracker => tracker.map === selectedMapConfig.value.map.name)
+    const selectedMapName = selectedMapConfig.value.map.name;
+    
+    // 合并API数据和WebSocket数据，优先使用WebSocket数据
+    const combinedTrackers = {};
+    
+    // 1. 先添加API数据中属于当前地图的tracker
+    allTrackers.value.forEach(tracker => {
+        if (tracker.map === selectedMapName && tracker.trackerId) {
+            combinedTrackers[tracker.trackerId] = {
+                trackerId: tracker.trackerId,
+                map: tracker.map,
+                position: null, // API数据通常没有实时position
+                timestamp: tracker.last_update_time ? new Date(tracker.last_update_time).getTime() : null,
+                sos: tracker.sos !== undefined ? tracker.sos : 2,
+                last_detected_beacons: tracker.last_detected_beacons || [],
+                isFromApi: true
+            };
+        }
+    });
+    
+    // 2. WebSocket数据覆盖API数据
+    Object.values(trackers.value).forEach(tracker => {
+        if (tracker.map === selectedMapName && tracker.trackerId) {
+            combinedTrackers[tracker.trackerId] = {
+                ...tracker, // 使用完整的WebSocket数据
+                isFromApi: false
+            };
+        }
+    });
+    
+    return Object.values(combinedTrackers)
         .sort((a, b) => (a.trackerId || '').localeCompare(b.trackerId || ''));
 });
 
@@ -263,10 +291,19 @@ const toggleMapDropdown = () => {
     showMapDropdown.value = !showMapDropdown.value;
 };
 
-const selectMap = (mapConfig) => {
+const selectMap = async (mapConfig) => {
     selectedMapConfig.value = mapConfig;
     showMapDropdown.value = false;
     showStatus(`Selected map: ${mapConfig.map.name || 'Unnamed Map'}`, 'success');
+    
+    // 切换地图时重新获取tracker数据以获取最新状态
+    showStatus('Loading tracker data for selected map...', 'info');
+    await loadAllTrackers();
+    
+    // 触发统计数据更新
+    statsRefreshTrigger.value++;
+    
+    showStatus(`Map switched successfully: ${mapConfig.map.name || 'Unnamed Map'}`, 'success');
 };
 
 const onTrailsToggled = (showTrailsValue) => {
@@ -319,48 +356,66 @@ const connectWebSocket = () => {
             const message = JSON.parse(event.data);
 
             if (message.type === 'initial_state') {
-                if (isMqttEffectivelyEnabled.value) {
-                    trackers.value = message.data || {};
-                } else {
-                    trackers.value = {};
-                }
+                trackers.value = message.data || {};
             } else if (message.type === 'tracker_update') {
-                if (isMqttEffectivelyEnabled.value) {
-                    const updatedTrackerId = Object.keys(message.data)[0];
+                const updatedTrackerId = Object.keys(message.data)[0];
                     if (updatedTrackerId && message.data[updatedTrackerId]) {
                         const newTrackerData = message.data[updatedTrackerId];
-                        
+
                         console.log(`[DEBUG] WebSocket update for ${updatedTrackerId}: original sos=${newTrackerData.sos}, type=${typeof newTrackerData.sos}`);
                         // SOS值：0=恢复, 1=触发, 2=未知，确保正确处理0值
                         const finalSos = newTrackerData.sos !== undefined ? newTrackerData.sos : 2;
                         console.log(`[DEBUG] Final sos value: ${finalSos}, type=${typeof finalSos}`);
-                        
+
                         const trackerInstanceData = {
                             trackerId: newTrackerData.trackerId,
                             map: newTrackerData.map,
-                            position: newTrackerData.position ? { 
-                                x: newTrackerData.position.x, 
-                                y: newTrackerData.position.y, 
+                            position: newTrackerData.position ? {
+                                x: newTrackerData.position.x,
+                                y: newTrackerData.position.y,
                                 accuracy: newTrackerData.position.accuracy
                             } : null,
                             timestamp: newTrackerData.timestamp,
                             sos: finalSos,
                             sos_happen: newTrackerData.sos_happen,
-                            last_detected_beacons: newTrackerData.last_detected_beacons 
-                                ? newTrackerData.last_detected_beacons.map(b => ({ ...b })) 
+                            last_detected_beacons: newTrackerData.last_detected_beacons
+                                ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
                                 : [],
-                            position_history: newTrackerData.position_history 
-                                ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry) 
+                            position_history: newTrackerData.position_history
+                                ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry)
                                 : []
                         };
 
                         trackers.value[updatedTrackerId] = trackerInstanceData;
                     }
+            } else if (message.type === 'tracker_location_approximate') {
+                console.log('[TrackerMode] Processing tracker_location_approximate. Data:', message.data);
+                const updatedTrackerId = Object.keys(message.data)[0];
+                if (updatedTrackerId && message.data[updatedTrackerId]) {
+                    const newTrackerData = message.data[updatedTrackerId];
+                    console.log(`[TrackerMode] Updating tracker ${updatedTrackerId} with approximate location:`, newTrackerData);
+                    
+                    const trackerInstanceData = {
+                        trackerId: newTrackerData.trackerId,
+                        map: newTrackerData.map,
+                        position: null, // 区域定位没有精确position
+                        radius: newTrackerData.radius,
+                        timestamp: newTrackerData.timestamp,
+                        sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
+                        sos_happen: newTrackerData.sos_happen,
+                        last_detected_beacons: newTrackerData.last_detected_beacons
+                            ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
+                            : [],
+                        position_history: newTrackerData.position_history
+                            ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry)
+                            : []
+                    };
+                    
+                    trackers.value[updatedTrackerId] = trackerInstanceData;
                 }
             } else if (message.type === 'tracker_sos') {
                 console.log('[TrackerMode] Processing tracker_sos. Data:', message.data);
-                if (isMqttEffectivelyEnabled.value) {
-                    const updatedTrackerId = Object.keys(message.data)[0];
+                const updatedTrackerId = Object.keys(message.data)[0];
                     if (updatedTrackerId && message.data[updatedTrackerId]) {
                         if (!trackers.value[updatedTrackerId]) {
                             console.log('[TrackerMode] Tracker not found for SOS update:', updatedTrackerId);
@@ -371,7 +426,6 @@ const connectWebSocket = () => {
                         trackers.value[updatedTrackerId].sos_happen = newTrackerEvent.timestamp;
                         console.log(`[TrackerMode] Updated SOS status for ${updatedTrackerId}: sos=${newTrackerEvent.sos}, timestamp=${newTrackerEvent.timestamp}`);
                     }
-                }
             } else if (message.type === 'mqtt_status_update') { 
                 if (message.data && typeof message.data.status === 'string') {
                     liveMqttStatusForServerSettings.value = message.data.status;

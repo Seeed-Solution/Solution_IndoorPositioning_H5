@@ -127,6 +127,13 @@
                 X: {{ tracker.position.x.toFixed(2) }}, Y: {{ tracker.position.y.toFixed(2) }}
                 <span v-if="tracker.position.accuracy && typeof tracker.position.accuracy === 'number'">, {{ t('tracker.accuracy') }}: {{ tracker.position.accuracy.toFixed(2) }}m</span>
               </div>
+              <div v-else-if="tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-pos tracker-pos-area">
+                {{ t('tracker.areaPositioning') }}: {{ t('tracker.radius') }} {{ tracker.radius.toFixed(2) }}m
+                <div class="tracker-beacon-info">
+                  {{ t('tracker.nearBeacon') }}: {{ tracker.last_detected_beacons[0].name || 'Unknown' }}
+                  (X: {{ tracker.last_detected_beacons[0].configured_x?.toFixed(2) }}, Y: {{ tracker.last_detected_beacons[0].configured_y?.toFixed(2) }})
+                </div>
+              </div>
               <div v-else class="tracker-pos-na">
                 {{ t('tracker.noPositionData') }}
               </div>
@@ -203,9 +210,11 @@ const mergedTrackers = computed(() => {
         } else {
             trackersToUse = props.trackers;
         }
+        console.log('[MergedTrackers] Using props.trackers:', Object.keys(trackersToUse).map(id => ({ id, beacons: trackersToUse[id].last_detected_beacons?.length || 0 })));
     } else if (Object.keys(localTrackers.value).length > 0) {
         // 如果 props.trackers 没有数据，使用预加载的数据
         trackersToUse = localTrackers.value;
+        console.log('[MergedTrackers] Using localTrackers:', Object.keys(trackersToUse).map(id => ({ id, beacons: trackersToUse[id].last_detected_beacons?.length || 0 })));
     }
     
     return trackersToUse;
@@ -222,7 +231,7 @@ const filteredTrackers = computed(() => {
     const result = allTrackers.filter(tracker => {
         // 首先基于 map 字段过滤
         if (props.config.map.name === tracker.map) {
-            console.log(`[FilteredTrackers] ${props.config.map.name} 存在 tracker: ${tracker.trackerId}`);
+            console.log(`[FilteredTrackers] ${props.config.map.name} 存在 tracker: ${tracker.trackerId}, beacons:`, tracker.last_detected_beacons);
             return true;
         } else {
             console.log(`[FilteredTrackers] ${props.config.map.name} 跳过 tracker: ${tracker.trackerId} (map字段不匹配: tracker.map=${tracker.map})`);
@@ -641,7 +650,9 @@ const drawMap = (ctx) => {
 
    // --- Draw Trackers ---
    filteredTrackers.value.forEach(tracker => {
+       console.log(`[DEBUG] 处理tracker: ${tracker.trackerId}, position:`, tracker.position, ', radius:', tracker.radius, ', last_detected_beacons:', tracker.last_detected_beacons?.length);
        if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
+           // 精确定位绘制
            const trackerX = (tracker.position.x - minX) * currentScale;
            const trackerY = (tracker.position.y - minY) * currentScale;
 
@@ -682,6 +693,48 @@ const drawMap = (ctx) => {
 
            console.log(`tracker(${tracker.trackerId}) 绘制成功`)
          return
+       } else if (tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0) {
+           // 区域定位绘制
+           const beacon = tracker.last_detected_beacons[0]; // 使用第一个检测到的beacon
+           console.log(`[DEBUG] 尝试区域定位绘制 tracker: ${tracker.trackerId}, radius: ${tracker.radius}, message:`, JSON.stringify(tracker));
+           if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
+             const centerX = (beacon.configured_x - minX) * currentScale;
+             const centerY = (beacon.configured_y - minY) * currentScale;
+             const radius = tracker.radius * currentScale;
+
+             // 根据SOS状态绘制不同颜色的圆圈
+             ctx.beginPath();
+             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+             if (tracker.sos === 1) {
+               ctx.fillStyle = 'rgba(255, 182, 193, 0.3)'; // 浅红色，半透明
+               ctx.strokeStyle = 'rgba(220, 53, 69, 0.6)'; // 深红色边框
+             } else {
+               ctx.fillStyle = 'rgba(144, 238, 144, 0.3)'; // 浅绿色，半透明
+               ctx.strokeStyle = 'rgba(34, 139, 34, 0.6)'; // 深绿色边框
+             }
+             ctx.lineWidth = 2;
+             ctx.fill();
+             ctx.stroke();
+
+             // 在圆圈内显示tracker ID的后5位
+             const trackerId = tracker.trackerId;
+             const displayId = trackerId.length > 5 ? trackerId.substring(trackerId.length - 5) : trackerId;
+             
+             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // 黑色文字
+             ctx.font = 'bold 14px Arial';
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
+
+             // Draw text upright despite flipped context
+             ctx.save();
+             ctx.translate(centerX, centerY);
+             ctx.scale(1, -1); // Flip text back
+             ctx.fillText(displayId, 0, 0);
+             ctx.restore();
+
+             console.log(`tracker(${tracker.trackerId}) 区域定位绘制成功, radius: ${tracker.radius}, center: (${beacon.configured_x}, ${beacon.configured_y})`);
+             return;
+           }
        }
        console.log(`tracker(${tracker.trackerId}) 绘制失败, 无定位信息`)
    });
@@ -988,6 +1041,19 @@ defineExpose({
   color: #333;
   font-size: 0.95em;
   margin-bottom: 3px;
+}
+.tracker-pos-area {
+  color: #28a745;
+  background-color: rgba(40, 167, 69, 0.1);
+  padding: 4px 6px;
+  border-radius: 4px;
+  border-left: 3px solid #28a745;
+}
+.tracker-beacon-info {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 2px;
+  font-style: italic;
 }
 .tracker-pos-na {
   color: #777;

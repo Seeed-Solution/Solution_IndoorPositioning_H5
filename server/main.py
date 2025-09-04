@@ -1,14 +1,3 @@
-import pydantic
-
-if __name__ == "__main__":
-    import sys
-    import os
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(current_dir, '..'))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, Request
 from pydantic import BaseModel
@@ -30,7 +19,7 @@ from server.components.beacon_holder import beacon_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.components.uplink_collector import UplinkCollector
 import requests
-from components.session_holder import session_holder
+from server.components.session_holder import session_holder
 
 # from server.clients.paas_client import get_sensecap_client, initialize_sensecap_client
 
@@ -94,6 +83,7 @@ runtime_cfg: Optional[
 main_event_loop: Optional[asyncio.AbstractEventLoop] = None  # Added for thread-safe coroutine scheduling
 mqtt_connection_status: str = "disconnected"  # Added for live MQTT status
 is_mqtt_intentionally_disconnected: bool = False  # Flag for manual disconnects
+shutdown_flag: bool = False  # Flag for graceful shutdown
 
 tracker_states: Dict[str, TrackerState] = {}  # Stores the latest state for each tracker
 kalman_filters: Dict[str, KalmanFilter2D] = {}  # Stores Kalman filter instance per tracker
@@ -380,6 +370,7 @@ def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[Track
             detectedBeacons=detected_beacons_list,
             locType="bluetooth",
             loc={},
+            sos=sos_value,
             sourceType="chirpstack"
         )
 
@@ -734,8 +725,8 @@ def on_message(client, userdata, msg):
         else:
             log.error(
                 "Main asyncio event loop not available or not running. Cannot schedule tracker report processing.")
-    else:
-        log.warning(f"Failed to parse payload or no report generated from {source_type} topic {msg.topic}")
+    # else:
+    #     log.warning(f"Failed to parse payload or no report generated from {source_type} topic {msg.topic}")
 
 
 ## 计算定位结果
@@ -783,7 +774,7 @@ async def process_tracker_report(report: TrackerReport):
         if not previous_sos:
             previous_sos = 0
 
-        time.sleep(2)
+        time.sleep(1)
         now_loc_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
 
         # 检查设备SOS状态是否发生变化
@@ -829,7 +820,6 @@ async def process_tracker_report(report: TrackerReport):
             tracker_states.get(report.trackerId, {}).sos = current_sos
             log.info(
                 f"设备 {report.trackerId} SOS无状态变化: previous_sos: {previous_sos}, current_sos: {current_sos}，不会创建告警记录")
-        return
 
     # 非蓝牙定位, 不需要进入后面的部分
     if len(report.detectedBeacons) == 0:
@@ -869,7 +859,12 @@ async def process_tracker_report(report: TrackerReport):
             best_map = map_name
             best_beacons = map_beacons
 
+    if len(best_beacons) == 0:
+        log.info(f"device(id: {tracker_id}) can not find effective beacon..")
+        return
     log.info(f"device(id: {tracker_id}): choose map '{best_map}' length of beacons: {len(best_beacons)} ")
+
+
 
     calculated_position = positioning.calculate_position(
         detected_beacons=best_beacons,
@@ -887,28 +882,37 @@ async def process_tracker_report(report: TrackerReport):
             log.info(f"未启用区域定位, 丢弃消息: eui=>{report.trackerId}")
             return
 
-        sos = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='4200', default_value=0)
-        new_state = TrackerState(
-            trackerId=tracker_id,
-            last_update_time=current_time_ms,
-            last_known_measurement_time=report.timestamp,
-            last_detected_beacons=report.detectedBeacons,
-            map=best_map,
-            sos=sos,
-            type=calculated_position[2],
-            radius=calculated_position[0]
-        )
-
-        tracker_states[tracker_id] = new_state
         scanned_beacon = best_beacons[int(calculated_position[1])]
         beacon_config = beacon_holder.get_beacon(scanned_beacon.macAddress)
 
         enriched_b_data = {
             'txPower': beacon_config.txPower,
+            'rssi': scanned_beacon.rssi,
             'name': beacon_config.displayName,
             'configured_x': beacon_config.x,
-            'configured_y': beacon_config.y
+            'configured_y': beacon_config.y,
+            'macAddress': beacon_config.macAddress
         }
+
+        new_state = TrackerState(
+            trackerId=tracker_id,
+            last_update_time=current_time_ms,
+            last_known_measurement_time=report.timestamp,
+            last_detected_beacons=[DetectedBeacon(
+                macAddress=beacon_config.macAddress,
+                rssi=scanned_beacon.rssi,
+                configured_x=beacon_config.x,
+                configured_y=beacon_config.y,
+                name=beacon_config.displayName
+            )],
+            map=best_map,
+            sos=report.sos,
+            type=calculated_position[2],
+            radius=calculated_position[0]
+        )
+
+        tracker_states[tracker_id] = new_state
+
         tracker_data_payload = {
             "trackerId": tracker_id,
             "timestamp": current_time_ms,
@@ -1143,6 +1147,9 @@ async def startup_event():
 
     # Load server runtime configuration first as it might be needed by other components
     runtime_cfg = config_manager.load_server_runtime_config()
+    config_manager.load_miniprogram_config()
+    load_dashboard_config()
+    load_web_ui_config()
     if not runtime_cfg:
         log.error(
             "Critical: Server runtime configuration could not be loaded. MQTT and other services might not start.")
@@ -1192,6 +1199,31 @@ async def startup_event():
     #     log.warning(f"Failed to cleanup expired sessions on startup: {e}")
     
     log.info("Server startup complete.")
+
+
+async def graceful_shutdown():
+    """Performs graceful shutdown operations."""
+    global mqtt_clients, manager, shutdown_flag
+    
+    log.info("Initiating graceful shutdown...")
+    shutdown_flag = True
+    
+    # Disconnect all MQTT clients
+    disconnect_all_mqtt_clients(broadcast=False)
+    
+    # Close all WebSocket connections
+    for connection in manager.active_connections[:]:
+        try:
+            await connection.send_text(json.dumps({
+                "type": "server_shutdown", 
+                "message": "Server is shutting down gracefully"
+            }))
+            await connection.close()
+        except Exception as e:
+            log.warning(f"Error closing WebSocket connection: {e}")
+    
+    manager.active_connections.clear()
+    log.info("Graceful shutdown operations completed.")
 
 
 @app.on_event("shutdown")
@@ -1920,6 +1952,43 @@ async def get_allow_tracker_list():
         log.error(f"Error getting tracker_list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
+@app.post("/api/shutdown", status_code=200)
+async def api_shutdown(request: Request):
+    """
+    优雅停止服务接口
+    需要管理员认证，执行优雅停止操作
+    """
+    global shutdown_flag
+    
+    try:
+        # 检查是否已经在关闭中
+        if shutdown_flag:
+            return {
+                "success": True,
+                "message": "Server is already shutting down"
+            }
+        
+        # 执行优雅停止
+        await graceful_shutdown()
+        
+        # 延迟一段时间后停止服务器
+        async def delayed_exit():
+            await asyncio.sleep(2)  # 给响应时间返回
+            log.info("Stopping Uvicorn server...")
+            os._exit(0)  # 强制退出进程
+        
+        # 在后台执行延迟退出
+        asyncio.create_task(delayed_exit())
+        
+        return {
+            "success": True,
+            "message": "Server shutdown initiated successfully"
+        }
+        
+    except Exception as e:
+        log.error(f"Error during graceful shutdown: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Shutdown failed: {str(e)}")
 
 
 # --- Main Execution ---

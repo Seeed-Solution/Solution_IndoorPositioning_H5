@@ -149,6 +149,7 @@ class PartialServerRuntimeConfig(BaseModel):
     chirpStackMqtt: Optional[ChirpstackMqttConfig] = None
     tracker_list: Optional[list[str]] = None
     allow_all_tracker: Optional[bool] = None
+    allow_area_location: Optional[bool] = None
     username: Optional[str] = None
     webhook: Optional[WebhookSetting] = None
 
@@ -213,6 +214,8 @@ class DetectedBeacon(BaseModel):
     minor: Optional[int] = None
     name: Optional[str] = Field(default=None)
     rssi: int
+    configured_x: Optional[float] = None
+    configured_y: Optional[float] = None
 
 class TrackerReport(BaseModel):
     trackerId: str # Corresponds to device devEui from MQTT topic

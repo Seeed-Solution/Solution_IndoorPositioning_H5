@@ -2,7 +2,7 @@
   <div class="configuration-suite page-container">
     <h1 class="page-title">{{ t('config.management.title') }}</h1>
     
-    <p class="info-banner status-display info" v-if="configStatusMessage">{{ configStatusMessage }}</p>
+    <p class="info-banner status-display success" v-if="configStatusMessage">{{ configStatusMessage }}</p>
     
     <!-- 统一配置概览 -->
     <div class="unified-stats-overview card">
@@ -334,7 +334,7 @@
       <!-- 服务器运行时配置 -->
       <div class="server-config-section card">
         <div class="card-header">
-          <h2><i class="fas fa-server"></i> Server Runtime Configuration</h2>
+          <h2><i class="fas fa-server"></i> {{ t('server.runtimeConfig') }}</h2>
           <div class="header-actions">
             <template v-if="!isServerConfigEditMode">
               <button 
@@ -342,14 +342,21 @@
                 class="reload-button"
                 :disabled="isLoadingServerConfig"
               >
-                <i class="fas fa-sync-alt"></i> {{ isLoadingServerConfig ? 'Loading...' : 'Reload' }}
+                <i class="fas fa-sync-alt"></i> {{ isLoadingServerConfig ? t('server.loading') : t('server.reload') }}
               </button>
               <button 
                 @click="enterEditMode"
                 class="edit-button"
                 :disabled="!serverConfig"
               >
-                <i class="fas fa-edit"></i> Edit
+                <i class="fas fa-edit"></i> {{ t('server.edit') }}
+              </button>
+              <button 
+                @click="confirmRestartService"
+                class="restart-button"
+                :disabled="isRestartingService"
+              >
+                <i class="fas fa-power-off"></i> {{ isRestartingService ? t('server.restart.restarting') : t('server.restart.button') }}
               </button>
             </template>
             <template v-else>
@@ -358,14 +365,14 @@
                 class="save-button"
                 :disabled="isSavingServerConfig"
               >
-                <i class="fas fa-save"></i> {{ isSavingServerConfig ? 'Saving...' : 'Save' }}
+                <i class="fas fa-save"></i> {{ isSavingServerConfig ? t('server.saving') : t('server.save') }}
               </button>
               <button 
                 @click="cancelEditMode"
                 class="cancel-button"
                 :disabled="isSavingServerConfig"
               >
-                <i class="fas fa-times"></i> Cancel
+                <i class="fas fa-times"></i> {{ t('server.cancel') }}
               </button>
             </template>
           </div>
@@ -378,7 +385,7 @@
               <div class="mqtt-header">
                 <div class="mqtt-title">
                   <i class="fas fa-satellite"></i>
-                  <h3>SenseCAP OpenStream MQTT</h3>
+                  <h3>{{ t('server.sensecap.title') }}</h3>
                 </div>
                 <div class="mqtt-toggle">
                   <label class="toggle-switch">
@@ -391,47 +398,47 @@
                     <span class="toggle-slider"></span>
                   </label>
                   <span class="toggle-label">
-                    {{ serverConfig.sensecapOpenStream.enabled ? 'Enabled' : 'Disabled' }}
+                    {{ serverConfig.sensecapOpenStream.enabled ? t('server.sensecap.enabled') : t('server.sensecap.disabled') }}
                   </span>
                 </div>
               </div>
               
               <div v-if="!serverConfig.sensecapOpenStream.enabled" class="mqtt-disabled-state">
-                <p><i class="fas fa-info-circle"></i> Enable to configure SenseCAP OpenStream MQTT connection</p>
+                <p><i class="fas fa-info-circle"></i> {{ t('server.sensecap.enableTooltip') }}</p>
               </div>
               
               <div v-else class="mqtt-config-content">
                 <div class="form-grid">
                   <div class="form-group">
-                    <label>Broker Host:</label>
+                    <label>{{ t('server.sensecap.brokerHost') }}</label>
                     <input type="text" v-model="serverConfig.sensecapOpenStream.brokerHost" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'sensecap-openstream.seeed.cc'" />
                   </div>
                   <div class="form-group">
-                    <label>Broker Port:</label>
+                    <label>{{ t('server.sensecap.brokerPort') }}</label>
                     <input type="number" v-model.number="serverConfig.sensecapOpenStream.brokerPort" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'1883'" />
                   </div>
                   <div class="form-group">
-                    <label>Application ID: <span class="required-indicator">*</span></label>
+                    <label>{{ t('server.sensecap.applicationId') }} <span class="required-indicator">{{ t('server.sensecap.required') }}</span></label>
                     <input type="text" v-model="serverConfig.sensecapOpenStream.applicationID" class="form-input" :class="{ 'error': sensecapValidationErrors.applicationID }" :disabled="!isServerConfigEditMode" required />
                     <span v-if="sensecapValidationErrors.applicationID" class="error-message">{{ sensecapValidationErrors.applicationID }}</span>
                   </div>
                   <div class="form-group">
-                    <label>Username: <span class="required-indicator">*</span></label>
+                    <label>{{ t('server.sensecap.username') }} <span class="required-indicator">{{ t('server.sensecap.required') }}</span></label>
                     <input type="text" v-model="serverConfig.sensecapOpenStream.username" class="form-input" :class="{ 'error': sensecapValidationErrors.username }" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.sensecapOpenStream.applicationID ? `org-${serverConfig.sensecapOpenStream.applicationID}` : 'Auto-generated when Application ID is set'" required />
                     <span v-if="sensecapValidationErrors.username" class="error-message">{{ sensecapValidationErrors.username }}</span>
                   </div>
                   <div class="form-group">
-                    <label>Password: <span class="required-indicator">*</span></label>
-                    <input type="password" v-model="serverConfig.sensecapOpenStream.password" class="form-input" :class="{ 'error': sensecapValidationErrors.password }" placeholder="Enter password" :disabled="!isServerConfigEditMode" required />
+                    <label>{{ t('server.sensecap.password') }} <span class="required-indicator">{{ t('server.sensecap.required') }}</span></label>
+                    <input type="password" v-model="serverConfig.sensecapOpenStream.password" class="form-input" :class="{ 'error': sensecapValidationErrors.password }" :placeholder="t('server.sensecap.passwordPlaceholder')" :disabled="!isServerConfigEditMode" required />
                     <span v-if="sensecapValidationErrors.password" class="error-message">{{ sensecapValidationErrors.password }}</span>
                   </div>
                   <div class="form-group">
-                    <label>Topic Pattern: <span class="required-indicator">*</span></label>
+                    <label>{{ t('server.sensecap.topicPattern') }} <span class="required-indicator">{{ t('server.sensecap.required') }}</span></label>
                     <input type="text" v-model="serverConfig.sensecapOpenStream.topicPattern" class="form-input" :class="{ 'error': sensecapValidationErrors.topicPattern }" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.sensecapOpenStream.applicationID ? `/device_sensor_data/${serverConfig.sensecapOpenStream.applicationID}/+/+/+/+` : 'Auto-generated when Application ID is set'" required />
                     <span v-if="sensecapValidationErrors.topicPattern" class="error-message">{{ sensecapValidationErrors.topicPattern }}</span>
                   </div>
                   <div class="form-group">
-                    <label>Client ID: <span class="required-indicator">*</span></label>
+                    <label>{{ t('server.sensecap.clientId') }} <span class="required-indicator">{{ t('server.sensecap.required') }}</span></label>
                     <input type="text" v-model="serverConfig.sensecapOpenStream.clientID" class="form-input" :class="{ 'error': sensecapValidationErrors.clientID }" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.sensecapOpenStream.applicationID ? `org-${serverConfig.sensecapOpenStream.applicationID}-XXXXXX` : 'Auto-generated when Application ID is set'" required />
                     <span v-if="sensecapValidationErrors.clientID" class="error-message">{{ sensecapValidationErrors.clientID }}</span>
                   </div>
@@ -444,7 +451,7 @@
               <div class="mqtt-header">
                 <div class="mqtt-title">
                   <i class="fas fa-broadcast-tower"></i>
-                  <h3>ChirpStack MQTT</h3>
+                  <h3>{{ t('server.chirpstack.title') }}</h3>
                 </div>
                 <div class="mqtt-toggle">
                   <label class="toggle-switch">
@@ -457,45 +464,45 @@
                     <span class="toggle-slider"></span>
                   </label>
                   <span class="toggle-label">
-                    {{ serverConfig.chirpStackMqtt.enabled ? 'Enabled' : 'Disabled' }}
+                    {{ serverConfig.chirpStackMqtt.enabled ? t('server.chirpstack.enabled') : t('server.chirpstack.disabled') }}
                   </span>
                 </div>
               </div>
               
               <div v-if="!serverConfig.chirpStackMqtt.enabled" class="mqtt-disabled-state">
-                <p><i class="fas fa-info-circle"></i> Enable to configure ChirpStack MQTT connection</p>
+                <p><i class="fas fa-info-circle"></i> {{ t('server.chirpstack.enableTooltip') }}</p>
               </div>
               
               <div v-else class="mqtt-config-content">
                 <div class="form-grid">
                   <div class="form-group">
-                    <label>Broker Host: <span class="required-indicator">*</span></label>
+                    <label>{{ t('server.chirpstack.brokerHost') }} <span class="required-indicator">{{ t('server.chirpstack.required') }}</span></label>
                     <input type="text" v-model="serverConfig.chirpStackMqtt.brokerHost" class="form-input" :class="{ 'error': chirpstackValidationErrors.brokerHost }" :disabled="!isServerConfigEditMode" :placeholder="'127.0.0.1'" required />
                     <span v-if="chirpstackValidationErrors.brokerHost" class="error-message">{{ chirpstackValidationErrors.brokerHost }}</span>
                   </div>
                   <div class="form-group">
-                    <label>Broker Port:</label>
+                    <label>{{ t('server.chirpstack.brokerPort') }}</label>
                     <input type="number" v-model.number="serverConfig.chirpStackMqtt.brokerPort" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'1883'" />
                   </div>
                   <div class="form-group">
-                    <label>Application ID: <span class="required-indicator">*</span></label>
+                    <label>{{ t('server.chirpstack.applicationId') }} <span class="required-indicator">{{ t('server.chirpstack.required') }}</span></label>
                     <input type="text" v-model="serverConfig.chirpStackMqtt.applicationID" class="form-input" :class="{ 'error': chirpstackValidationErrors.applicationID }" :disabled="!isServerConfigEditMode" required />
                     <span v-if="chirpstackValidationErrors.applicationID" class="error-message">{{ chirpstackValidationErrors.applicationID }}</span>
                   </div>
                   <div class="form-group">
-                    <label>Topic Pattern:</label>
+                    <label>{{ t('server.chirpstack.topicPattern') }}</label>
                     <input type="text" v-model="serverConfig.chirpStackMqtt.topicPattern" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="serverConfig.chirpStackMqtt.applicationID ? `application/${serverConfig.chirpStackMqtt.applicationID}/device/+/event/up` : 'Auto-generated when Application ID is set'" />
                   </div>
                   <div class="form-group">
-                    <label>Username:</label>
+                    <label>{{ t('server.chirpstack.username') }}</label>
                     <input type="text" v-model="serverConfig.chirpStackMqtt.username" class="form-input" :disabled="!isServerConfigEditMode" />
                   </div>
                   <div class="form-group">
-                    <label>Password:</label>
-                    <input type="password" v-model="serverConfig.chirpStackMqtt.password" class="form-input" placeholder="Enter new password or leave blank to keep current" :disabled="!isServerConfigEditMode" />
+                    <label>{{ t('server.chirpstack.password') }}</label>
+                    <input type="password" v-model="serverConfig.chirpStackMqtt.password" class="form-input" :placeholder="t('server.chirpstack.passwordPlaceholder')" :disabled="!isServerConfigEditMode" />
                   </div>
                   <div class="form-group">
-                    <label>Client ID:</label>
+                    <label>{{ t('server.chirpstack.clientId') }}</label>
                     <input type="text" v-model="serverConfig.chirpStackMqtt.clientID" class="form-input" :disabled="!isServerConfigEditMode" :placeholder="'Auto-generated: client-xxxxxx'" />
                   </div>
                 </div>
@@ -509,14 +516,14 @@
               <div class="mqtt-header">
                 <div class="mqtt-title">
                   <i class="fas fa-user-shield"></i>
-                  <h3>Authentication</h3>
+                  <h3>{{ t('server.authentication.title') }}</h3>
                 </div>
               </div>
               
               <div class="mqtt-config-content">
                 <!-- 用户名配置 -->
                 <div class="form-group-inline">
-                  <label>Username:</label>
+                  <label>{{ t('server.authentication.username') }}</label>
                   <input 
                     type="text" 
                     v-model="serverConfig.username" 
@@ -527,21 +534,53 @@
 
                 <!-- 密码配置 -->
                 <div class="form-group-inline">
-                  <label>Password:</label>
+                  <label>{{ t('server.authentication.password') }}</label>
                   <div class="password-section">
                     <div class="password-info">
                       <span class="password-placeholder">••••••••</span>
-                      <span class="password-hint">Password is encrypted and hidden for security</span>
+                      <span class="password-hint">{{ t('server.authentication.passwordHidden') }}</span>
                     </div>
                     <button 
                       @click="openPasswordModal"
                       class="change-password-button"
                       :disabled="!isServerConfigEditMode"
                     >
-                      <i class="fas fa-key"></i> Change Password
+                      <i class="fas fa-key"></i> {{ t('server.authentication.changePassword') }}
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Area Location Configuration -->
+            <div class="config-section mqtt-config-section">
+              <div class="mqtt-header">
+                <div class="mqtt-title">
+                  <i class="fas fa-map-pin"></i>
+                  <h3>{{ t('server.areaLocation.title') }}</h3>
+                </div>
+                <div class="mqtt-toggle">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      v-model="serverConfig.allow_area_location"
+                      :disabled="!isServerConfigEditMode"
+                      class="toggle-input"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">
+                    {{ serverConfig.allow_area_location ? t('server.areaLocation.enabled') : t('server.areaLocation.disabled') }}
+                  </span>
+                </div>
+              </div>
+              
+              <div v-if="serverConfig.allow_area_location" class="mqtt-disabled-state">
+                <p><i class="fas fa-check-circle"></i> {{ t('server.areaLocation.enabledTooltip') }}</p>
+              </div>
+              
+              <div v-else class="mqtt-disabled-state">
+                <p><i class="fas fa-info-circle"></i> {{ t('server.areaLocation.disabledTooltip') }}</p>
               </div>
             </div>
 
@@ -550,7 +589,7 @@
               <div class="mqtt-header">
                 <div class="mqtt-title">
                   <i class="fas fa-external-link-alt"></i>
-                  <h3>Webhook</h3>
+                  <h3>{{ t('server.webhook.title') }}</h3>
                 </div>
                 <div class="mqtt-toggle">
                   <label class="toggle-switch">
@@ -563,19 +602,19 @@
                     <span class="toggle-slider"></span>
                   </label>
                   <span class="toggle-label">
-                    {{ serverConfig.webhook.enable ? 'Enabled' : 'Disabled' }}
+                    {{ serverConfig.webhook.enable ? t('server.webhook.enabled') : t('server.webhook.disabled') }}
                   </span>
                 </div>
               </div>
               
               <div v-if="!serverConfig.webhook.enable" class="mqtt-disabled-state">
-                <p><i class="fas fa-info-circle"></i> Enable to configure webhook notifications</p>
+                <p><i class="fas fa-info-circle"></i> {{ t('server.webhook.enableTooltip') }}</p>
               </div>
               
               <div v-else class="mqtt-config-content">
                 <!-- Host URL配置 -->
                 <div class="form-group-inline">
-                  <label>Host URL:</label>
+                  <label>{{ t('server.webhook.host') }}</label>
                   <input 
                     type="url" 
                     v-model="serverConfig.webhook.host" 
@@ -587,21 +626,21 @@
                 
                 <!-- Headers配置 -->
                 <div class="webhook-headers-section">
-                  <h4>HTTP Headers</h4>
+                  <h4>{{ t('server.webhook.headers') }}</h4>
                   <div class="webhook-headers-management">
                     <div class="header-add-section">
                       <div class="header-inputs">
                         <input 
                           type="text" 
                           v-model="newHeaderName"
-                          placeholder="Header name (e.g., Authorization)"
+                          :placeholder="t('server.webhook.headerName')"
                           class="header-name-input"
                           :disabled="!isServerConfigEditMode"
                         />
                         <input 
                           type="text" 
                           v-model="newHeaderValue"
-                          placeholder="Header value (e.g., Bearer token123)"
+                          :placeholder="t('server.webhook.headerValue')"
                           class="header-value-input"
                           :disabled="!isServerConfigEditMode"
                         />
@@ -610,14 +649,14 @@
                           :disabled="!newHeaderName.trim() || !newHeaderValue.trim() || !isServerConfigEditMode"
                           class="add-header-button"
                         >
-                          <i class="fas fa-plus"></i> Add
+                          <i class="fas fa-plus"></i> {{ t('server.webhook.addHeader') }}
                         </button>
                       </div>
                     </div>
                     
                     <div v-if="webhookHeadersList.length > 0" class="headers-list">
                       <div class="headers-list-title">
-                        <span>Current Headers ({{ webhookHeadersList.length }}):</span>
+                        <span>{{ t('server.webhook.currentHeaders', {count: webhookHeadersList.length}) }}</span>
                       </div>
                       <div class="header-items">
                         <div 
@@ -632,7 +671,7 @@
                           <button 
                             @click="removeWebhookHeader(index)"
                             class="remove-header-button"
-                            title="Remove this header"
+                            :title="t('server.webhook.removeHeader')"
                           >
                             <i class="fas fa-trash"></i>
                           </button>
@@ -642,8 +681,8 @@
                     
                     <div v-else class="empty-headers">
                       <i class="fas fa-list-alt empty-icon"></i>
-                      <p>No custom headers configured</p>
-                      <p class="hint">Add headers like Authorization, Content-Type, etc.</p>
+                      <p>{{ t('server.webhook.noHeaders') }}</p>
+                      <p class="hint">{{ t('server.webhook.noHeadersHint') }}</p>
                     </div>
                   </div>
                 </div>
@@ -655,7 +694,7 @@
               <div class="mqtt-header">
                 <div class="mqtt-title">
                   <i class="fas fa-satellite-dish"></i>
-                  <h3>Tracker Access Control</h3>
+                  <h3>{{ t('server.trackerAccess.title') }}</h3>
                 </div>
                 <div class="mqtt-toggle">
                   <label class="toggle-switch">
@@ -668,20 +707,20 @@
                     <span class="toggle-slider"></span>
                   </label>
                   <span class="toggle-label">
-                    {{ serverConfig.allow_all_tracker ? 'Allow All' : 'Restricted' }}
+                    {{ serverConfig.allow_all_tracker ? t('server.trackerAccess.allowAll') : t('server.trackerAccess.restricted') }}
                   </span>
                 </div>
               </div>
               
               <div v-if="serverConfig.allow_all_tracker" class="mqtt-disabled-state">
-                <p><i class="fas fa-unlock"></i> All trackers are allowed to connect to the system</p>
+                <p><i class="fas fa-unlock"></i> {{ t('server.trackerAccess.allowAllTooltip') }}</p>
               </div>
               
               <div v-else class="mqtt-config-content">
                 <div class="tracker-restriction-info">
                   <p class="restriction-description">
                     <i class="fas fa-shield-alt"></i>
-                    Only trackers in the allowed list can connect and be positioned by the system.
+                    {{ t('server.trackerAccess.restrictedDescription') }}
                   </p>
                 </div>
                 
@@ -755,7 +794,7 @@
           
           <div v-else class="loading-state">
             <i class="fas fa-spinner fa-spin"></i>
-            <p>Loading server configuration...</p>
+            <p>{{ t('server.loadingConfig') }}</p>
           </div>
         </div>
       </div>
@@ -814,7 +853,7 @@
     <div v-if="showPasswordModal" class="modal-overlay">
       <div class="modal-content password-modal">
         <div class="modal-header">
-          <h4><i class="fas fa-key"></i> Change Password</h4>
+          <h4><i class="fas fa-key"></i> {{ t('server.password.changeTitle') }}</h4>
           <button @click="closePasswordModal" class="modal-close-button">
             <i class="fas fa-times"></i>
           </button>
@@ -822,14 +861,14 @@
         <div class="modal-body">
           <form @submit.prevent="changePassword">
             <div class="form-group">
-              <label for="currentPassword">Current Password:</label>
+              <label for="currentPassword">{{ t('server.password.current') }}</label>
               <input 
                 type="password" 
                 id="currentPassword"
                 v-model="passwordForm.currentPassword" 
                 class="form-input"
                 :class="{ 'error': passwordErrors.currentPassword }"
-                placeholder="Enter current password"
+                :placeholder="t('server.password.currentPlaceholder')"
                 required
               />
               <span v-if="passwordErrors.currentPassword" class="error-message">
@@ -838,14 +877,14 @@
             </div>
             
             <div class="form-group">
-              <label for="newPassword">New Password:</label>
+              <label for="newPassword">{{ t('server.password.new') }}</label>
               <input 
                 type="password" 
                 id="newPassword"
                 v-model="passwordForm.newPassword" 
                 class="form-input"
                 :class="{ 'error': passwordErrors.newPassword }"
-                placeholder="Enter new password"
+                :placeholder="t('server.password.newPlaceholder')"
                 required
               />
               <span v-if="passwordErrors.newPassword" class="error-message">
@@ -854,14 +893,14 @@
             </div>
             
             <div class="form-group">
-              <label for="confirmPassword">Confirm New Password:</label>
+              <label for="confirmPassword">{{ t('server.password.confirm') }}</label>
               <input 
                 type="password" 
                 id="confirmPassword"
                 v-model="passwordForm.confirmPassword" 
                 class="form-input"
                 :class="{ 'error': passwordErrors.confirmPassword }"
-                placeholder="Confirm new password"
+                :placeholder="t('server.password.confirmPlaceholder')"
                 required
               />
               <span v-if="passwordErrors.confirmPassword" class="error-message">
@@ -877,14 +916,14 @@
             :disabled="isChangingPassword || !isPasswordFormValid"
           >
             <i class="fas fa-save"></i> 
-            {{ isChangingPassword ? 'Changing...' : 'Change Password' }}
+            {{ isChangingPassword ? t('server.password.changing') : t('server.password.changeTitle') }}
           </button>
           <button 
             @click="closePasswordModal"
             class="btn-secondary"
             :disabled="isChangingPassword"
           >
-            <i class="fas fa-times"></i> Cancel
+            <i class="fas fa-times"></i> {{ t('common.cancel') }}
           </button>
         </div>
       </div>
@@ -1041,6 +1080,9 @@ const credentialsForm = ref({
 });
 const credentialsError = ref('');
 
+// 重启服务相关状态
+const isRestartingService = ref(false);
+
 // SenseCap验证错误状态
 const sensecapValidationErrors = ref({
   applicationID: '',
@@ -1119,6 +1161,28 @@ const isPasswordFormValid = computed(() => {
          !passwordErrors.value.newPassword &&
          !passwordErrors.value.confirmPassword;
 });
+
+// 监听密码表单输入变化，动态清除错误信息
+watch(passwordForm, (newForm, oldForm) => {
+  // 当前密码字段变化时清除其错误
+  if (newForm.currentPassword !== oldForm.currentPassword) {
+    passwordErrors.value.currentPassword = '';
+  }
+  
+  // 新密码字段变化时清除相关错误
+  if (newForm.newPassword !== oldForm.newPassword) {
+    passwordErrors.value.newPassword = '';
+    // 如果确认密码字段已填写但不匹配，清除确认密码错误让用户重新输入
+    if (newForm.confirmPassword && newForm.newPassword !== newForm.confirmPassword) {
+      passwordErrors.value.confirmPassword = '';
+    }
+  }
+  
+  // 确认密码字段变化时清除其错误
+  if (newForm.confirmPassword !== oldForm.confirmPassword) {
+    passwordErrors.value.confirmPassword = '';
+  }
+}, { deep: true });
 
 const recentActiveTrackersCount = computed(() => {
   // 统计最近5分钟内有数据的tracker
@@ -2754,7 +2818,7 @@ const loadServerConfig = async () => {
       updateChirpstackDefaultValues();
     }
     
-    configStatusMessage.value = 'Server configuration loaded successfully';
+    configStatusMessage.value = t('server.loadSuccess');
     setTimeout(() => { configStatusMessage.value = '' }, 3000);
   } catch (error) {
     console.error('加载服务器配置失败:', error);
@@ -2803,6 +2867,7 @@ const saveServerConfig = async () => {
     // Tracker配置
     configToSave.tracker_list = serverConfig.value.tracker_list;
     configToSave.allow_all_tracker = serverConfig.value.allow_all_tracker;
+    configToSave.allow_area_location = serverConfig.value.allow_area_location;
     
     // 用户名 (Authentication的密码不提交)
     configToSave.username = serverConfig.value.username;
@@ -2827,7 +2892,7 @@ const saveServerConfig = async () => {
     }
     
     await saveServerConfiguration(configToSave);
-    configStatusMessage.value = 'Server configuration saved successfully';
+    configStatusMessage.value = t('server.saveSuccess');
     setTimeout(() => { configStatusMessage.value = '' }, 3000);
   } catch (error) {
     console.error('保存服务器配置失败:', error);
@@ -2910,7 +2975,7 @@ const enterEditMode = () => {
   }
   
   isServerConfigEditMode.value = true;
-  configStatusMessage.value = 'Edit mode enabled - You can now modify server configuration';
+  configStatusMessage.value = t('server.editModeEnabled');
   setTimeout(() => { configStatusMessage.value = '' }, 3000);
 };
 
@@ -2922,7 +2987,7 @@ const cancelEditMode = () => {
   }
   isServerConfigEditMode.value = false;
   originalServerConfig.value = null;
-  configStatusMessage.value = 'Changes cancelled - Configuration restored';
+  configStatusMessage.value = t('server.changesCancelled');
   setTimeout(() => { configStatusMessage.value = '' }, 3000);
 };
 
@@ -2978,6 +3043,7 @@ const saveServerConfigChanges = async () => {
     // Tracker Access Control 配置
     configToSave.tracker_list = serverConfig.value.tracker_list;
     configToSave.allow_all_tracker = serverConfig.value.allow_all_tracker;
+    configToSave.allow_area_location = serverConfig.value.allow_area_location;
     
     // Authentication 配置 (不提交password)
     configToSave.username = serverConfig.value.username;
@@ -3005,7 +3071,7 @@ const saveServerConfigChanges = async () => {
     isServerConfigEditMode.value = false;
     originalServerConfig.value = null;
     
-    configStatusMessage.value = 'Server configuration saved successfully';
+    configStatusMessage.value = t('server.saveSuccess');
     setTimeout(() => { configStatusMessage.value = '' }, 3000);
   } catch (error) {
     console.error('保存服务器配置失败:', error);
@@ -3104,16 +3170,23 @@ const changePassword = async () => {
     await changePasswordAPI(passwordForm.value.currentPassword, passwordForm.value.newPassword);
     
     // 更新本地配置
-    serverConfig.value.password = passwordForm.value.newPassword;
+    if (serverConfig.value) {
+      serverConfig.value.password = passwordForm.value.newPassword;
+    }
     if (originalServerConfig.value) {
       originalServerConfig.value.password = passwordForm.value.newPassword;
     }
     
-    configStatusMessage.value = 'Password changed successfully';
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
-    
     // 关闭弹窗
     closePasswordModal();
+    
+    // 显示成功提示
+    configStatusMessage.value = t('server.password.changed');
+    
+    // 5秒后清除消息
+    setTimeout(() => { 
+      configStatusMessage.value = ''; 
+    }, 5000);
     
   } catch (error) {
     console.error('修改密码失败:', error);
@@ -3374,6 +3447,48 @@ const saveCredentials = async () => {
     credentialsError.value = error.message;
   } finally {
     credentialsSaving.value = false;
+  }
+};
+
+// 重启服务相关方法
+const confirmRestartService = () => {
+  const confirmed = confirm(t('server.restart.confirmMessage'));
+  if (confirmed) {
+    restartService();
+  }
+};
+
+const restartService = async () => {
+  try {
+    isRestartingService.value = true;
+    configStatusMessage.value = t('server.restart.restarting');
+    
+    // 调用后端关闭接口
+    const response = await fetch('/api/shutdown', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (response.ok) {
+      configStatusMessage.value = t('server.restart.restartInitiated');
+      // 显示消息后稍等片刻，让用户看到反馈
+      setTimeout(() => {
+        // 可以选择在这里做一些清理工作，比如断开WebSocket连接等
+        configStatusMessage.value = '';
+      }, 3000);
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+  } catch (error) {
+    console.error('重启服务失败:', error);
+    configStatusMessage.value = `重启服务失败: ${error.message}`;
+    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  } finally {
+    // 无论成功失败，都要重置状态
+    isRestartingService.value = false;
   }
 };
 
@@ -4726,6 +4841,38 @@ select {
 .header-actions .cancel-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.header-actions .restart-button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.header-actions .restart-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.header-actions .restart-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+.header-actions .restart-button i {
+  font-size: 0.9rem;
 }
 
 /* MQTT配置区域特殊样式 */

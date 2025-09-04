@@ -221,9 +221,9 @@ const wsStatusIcon = computed(() => {
   }
 });
 
-const isMqttEffectivelyEnabled = computed(() => {
-  return serverConfig.value?.mqtt?.enabled && liveMqttStatus.value !== 'disabled';
-});
+// const isMqttEffectivelyEnabled = computed(() => {
+//   return serverConfig.value?.mqtt?.enabled && liveMqttStatus.value !== 'disabled';
+// });
 
 const mqttStatusDisplay = computed(() => {
   let statusText = 'Unknown';
@@ -310,27 +310,17 @@ const connectWebSocket = () => {
   };
 
   ws.value.onmessage = (event) => {
-    console.log('[MapDashboard] RAW onmessage event received. Data:', event.data);
     try {
       const message = JSON.parse(event.data);
-      console.log('[MapDashboard] PARSED message object:', message);
-      
       if (message.type === 'initial_state') {
-        console.log('[MapDashboard] Processing initial_state. Current isMqttEffectivelyEnabled:', isMqttEffectivelyEnabled.value, 'Data:', message.data);
-        // Only update trackers if MQTT is effectively enabled
-        if (isMqttEffectivelyEnabled.value) {
-          trackers.value = message.data || {};
-        } else {
-          trackers.value = {};
-        }
+        trackers.value = message.data || {};
       } else if (message.type === 'tracker_update') {
         console.log('[MapDashboard] Processing tracker_update. Data:', message.data);
-        if (isMqttEffectivelyEnabled.value) {
-          const updatedTrackerId = Object.keys(message.data)[0];
+        const updatedTrackerId = Object.keys(message.data)[0];
           if (updatedTrackerId && message.data[updatedTrackerId]) {
             const newTrackerData = message.data[updatedTrackerId];
             console.log(`[MapDashboard] Updating tracker ${updatedTrackerId} with (raw incoming):`, newTrackerData);
-            
+
             const trackerInstanceData = {
               trackerId: newTrackerData.trackerId,
               position: newTrackerData.position ? {
@@ -356,7 +346,32 @@ const connectWebSocket = () => {
               trackers.value[updatedTrackerId] = trackerInstanceData;
             }
           }
-        }
+      } else if (message.type === 'tracker_location_approximate') {
+          const updatedTrackerId = Object.keys(message.data)[0];
+          if (updatedTrackerId && message.data[updatedTrackerId]) {
+            const newTrackerData = message.data[updatedTrackerId];
+
+            const trackerInstanceData = {
+              trackerId: newTrackerData.trackerId,
+              position: null, // 区域定位没有精确position
+              radius: newTrackerData.radius,
+              timestamp: newTrackerData.timestamp,
+              sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
+              sos_happen: newTrackerData.sos_happen,
+              last_detected_beacons: newTrackerData.last_detected_beacons
+                ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
+                : [],
+              map: newTrackerData.map
+            };
+
+            console.log(`[MapDashboard] Processed beacon data:`, trackerInstanceData.last_detected_beacons);
+
+            if (!trackers.value[updatedTrackerId]) {
+              trackers.value = { ...trackers.value, [updatedTrackerId]: trackerInstanceData };
+            } else {
+              trackers.value[updatedTrackerId] = trackerInstanceData;
+            }
+          }
       } else if (message.type === 'mqtt_status_update') {
         console.log('[MapDashboard] Processing mqtt_status_update. Data:', message.data);
         if (message.data && typeof message.data.status === 'string') {
@@ -367,8 +382,7 @@ const connectWebSocket = () => {
         }
       } else if (message.type === 'tracker_sos') {
         console.log('[MapDashboard] Processing tracker_sos. Data:', message.data);
-        if (isMqttEffectivelyEnabled.value) {
-          const updatedTrackerId = Object.keys(message.data)[0];
+        const updatedTrackerId = Object.keys(message.data)[0];
           if (updatedTrackerId && message.data[updatedTrackerId]) {
             if (!trackers.value[updatedTrackerId]) {
               console.log('[MapDashboard] not found the tracker: ',updatedTrackerId);
@@ -378,7 +392,6 @@ const connectWebSocket = () => {
             trackers.value[updatedTrackerId].sos = newTrackerEvent.sos
             trackers.value[updatedTrackerId].sos_happen = newTrackerEvent.timestamp
           }
-        }
       } else {
         console.log('[MapDashboard] Received unhandled message type:', message.type, 'Data:', message.data);
       }
