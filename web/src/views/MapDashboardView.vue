@@ -300,7 +300,6 @@ const connectWebSocket = () => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
   ws.value = new WebSocket(wsUrl);
-  // ws.value = new WebSocket('ws://indoorpositioning-demo.seeed.cc:8022');
   wsStatus.value = 'connecting';
 
   ws.value.onopen = () => {

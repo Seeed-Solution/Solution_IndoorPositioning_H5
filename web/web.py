@@ -4,7 +4,7 @@ import httpx
 
 app = FastAPI()
 
-BACKEND_URL = "http://127.0.0.1:8022"  # 你真正的后端服务地址
+BACKEND_URL = "http://127.0.0.1:8022"
 
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy(path: str, request: Request):

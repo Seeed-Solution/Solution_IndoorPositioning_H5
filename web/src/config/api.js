@@ -1,6 +1,10 @@
 /**
  * API配置管理
  * 统一管理开发环境和生产环境的API基础URL
+ * 支持三种部署模式：
+ * 1. development: 开发模式，使用 vite 代理
+ * 2. production-remote: 远程生产模式，访问远程服务器
+ * 3. production-local: 本地生产模式，web和后端在同一容器
  */
 
 // 获取环境变量 - 兼容 Vite 和 Node.js 环境
@@ -11,6 +15,12 @@ const isDev = typeof import.meta !== 'undefined' && import.meta.env
 const useRemote = typeof import.meta !== 'undefined' && import.meta.env
   ? import.meta.env.VITE_USE_REMOTE === 'true'
   : process.env.VITE_USE_REMOTE === 'true'
+
+// 检测是否为本地容器部署模式
+// 在容器内部署时，web和后端在同一个服务中，直接使用相对路径
+const isLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
+  ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
+  : process.env.VITE_LOCAL_CONTAINER === 'true'
 
 // 定义API基础URL
 const API_CONFIG = {
@@ -23,18 +33,27 @@ const API_CONFIG = {
   },
   // 生产环境配置
   production: {
-    baseUrl: 'https://indoorpositioning-demo.seeed.cc/api'
+    // 本地容器模式 - web和后端在同一个服务中
+    local: '/api',
+    // 远程模式 - 访问远程服务器
+    remote: 'https://indoorpositioning-demo.seeed.cc/api'
   }
 }
 
 // WebSocket配置
 const WS_CONFIG = {
   development: {
-    local: '/ws',
+    local: 'ws://127.0.0.1:8022/ws',
     remote: 'ws://127.0.0.1:8022/ws'
   },
   production: {
-    baseUrl: 'wss://indoorpositioning-demo.seeed.cc/ws'
+    // 本地容器模式 - 使用相对路径，协议会自动适配
+    local: () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      return `${protocol}//${window.location.hostname}:8022/ws`
+    },
+    // 远程模式 - 访问远程服务器
+    remote: 'wss://indoorpositioning-demo.seeed.cc/ws'
   }
 }
 
@@ -51,13 +70,23 @@ export function getApiBaseUrl() {
   const currentUseRemote = typeof import.meta !== 'undefined' && import.meta.env
     ? import.meta.env.VITE_USE_REMOTE === 'true'
     : process.env.VITE_USE_REMOTE === 'true'
+
+  const currentIsLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
+    ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
+    : process.env.VITE_LOCAL_CONTAINER === 'true'
     
   if (currentIsDev) {
     // 开发环境：根据环境变量决定使用本地代理还是直接访问远程
     return currentUseRemote ? API_CONFIG.development.remote : API_CONFIG.development.local
   } else {
-    // 生产环境：使用生产环境配置
-    return API_CONFIG.production.baseUrl
+    // 生产环境：根据部署模式选择配置
+    if (currentIsLocalContainer) {
+      // 本地容器模式：web和后端在同一个服务中，使用相对路径
+      return API_CONFIG.production.local
+    } else {
+      // 远程模式：访问远程服务器
+      return API_CONFIG.production.remote
+    }
   }
 }
 
@@ -73,11 +102,23 @@ export function getWsBaseUrl() {
   const currentUseRemote = typeof import.meta !== 'undefined' && import.meta.env
     ? import.meta.env.VITE_USE_REMOTE === 'true'
     : process.env.VITE_USE_REMOTE === 'true'
+
+  const currentIsLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
+    ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
+    : process.env.VITE_LOCAL_CONTAINER === 'true'
     
   if (currentIsDev) {
     return currentUseRemote ? WS_CONFIG.development.remote : WS_CONFIG.development.local
   } else {
-    return WS_CONFIG.production.baseUrl
+    // 生产环境：根据部署模式选择配置
+    if (currentIsLocalContainer) {
+      // 本地容器模式：动态构建WebSocket URL
+      const wsConfig = WS_CONFIG.production.local
+      return typeof wsConfig === 'function' ? wsConfig() : wsConfig
+    } else {
+      // 远程模式：访问远程服务器
+      return WS_CONFIG.production.remote
+    }
   }
 }
 
@@ -144,6 +185,7 @@ export const API_ENDPOINTS = {
 if (isDev) {
   console.log(`[API Config] Environment: ${isDev ? 'development' : 'production'}`)
   console.log(`[API Config] Use Remote: ${useRemote}`)
+  console.log(`[API Config] Local Container: ${isLocalContainer}`)
   console.log(`[API Config] API Base URL: ${getApiBaseUrl()}`)
   console.log(`[API Config] WS Base URL: ${getWsBaseUrl()}`)
 }

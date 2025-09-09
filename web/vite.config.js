@@ -2,10 +2,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
-// 修正环境变量判断逻辑
+// 环境变量配置
 const useRemote = process.env.VITE_USE_REMOTE === 'true'
+const isLocalContainer = process.env.VITE_LOCAL_CONTAINER === 'true'
 
-// 开发环境：默认使用本地代理，可通过环境变量切换到直接访问远程服务器
+// 开发环境代理目标
 const apiTarget = useRemote 
   ? 'http://127.0.0.1:8022'
   : 'http://127.0.0.1:8022'
@@ -16,8 +17,10 @@ const wsTarget = useRemote
 
 console.log(`[Vite Config] Environment: ${process.env.NODE_ENV || 'development'}`)
 console.log(`[Vite Config] Use Remote: ${useRemote}`)
+console.log(`[Vite Config] Local Container: ${isLocalContainer}`)
 console.log(`[Vite Config] API Target: ${apiTarget}`)
 console.log(`[Vite Config] WebSocket Target: ${wsTarget}`)
+console.log(`[Vite Config] Note: Proxy only works in development mode`)
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -31,18 +34,20 @@ export default defineConfig({
     port: 5173,
     allowedHosts: ['localhost', 'indoorpositioning-demo.seeed.cc', '192.168.200.24'],
     proxy: {
-      // 只在本地开发模式下使用代理
-      // 生产环境或远程开发模式下，由前端代码直接请求完整URL
+      // 代理配置只在开发环境有效
+      // 生产环境中，这些代理不会工作，请求由 API 配置处理
+      
+      // API 代理 - 开发环境下将 /api 代理到后端服务器
       '/api': {
         target: apiTarget,
         changeOrigin: true,
         secure: false, // 允许自签名证书
         configure: (proxy, options) => {
-          // 开发环境下的代理配置
           console.log(`[Vite Proxy] Proxying /api to ${options.target}`)
         }
       },
-      // WebSocket代理配置
+      
+      // WebSocket 代理 - 开发环境下将 /ws 代理到后端服务器
       '/ws': {
         target: wsTarget,
         ws: true,

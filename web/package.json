@@ -8,6 +8,8 @@
     "dev:local": "vite --host",
     "dev:remote": "VITE_USE_REMOTE=true vite --host",
     "build": "vite build",
+    "build:local": "VITE_LOCAL_CONTAINER=true vite build",
+    "build:remote": "VITE_LOCAL_CONTAINER=false vite build",
     "preview": "vite preview"
   },
   "dependencies": {
