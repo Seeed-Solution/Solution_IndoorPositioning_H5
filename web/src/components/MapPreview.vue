@@ -164,8 +164,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import axios from 'axios';
+import httpClient from '@/utils/httpClient.js';
 import { loadTrackers } from '@/services/configApiService.js';
+import { API_ENDPOINTS } from '@/config/api.js';
 
 const { t } = useI18n();
 
@@ -351,7 +352,7 @@ const loadAlarmRecords = async (deviceEui, page = 1) => {
   isLoadingAlarms.value = true;
   
   try {
-    const response = await axios.get('/api/list_alarm', {
+    const response = await httpClient.get(API_ENDPOINTS.LIST_ALARM, {
       params: {
         device_eui: deviceEui,
         page: page,

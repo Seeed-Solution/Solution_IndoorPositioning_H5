@@ -1,17 +1,9 @@
-import axios from 'axios';
-
-const API_BASE_URL = '/api'; // Assuming your FastAPI backend is served on the same domain
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+import httpClient from '../utils/httpClient.js';
+import { API_ENDPOINTS } from '../config/api.js';
 
 export const loadWebConfiguration = async () => {
   try {
-    const response = await apiClient.get('/configuration/web');
+    const response = await httpClient.get(API_ENDPOINTS.CONFIG_WEB);
     return response.data; // FastAPI should return the WebUIConfig model or null/default
   } catch (error) {
     console.error('Error loading web configuration from server:', error);
@@ -28,7 +20,7 @@ export const loadWebConfiguration = async () => {
 
 export const loadDashboardConfiguration = async () => {
   try {
-    const response = await apiClient.get('/configuration/dashboard');
+    const response = await httpClient.get(API_ENDPOINTS.CONFIG_DASHBOARD);
     return response.data; // FastAPI should return the DashboardConfig model or null/default
   } catch (error) {
     console.error('Error loading dashboard configuration from server:', error);
@@ -45,7 +37,7 @@ export const loadDashboardConfiguration = async () => {
 
 export const saveDashboardConfiguration = async (dashboardConfig) => {
   try {
-    const response = await apiClient.post('/configuration/dashboard', dashboardConfig);
+    const response = await httpClient.post(API_ENDPOINTS.CONFIG_DASHBOARD, dashboardConfig);
     return response.data; // Should return a success message, e.g., {"message": "..."}
   } catch (error) {
     console.error('Error saving dashboard configuration to server:', error);
@@ -61,7 +53,7 @@ export const saveDashboardConfiguration = async (dashboardConfig) => {
 
 export const saveWebConfiguration = async (configData) => {
   try {
-    const response = await apiClient.post('/configuration/web', configData);
+    const response = await httpClient.post(API_ENDPOINTS.CONFIG_WEB, configData);
     return response.data; // Should return a success message, e.g., {"message": "..."}
   } catch (error) {
     console.error('Error saving web configuration to server:', error);
@@ -78,7 +70,7 @@ export const saveWebConfiguration = async (configData) => {
 // --- Methods for general server configuration (server_config.json) ---
 export const loadServerConfiguration = async () => {
   try {
-    const response = await apiClient.get('/server-runtime-config'); // Changed endpoint
+    const response = await httpClient.get(API_ENDPOINTS.SERVER_RUNTIME_CONFIG);
     return response.data; 
   } catch (error) {
     console.error('Error loading server runtime configuration:', error);
@@ -94,7 +86,7 @@ export const loadServerConfiguration = async () => {
 
 export const saveServerConfiguration = async (configData) => {
   try {
-    const response = await apiClient.post('/server-runtime-config', configData); // Changed endpoint
+    const response = await httpClient.post(API_ENDPOINTS.SERVER_RUNTIME_CONFIG, configData);
     return response.data; 
   } catch (error) {
     console.error('Error saving server runtime configuration:', error);
@@ -110,9 +102,9 @@ export const saveServerConfiguration = async (configData) => {
 
 // Function to request MQTT action (enable/disable)
 export const requestMqttAction = async (action) => { // action should be 'enable' or 'disable'
-  const endpoint = action === 'enable' ? '/mqtt/connect' : '/mqtt/disconnect'; // Adjusted to match common patterns like connect/disconnect
+  const endpoint = action === 'enable' ? API_ENDPOINTS.MQTT_CONNECT : API_ENDPOINTS.MQTT_DISCONNECT;
   try {
-    const response = await apiClient.post(endpoint, {}); // Sending an empty JSON object as payload, adjust if backend expects specific data
+    const response = await httpClient.post(endpoint, {});
     return response.data; // Expecting { success: true, message: "..." } or similar
   } catch (error) {
     console.error(`Error requesting MQTT action (${action}):`, error);
@@ -129,7 +121,7 @@ export const requestMqttAction = async (action) => { // action should be 'enable
 // Function to get all tracker devices
 export const loadTrackers = async () => {
   try {
-    const response = await apiClient.get('/trackers');
+    const response = await httpClient.get(API_ENDPOINTS.TRACKERS);
     return response.data;
   } catch (error) {
     console.error('Error loading trackers:', error);
@@ -146,7 +138,7 @@ export const loadTrackers = async () => {
 // Tracker list management APIs
 export const loadAllowTrackerList = async () => {
   try {
-    const response = await apiClient.get('/allow_tracker-list');
+    const response = await httpClient.get(API_ENDPOINTS.ALLOW_TRACKER_LIST);
     return response.data;
   } catch (error) {
     console.error('Error loading tracker list:', error);
@@ -162,7 +154,7 @@ export const loadAllowTrackerList = async () => {
 
 export const saveAllowTrackerList = async (trackerList) => {
   try {
-    const response = await apiClient.post('/allow_tracker-list', { tracker_list: trackerList });
+    const response = await httpClient.post(API_ENDPOINTS.ALLOW_TRACKER_LIST, { tracker_list: trackerList });
     return response.data;
   } catch (error) {
     console.error('Error saving tracker list:', error);
@@ -178,7 +170,7 @@ export const saveAllowTrackerList = async (trackerList) => {
 
 export const loadPaasDevices = async () => {
   try {
-    const response = await apiClient.get('/list_paas_device');
+    const response = await httpClient.get(API_ENDPOINTS.PAAS_DEVICES);
     return response.data;
   } catch (error) {
     console.error('Error loading PaaS devices:', error);
@@ -195,7 +187,7 @@ export const loadPaasDevices = async () => {
 // 专用密码修改API
 export const changePassword = async (currentPassword, newPassword) => {
   try {
-    const response = await apiClient.post('/change-password', {
+    const response = await httpClient.post(API_ENDPOINTS.CHANGE_PASSWORD, {
       current_password: currentPassword,
       new_password: newPassword
     });

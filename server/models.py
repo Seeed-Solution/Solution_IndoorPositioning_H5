@@ -243,6 +243,12 @@ class TrackerState(BaseModel):
     radius: float = 0
 
 
+class UserSessionInfo(BaseModel):
+    username: str
+    role: str
+
+
+
 
 # --- Old combined ConfigData and CommonSettings (can be removed after refactoring) ---
 # class OldBeaconConfig(BaseModel):

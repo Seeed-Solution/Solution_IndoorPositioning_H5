@@ -1,6 +1,71 @@
-# Web Frontend (Vue.js with Vite)
+# 室内定位前端项目 (Vue.js with Vite)
 
 This directory contains the Vue.js frontend application for the Indoor Positioning System. It is built using Vite.
+
+## API配置说明
+
+此项目现已支持环境变量配置，可以在开发环境和生产环境下使用不同的API基础URL。
+
+### 环境配置
+
+#### 开发环境
+
+1. **本地代理模式**（推荐）
+   ```bash
+   npm run dev
+   # 或者明确设置
+   VITE_USE_REMOTE=false npm run dev
+   ```
+   - 前端通过Vite代理访问后端API
+   - API请求：`/api/*` → `http://127.0.0.1:8022/api/*`
+   - WebSocket：`/ws/*` → `ws://127.0.0.1:8022/ws/*`
+
+2. **远程直连模式**
+   ```bash
+   VITE_USE_REMOTE=true npm run dev
+   ```
+   - 前端直接请求后端服务器
+   - API请求：`http://127.0.0.1:8022/api/*`
+   - WebSocket：`ws://127.0.0.1:8022/ws/*`
+
+#### 生产环境
+
+```bash
+npm run build
+```
+- 自动使用生产环境配置
+- API请求：`https://indoorpositioning-demo.seeed.cc/api/*`
+- WebSocket：`wss://indoorpositioning-demo.seeed.cc/ws/*`
+
+### 命令说明
+
+- `npm run dev` - 本地开发（使用代理）
+- `npm run dev:local` - 本地开发（使用代理）
+- `npm run dev:remote` - 远程开发（直连服务器）
+- `npm run build` - 生产构建
+- `npm run preview` - 预览生产构建
+
+### API文件结构
+
+```
+src/
+├── config/
+│   └── api.js           # 统一API配置
+├── utils/
+│   └── httpClient.js    # 统一HTTP客户端
+└── services/
+    ├── configApiService.js  # 配置API服务
+    ├── authService.js       # 认证服务
+    └── dashboardService.js  # 仪表板服务
+```
+
+### 主要改进
+
+1. **统一API配置** - 所有API调用现在使用统一的配置文件
+2. **环境变量支持** - 可通过`VITE_USE_REMOTE`环境变量切换开发模式
+3. **生产环境支持** - 打包后可直接访问生产服务器
+4. **统一错误处理** - HTTP客户端包含统一的错误处理逻辑
+5. **代码一致性** - 所有API调用使用相同的模式
 
 ## Project Structure
 

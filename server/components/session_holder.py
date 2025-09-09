@@ -1,6 +1,7 @@
 from cachetools import TTLCache
 from server.dao.user_session_dao import user_session_dao as session_dao
 import logging
+from server.models import UserSessionInfo
 
 ONE_DAY = 86400
 log = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ class SessionHolder:
         self.cache = TTLCache(maxsize=999999, ttl=ONE_DAY * ttl_in_day)
 
 
-    def get(self, session_token: str, default_value=None):
+    def get(self, session_token: str, default_value=None) -> UserSessionInfo:
         """
         获取session值
         先从缓存查找，如果不存在则从SQLite查找
@@ -29,10 +30,15 @@ class SessionHolder:
 
         if session_dao:
             try:
+                session_record = session_dao.get_session_by_token(session_token)
+                if not session_record:
+                    return default_value
+                if session_record.is_expired():
+                    return default_value
                 if session_dao.is_session_valid(session_token):
-                    # 会话有效，将其添加到缓存中
-                    self.cache[session_token] = 1  # 简单的存在标志
-                    return 1
+                    user_session = UserSessionInfo(username=session_record.username, role=session_record.username)
+                    self.cache[session_token] = user_session
+                    return user_session
             except Exception as e:
                 log.error(f"Error checking session in SQLite: {e}")
         

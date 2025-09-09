@@ -11,8 +11,8 @@ cleanup() {
 # Set up trap for cleanup on script termination
 trap cleanup SIGINT SIGTERM
 
-cd /app/web
-npm run dev &
+cd /app/web/dist
+python -m http.server 5173 &
 FRONTEND_PID=$!
 
 cd /app

@@ -191,7 +191,10 @@
     "logging": "Logging in...",
     "emptyFields": "Please fill in username and password",
     "invalidCredentials": "Invalid username or password",
-    "loginError": "Login failed, please try again later"
+    "loginError": "Login failed, please try again later",
+    "or": "or",
+    "guestLogin": "Guest Login",
+    "guestNotAllowed": "Guest login is currently unavailable"
   },
   "server": {
     "runtimeConfig": "Server Runtime Configuration",
@@ -305,5 +308,14 @@
     "close": "Close",
     "back": "Back",
     "logout": "Logout"
+  },
+  "errors": {
+    "networkError": "Network connection error, please check your connection",
+    "serverError": "Server error, please try again later",
+    "unauthorized": "Unauthorized access",
+    "forbidden": "Insufficient permissions for this operation",
+    "notFound": "The requested resource was not found",
+    "requestTimeout": "Request timeout, please try again",
+    "unknownError": "Unknown error, please contact administrator"
   }
 }

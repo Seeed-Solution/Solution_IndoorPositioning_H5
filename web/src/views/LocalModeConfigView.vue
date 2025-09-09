@@ -98,7 +98,9 @@ import { useI18n } from 'vue-i18n';
 import MapView from '@/components/MapView.vue'; // Changed from MapEditorTab
 import { loadConfigFromLocalStorage, saveConfigToLocalStorage, clearConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { calculatePosition, calculateDistance, setSignalFactor } from '@/utils/positioning/positionCalculator.js';
-import { loadServerConfiguration } from '@/services/configApiService.js'; // Example, might not be the right one
+import { loadServerConfiguration } from '@/services/configApiService.js';
+import { fetchApi } from '@/utils/httpClient.js';
+import { API_ENDPOINTS } from '@/config/api.js';
 
 const { t } = useI18n();
 
@@ -440,7 +442,7 @@ const loadDefaultTestConfig = async () => {
   showStatus('Loading default test configuration from server...', 'info');
   try {
     // Make sure the server is running and this endpoint is available
-    const response = await fetch('/api/default-test-config'); 
+    const response = await fetchApi(API_ENDPOINTS.DEFAULT_TEST_CONFIG); 
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
     }

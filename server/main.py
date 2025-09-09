@@ -1,9 +1,10 @@
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, Request, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import json
 import paho.mqtt.client as mqtt
 import logging
@@ -33,14 +34,14 @@ from server.components.session_holder import session_holder
 # )
 # from .positioning import KalmanFilter2D
 
-
 # Import project modules
 from server import config_manager
 from server import positioning
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
     MiniprogramConfig, WebUIConfig, DashboardConfig,MqttServerConfig,
-    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest, LoginRequest  # Import WebUISettings directly
+    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest, LoginRequest,  # Import WebUISettings directly
+    UserSessionInfo
 )
 from server.positioning import KalmanFilter2D
 
@@ -51,7 +52,19 @@ log = logging.getLogger(__name__)
 # Add asyncio import if not already present globally, for create_task
 import asyncio
 
+cors_origins = [
+    "*"
+]
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Define the path for the web configuration file
 WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "web_config.json")
@@ -62,7 +75,7 @@ DASHBOARD_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "dashboard_
 # Adjust the path as per your actual project structure.
 # If main.py is in server/, and test/ is a sibling of server/, then ../test/config2.json
 DEFAULT_TEST_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "config2.json")
-MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "map1.json")  # New path for map1.json
+MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "map-example-format.json")  # Path to map example format in server directory
 
 # Mount static files (for serving the client-side HTML/JS)
 # Make sure the client directory exists relative to where uvicorn is run (usually project root)
@@ -1240,6 +1253,18 @@ async def shutdown_event():
 
 
 # --- API Endpoints ---
+def check_authority(request: Request):
+    session_token = request.cookies.get('session_token')
+    if not session_token:
+        raise HTTPException(status_code=401, detail="No session token")
+    if not session_holder.get(session_token):
+        raise HTTPException(status_code=401, detail="Invalid session token")
+    user_session = session_holder.get(session_token)
+    if user_session.role == 'guest':
+        log.info(f"guest has been deny to access interface: {request.url.path}")
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+
 @app.get("/")
 async def read_root():
     """Serves the main client HTML page."""
@@ -1256,7 +1281,7 @@ async def read_root():
 
 
 @app.post("/api/config/upload", status_code=200)
-async def upload_miniprogram_config(config_content: MiniprogramConfig, response: Response):
+async def upload_miniprogram_config(config_content: MiniprogramConfig, response: Response, dep=Depends(check_authority)):
     """Receives miniprogram config JSON, saves it, and reloads.
        The request body should be the JSON content matching MiniprogramConfig model.
     """
@@ -1400,7 +1425,7 @@ async def get_api_server_runtime_config():
 
 
 @app.post("/api/server-runtime-config", status_code=200)
-async def update_api_server_runtime_config(config_payload: PartialServerRuntimeConfig):
+async def update_api_server_runtime_config(config_payload: PartialServerRuntimeConfig, dep=Depends(check_authority)):
     global runtime_cfg, mqtt_clients, mqtt_connection_statuses, is_mqtt_intentionally_disconnected, main_event_loop
     try:
         # log.info("Received request to update server runtime configuration.") # Reduced verbosity
@@ -1492,7 +1517,7 @@ async def update_api_server_runtime_config(config_payload: PartialServerRuntimeC
 
 
 @app.post("/api/change-password", status_code=200)
-async def change_password(password_request: PasswordChangeRequest):
+async def change_password(password_request: PasswordChangeRequest, dep=Depends(check_authority)):
     """
     专用密码修改接口
     验证当前密码后更新为新密码
@@ -1539,41 +1564,41 @@ async def change_password(password_request: PasswordChangeRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@app.post("/api/set-service-credentials", status_code=200)
-async def set_service_credentials(credentials_request: ServiceCredentialsRequest):
-    """
-    专用服务凭证设置接口
-    安全地设置各种服务的用户名和密码，不会将密码存储在可提交的配置文件中
-    支持的服务类型: sensecap, chirpstack, webhook
-    """
-    global runtime_cfg
-    try:
-        log.info(f"Service credentials setting request received for service: {credentials_request.service_type}")
-        
-        # 设置服务凭证
-        success, message, new_cfg = config_manager.set_service_credentials(credentials_request)
-        
-        if success and new_cfg:
-            # 更新全局配置缓存
-            runtime_cfg = new_cfg
-            log.info(f"Service credentials set successfully for: {credentials_request.service_type}")
-            
-            return {
-                "success": True,
-                "message": message,
-                "service_type": credentials_request.service_type
-            }
-        else:
-            # 设置失败
-            log.warning(f"Service credentials setting failed: {message}")
-            raise HTTPException(status_code=400, detail=message)
-                
-    except HTTPException:
-        # 重新抛出HTTP异常
-        raise
-    except Exception as e:
-        log.error(f"Unexpected error during service credentials setting: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+# @app.post("/api/set-service-credentials", status_code=200)
+# async def set_service_credentials(credentials_request: ServiceCredentialsRequest):
+#     """
+#     专用服务凭证设置接口
+#     安全地设置各种服务的用户名和密码，不会将密码存储在可提交的配置文件中
+#     支持的服务类型: sensecap, chirpstack, webhook
+#     """
+#     global runtime_cfg
+#     try:
+#         log.info(f"Service credentials setting request received for service: {credentials_request.service_type}")
+#
+#         # 设置服务凭证
+#         success, message, new_cfg = config_manager.set_service_credentials(credentials_request)
+#
+#         if success and new_cfg:
+#             # 更新全局配置缓存
+#             runtime_cfg = new_cfg
+#             log.info(f"Service credentials set successfully for: {credentials_request.service_type}")
+#
+#             return {
+#                 "success": True,
+#                 "message": message,
+#                 "service_type": credentials_request.service_type
+#             }
+#         else:
+#             # 设置失败
+#             log.warning(f"Service credentials setting failed: {message}")
+#             raise HTTPException(status_code=400, detail=message)
+#
+#     except HTTPException:
+#         # 重新抛出HTTP异常
+#         raise
+#     except Exception as e:
+#         log.error(f"Unexpected error during service credentials setting: {e}", exc_info=True)
+#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.post("/api/login", status_code=200)
@@ -1586,26 +1611,28 @@ async def login(login_request: LoginRequest, response: Response):
     try:
         log.info(f"Login request received for username: {login_request.username}")
 
-        # 验证用户名
-        if runtime_cfg.username != login_request.username:
-            log.warning(f"Login failed: invalid username '{login_request.username}'")
-            raise HTTPException(status_code=401, detail="用户名或密码错误")
-        
-        # 计算配置中密码的MD5摘要
-        config_password_md5 = hashlib.md5(runtime_cfg.password.encode('utf-8')).hexdigest()
-        
-        # 验证MD5密码摘要
-        if config_password_md5 != login_request.password.lower():
-            log.warning(f"Login failed: invalid password for username '{login_request.username}'")
-            raise HTTPException(status_code=401, detail="用户名或密码错误")
-        
-        log.info(f"Login successful for username: {login_request.username}")
-        
+        if login_request.username == 'guest':
+            # ca2d140c362dfd56acab2fdbd56ff5a5 访客模式默认密码: indoor_positioning  目前不校验
+            user_session = UserSessionInfo(username="guest", role="guest")
+        else:
+            # 验证用户名
+            if runtime_cfg.username != login_request.username:
+                log.warning(f"Login failed: invalid username '{login_request.username}'")
+                raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+            # 计算配置中密码的MD5摘要
+            config_password_md5 = hashlib.md5(runtime_cfg.password.encode('utf-8')).hexdigest()
+
+            # 验证MD5密码摘要
+            if config_password_md5 != login_request.password.lower():
+                log.warning(f"Login failed: invalid password for username '{login_request.username}'")
+                raise HTTPException(status_code=401, detail="用户名或密码错误")
+            user_session = UserSessionInfo(username="admin", role="admin")
+
         # 生成登录令牌 (简单的session token)
         import secrets
         session_token = secrets.token_urlsafe(32)
-
-        session_holder.set(session_token, 1, username=login_request.username)
+        session_holder.set(session_token, user_session, username=login_request.username)
         
         # 设置httponly cookie，有效期1天
         response.set_cookie(
@@ -1616,7 +1643,7 @@ async def login(login_request: LoginRequest, response: Response):
             secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
             samesite="lax"
         )
-        
+        log.info(f"Login successful for username: {login_request.username}")
         return {
             "success": True,
             "message": "登录成功",
@@ -1746,7 +1773,7 @@ async def api_mqtt_connect():
 
 
 @app.post("/api/mqtt/disconnect", status_code=200)
-async def api_mqtt_disconnect():
+async def api_mqtt_disconnect(dep=Depends(check_authority)):
     global mqtt_connection_statuses
     # log.info("API call to disconnect MQTT.") # Reduced verbosity
     disconnect_all_mqtt_clients()  # This function sets is_mqtt_intentionally_disconnected = True
@@ -1797,7 +1824,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # --- Web UI Configuration Endpoints ---
 @app.post("/api/configuration/web", status_code=200)
-async def upload_web_ui_config(config_content: WebUIConfig, response: Response):
+async def upload_web_ui_config(config_content: WebUIConfig, response: Response, dep=Depends(check_authority)):
     global web_ui_cfg
     try:
         if save_web_ui_config(config_content):
@@ -1844,7 +1871,7 @@ async def get_dashboard_config():
 
 
 @app.post("/api/configuration/dashboard", status_code=200)
-async def save_dashboard_config(config_content: DashboardConfig, response: Response):
+async def save_dashboard_config(config_content: DashboardConfig, response: Response, dep=Depends(check_authority)):
     """Saves the dashboard configuration to file and updates in-memory cache."""
     global dashboard_cfg
     try:
@@ -1892,7 +1919,7 @@ async def get_map_example_format():
 
 
 @app.post("/api/allow_tracker-list", status_code=200)
-async def update_allow_tracker_list(request: TrackerListUpdateRequest):
+async def update_allow_tracker_list(request: TrackerListUpdateRequest, dep=Depends(check_authority)):
     """更新tracker_list配置"""
     global runtime_cfg
 
@@ -1954,7 +1981,7 @@ async def get_allow_tracker_list():
 
 
 @app.post("/api/shutdown", status_code=200)
-async def api_shutdown(request: Request):
+async def api_shutdown(request: Request, dep=Depends(check_authority)):
     """
     优雅停止服务接口
     需要管理员认证，执行优雅停止操作

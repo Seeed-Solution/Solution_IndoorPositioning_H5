@@ -1,31 +1,53 @@
-FROM python:3.12-slim
+# Multi-stage Dockerfile for Indoor Positioning System
+FROM node:18-alpine AS frontend-builder
 
-WORKDIR /app
+# Set working directory for frontend build
+WORKDIR /app/web
 
-# Copy Python project files
-COPY pyproject.toml ./
-COPY server/ ./server/
-COPY README.md ./
-COPY web/ ./web/
-COPY assets/ ./assets/
+# Copy package files
+COPY web/package*.json ./
 
+# Install frontend dependencies
+RUN npm install --no-audit --no-fund --silent
+
+# Copy web source files
+COPY web/ ./
+
+# Build frontend
+RUN npm run build
+
+# Python runtime stage
+FROM python:3.12-slim AS runtime
+
+# Install system dependencies including Node.js for npm run dev
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
-    && apt-get install -y nodejs npm \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install uv
+    && rm -rf /var/lib/apt/lists/*
 
-RUN cd /app/server  \
-    && pip install -r /app/server/requirements.txt \
-    && cd /app/web/ \
-    && npm install
+# Set working directory
+WORKDIR /app
 
+COPY server/ ./server/
 COPY run_in_docker.sh ./
+
+# Install Python dependencies
+RUN pip install -r /app/server/requirements.txt
+
+# Copy built frontend from previous stage
+COPY --from=frontend-builder /app/web/dist ./web/dist
 
 # Expose ports
 EXPOSE 5173 8022
 
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 
+# Health check
+#HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#    CMD python -c "import requests; requests.get('http://localhost:8000/api/auth/check', timeout=5)" || exit 1
+
+# Default command - run backend server
 CMD ["/bin/bash", "run_in_docker.sh"]

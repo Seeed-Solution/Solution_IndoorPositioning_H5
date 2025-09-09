@@ -1007,6 +1007,8 @@ import {
   saveServerConfiguration,
   changePassword as changePasswordAPI
 } from '@/services/configApiService.js';
+import { fetchApi } from '@/utils/httpClient.js';
+import { API_ENDPOINTS } from '@/config/api.js';
 
 // i18n setup
 const { t } = useI18n();
@@ -3437,7 +3439,7 @@ const saveCredentials = async () => {
   credentialsError.value = '';
 
   try {
-    const response = await fetch('/api/set-service-credentials', {
+    const response = await fetchApi(API_ENDPOINTS.SERVICE_CREDENTIALS, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3487,7 +3489,7 @@ const restartService = async () => {
     configStatusMessage.value = t('server.restart.restarting');
     
     // 调用后端关闭接口
-    const response = await fetch('/api/shutdown', {
+    const response = await fetchApi(API_ENDPOINTS.SHUTDOWN, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

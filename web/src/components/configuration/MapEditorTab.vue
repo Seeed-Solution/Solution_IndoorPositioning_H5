@@ -49,6 +49,8 @@
 
 <script setup>
 import { ref, watch, onMounted, computed, nextTick } from 'vue';
+import { fetchApi } from '@/utils/httpClient.js';
+import { API_ENDPOINTS } from '@/config/api.js';
 
 const padding = 20; // Define padding here
 const mapPixelWidth = ref(0); // Define as ref
@@ -502,7 +504,7 @@ const mapFormatExampleText = ref('Loading map format example...');
 
 const fetchMapFormatExample = async () => {
   try {
-    const response = await fetch('/api/map-example-format');
+    const response = await fetchApi(API_ENDPOINTS.MAP_EXAMPLE_FORMAT);
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
     }

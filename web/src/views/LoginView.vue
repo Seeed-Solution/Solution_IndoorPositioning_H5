@@ -45,6 +45,22 @@
           {{ loading ? $t('login.logging', '登录中...') : $t('login.loginButton', '登录') }}
         </button>
       </form>
+      
+      <div class="guest-login-section">
+        <div class="divider">
+          <span>{{ $t('login.or', '或') }}</span>
+        </div>
+        <button 
+          type="button" 
+          class="button-secondary guest-login-button" 
+          :disabled="loading"
+          @click="handleGuestLogin"
+        >
+          <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-user-friends"></i>
+          {{ loading ? $t('login.logging', '登录中...') : $t('login.guestLogin', '访客登录') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -54,7 +70,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
-import axios from 'axios'
+import httpClient from '../utils/httpClient.js'
+import { API_ENDPOINTS } from '../config/api.js'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -229,7 +246,7 @@ const handleLogin = async () => {
     // 计算密码的MD5摘要
     const passwordMd5 = md5(loginForm.password)
     
-    const response = await axios.post('/api/login', {
+    const response = await httpClient.post(API_ENDPOINTS.LOGIN, {
       username: loginForm.username,
       password: passwordMd5
     })
@@ -242,6 +259,36 @@ const handleLogin = async () => {
   } catch (error) {
     if (error.response?.status === 401) {
       errorMessage.value = t('login.invalidCredentials', '用户名或密码错误')
+    } else {
+      errorMessage.value = t('login.loginError', '登录失败，请稍后重试')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleGuestLogin = async () => {
+  errorMessage.value = ''
+  loading.value = true
+  
+  try {
+    // 访客登录固定参数
+    const guestUsername = 'guest'
+    const guestPassword = 'ca2d140c362dfd56acab2fdbd56ff5a5'
+    
+    const response = await httpClient.post(API_ENDPOINTS.LOGIN, {
+      username: guestUsername,
+      password: guestPassword
+    })
+    
+    if (response.status === 200) {
+      // 登录成功，跳转到原始页面或首页
+      const redirectPath = router.currentRoute.value.query.redirect || '/'
+      router.push(redirectPath)
+    }
+  } catch (error) {
+    if (error.response?.status === 401) {
+      errorMessage.value = t('login.guestNotAllowed', '访客登录功能暂不可用')
     } else {
       errorMessage.value = t('login.loginError', '登录失败，请稍后重试')
     }
@@ -363,6 +410,60 @@ onMounted(() => {
   margin: 0;
   padding: 0.7rem;
   font-size: 0.9rem;
+}
+
+.guest-login-section {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.divider {
+  position: relative;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--border-color);
+  z-index: 1;
+}
+
+.divider span {
+  background-color: var(--card-background);
+  padding: 0 1rem;
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  position: relative;
+  z-index: 2;
+}
+
+.guest-login-button {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--light-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.guest-login-button:hover {
+  background-color: var(--hover-light-color);
+  border-color: var(--secondary-color);
+}
+
+.guest-login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* 响应式设计 */
