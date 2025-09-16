@@ -10,3 +10,4 @@ paho-mqtt
 sqlalchemy
 cachetools
 requests
+httpx

@@ -131,6 +131,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import MapPreview from '@/components/MapPreview.vue';
 import { loadConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { loadWebConfiguration, loadDashboardConfiguration, loadServerConfiguration, loadTrackers } from '@/services/configApiService.js';
+import { getWsBaseUrl, buildWsUrl } from '@/config/api.js';
 
 const statusMessage = ref('');
 const statusMessageType = ref('info');
@@ -337,8 +338,10 @@ const handleClickOutside = (event) => {
 
 const connectWebSocket = () => {
     if (ws.value && ws.value.readyState === WebSocket.OPEN) return;
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+    
+    // 使用配置化的WebSocket URL
+    const wsUrl = buildWsUrl('/ws');
+    console.log('[TrackerModeConfig] Connecting to WebSocket:', wsUrl);
     ws.value = new WebSocket(wsUrl);
     wsStatus.value = 'connecting';
     showStatus('Connecting to server...', 'info');

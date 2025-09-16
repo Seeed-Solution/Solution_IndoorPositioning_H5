@@ -43,17 +43,17 @@ const API_CONFIG = {
 // WebSocket配置
 const WS_CONFIG = {
   development: {
-    local: 'ws://127.0.0.1:8022/ws',
-    remote: 'ws://127.0.0.1:8022/ws'
+    local: 'ws://127.0.0.1:8022',
+    remote: 'ws://127.0.0.1:8022'
   },
   production: {
     // 本地容器模式 - 使用相对路径，协议会自动适配
     local: () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      return `${protocol}//${window.location.hostname}:8022/ws`
+      return `${protocol}//${window.location.hostname}:8022`
     },
     // 远程模式 - 访问远程服务器
-    remote: 'wss://indoorpositioning-demo.seeed.cc/ws'
+    remote: 'wss://indoorpositioning-demo.seeed.cc'
   }
 }
 

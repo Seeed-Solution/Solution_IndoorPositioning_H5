@@ -11,8 +11,9 @@ cleanup() {
 # Set up trap for cleanup on script termination
 trap cleanup SIGINT SIGTERM
 
-cd /app/web/dist
-python -m http.server 5173 &
+cd /app/web
+#python -m http.server 5173 &
+uvicorn web:app --host 0.0.0.0 --port 5173 &
 FRONTEND_PID=$!
 
 cd /app

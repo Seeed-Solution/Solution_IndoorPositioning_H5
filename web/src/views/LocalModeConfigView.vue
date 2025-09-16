@@ -100,7 +100,7 @@ import { loadConfigFromLocalStorage, saveConfigToLocalStorage, clearConfigFromLo
 import { calculatePosition, calculateDistance, setSignalFactor } from '@/utils/positioning/positionCalculator.js';
 import { loadServerConfiguration } from '@/services/configApiService.js';
 import { fetchApi } from '@/utils/httpClient.js';
-import { API_ENDPOINTS } from '@/config/api.js';
+import { API_ENDPOINTS, getWsBaseUrl, buildWsUrl } from '@/config/api.js';
 
 const { t } = useI18n();
 
@@ -133,10 +133,9 @@ const localDevicePosition = ref(null); // { x, y, accuracy, method }
 const localDevicePositionHistory = ref([]); // For trails
 const detectedBeaconsForPositioning = ref([]);
 
-// WebSocket State (remains the same)
+// WebSocket State
 const socket = ref(null);
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const serviceUrl = `${wsProtocol}//${window.location.host}/ws`;
+const serviceUrl = buildWsUrl('/ws'); // 使用配置化的WebSocket URL
 const isWebSocketConnected = ref(false);
 const retryCount = ref(0);
 const maxRetries = 5;
@@ -241,6 +240,7 @@ const handleServiceStatusUpdate = (status) => {
 
 const connectWebSocket = () => {
   if (socket.value && socket.value.readyState === WebSocket.OPEN) return;
+  console.log('[LocalModeConfig] Connecting to WebSocket:', serviceUrl);
   handleServiceStatusUpdate({ type: 'connecting', message: `Attempting to connect to local beacon service at ${serviceUrl}... (Attempt ${retryCount.value + 1})` });
   socket.value = new WebSocket(serviceUrl);
   socket.value.onopen = () => {
