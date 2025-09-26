@@ -1638,7 +1638,7 @@ async def login(login_request: LoginRequest, response: Response):
         response.set_cookie(
             key="session_token",
             value=session_token,
-            max_age=86400,  # 1天 (24小时 * 60分钟 * 60秒)
+            max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
             httponly=True,
             secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
             samesite="lax"
@@ -1658,22 +1658,51 @@ async def login(login_request: LoginRequest, response: Response):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/auth/check", status_code=200)
-async def check_auth(request: Request):
+async def check_auth(request: Request, response: Response):
     """
     检查当前用户的登录状态
     """
     try:
         session_token = request.cookies.get('session_token')
-        if not session_token:
-            raise HTTPException(status_code=401, detail="No session token")
-        
-        if not session_holder.get(session_token):
-            raise HTTPException(status_code=401, detail="Invalid session token")
-        
+        if session_token and session_holder.get(session_token):
+            return {
+                "success": True,
+                "message": "登录成功",
+                "username": session_holder.get(session_token).username
+            }
+        # 2025-09-23
+        import secrets
+        session_token = secrets.token_urlsafe(32)
+        user_session = UserSessionInfo(username="guest", role="guest")
+        session_holder.set(session_token, user_session, username="guest")
+
+        # 设置httponly cookie，有效期1天
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
+            httponly=True,
+            secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
+            samesite="lax"
+        )
+        log.info(f"Login successful for username: guest")
         return {
-            "authenticated": True,
-            "message": "用户已登录"
+            "success": True,
+            "message": "登录成功",
+            "username": "guest"
         }
+
+
+        # if not session_token:
+        #     raise HTTPException(status_code=401, detail="No session token")
+        #
+        # if not session_holder.get(session_token):
+        #     raise HTTPException(status_code=401, detail="Invalid session token")
+        #
+        # return {
+        #     "authenticated": True,
+        #     "message": "用户已登录"
+        # }
         
     except HTTPException:
         raise
