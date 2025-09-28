@@ -18,6 +18,8 @@ import hashlib
 import base64
 from server.components.beacon_holder import beacon_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
+from server.dao.group_dao import group_dao
+from server.dao.device_dao import device_dao
 from server.components.uplink_collector import UplinkCollector
 import requests
 from server.components.session_holder import session_holder
@@ -39,9 +41,12 @@ from server import config_manager
 from server import positioning
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
-    MiniprogramConfig, WebUIConfig, DashboardConfig,MqttServerConfig,
-    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest, LoginRequest,  # Import WebUISettings directly
-    UserSessionInfo
+    MiniprogramConfig, WebUIConfig, DashboardConfig, MqttServerConfig,
+    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest,
+    LoginRequest,  # Import WebUISettings directly
+    UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,
+    DeviceCreateRequest, DeviceUpdateRequest, DeviceStatusUpdateRequest, DeviceListItem, DeviceSearchRequest,
+    DeviceRecord, TrackerInfo, TrackerStateQueryRequest
 )
 from server.positioning import KalmanFilter2D
 
@@ -313,6 +318,7 @@ def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[Track
         beacon_values = []
         gps_value = {}
         sos_value = 0
+        battery = -1
         for entry in messages[0]:
             if entry.get('timestamp', 0):
                 payload_timestamp = int(entry.get('timestamp', 0))
@@ -323,6 +329,8 @@ def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[Track
                                     value=entry.get('measurementValue', 0))
 
             match measurement_id:
+                case '3000':
+                    battery = entry.get('measurementValue', -1)
                 case '4197':
                     gps_value['alt'] = entry.get('measurementValue', 0)
                 case '4198':
@@ -342,7 +350,8 @@ def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[Track
                 sos=sos_value,
                 locType="gps",
                 loc=gps_value,
-                sourceType="chirpstack"
+                sourceType="chirpstack",
+                battery=battery
             )
 
         if not beacon_values or len(beacon_values) == 0:
@@ -350,12 +359,19 @@ def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[Track
             return TrackerReport(
                 trackerId=device_eui,
                 timestamp=payload_timestamp,
-                sos=sos_value
+                sos=sos_value,
+                battery=battery
             )
 
         if not isinstance(beacon_values, list):
             log.warning(f"Invalid 'beacons' data in ChirpStack payload for {device_eui}. Expected list.")
-            return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, detectedBeacons=[], loc={})
+            return TrackerReport(
+                trackerId=device_eui,
+                timestamp=payload_timestamp,
+                detectedBeacons=[],
+                loc={},
+                battery=battery
+            )
 
         detected_beacons_list = []
         for beacon_data in beacon_values:
@@ -384,7 +400,8 @@ def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[Track
             locType="bluetooth",
             loc={},
             sos=sos_value,
-            sourceType="chirpstack"
+            sourceType="chirpstack",
+            battery=battery
         )
 
     except json.JSONDecodeError:
@@ -464,7 +481,8 @@ def parse_sensecap_payload(topic: str, payload_bytes: bytes) -> Optional[Tracker
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
                 beacon_values = data.get("value")
             case '3000':
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value", -1))
+                return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, battery=int(data.get("value", -1)))
 
         if not beacon_values:
             return
@@ -724,13 +742,13 @@ def on_message(client, userdata, msg):
     if report:
         device_eui = report.trackerId
         if not rt_cfg.allow_all_tracker and device_eui not in allow_tracker_list:
-            log.info(f"the device: {device_eui} not in allow_list, ignore this message.")
+            log.debug(f"the device: {device_eui} not in allow_list, ignore this message.")
             return
         if main_event_loop and main_event_loop.is_running():
             try:
                 future = asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
                 future.add_done_callback(
-                    lambda f: log.error(f"Error in process_tracker_report for device {report.trackerId} from {source_type}: {f.exception()}, report: {report}")
+                    lambda f: log.error(f"Error in process_tracker_report for device {report.trackerId} from {source_type}, error:\n  {f.exception()}, \nreport:\n   {report}")
                     if f.exception() else None
                 )
             except Exception as e:
@@ -748,6 +766,26 @@ async def process_tracker_report(report: TrackerReport):
     # Use new global config variables
     global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg
 
+    device = tracker_states.get(report.trackerId, None)
+    if device is None:
+        try:
+            log.info(f"the new tracker is detected({report.trackerId})...")
+            device_result = device_dao.create_device(dev_eui=report.trackerId)
+            tracker_states[report.trackerId] = TrackerState(
+                trackerId=report.trackerId,
+                last_update_time=report.receive_time * 1000,
+                online="online"
+            )
+            if device_result is not None:
+                log.info(f"the new tracker is been saved({report.trackerId})...")
+        except Exception as err:
+            log.info(f"the new tracker({report.trackerId}) saving failure, e: \n{err}")
+
+    tracker_states[report.trackerId].online = "online"
+    tracker_states[report.trackerId].last_update_time = report.receive_time * 1000
+
+    if int(report.battery) != -1:
+        tracker_states[report.trackerId].battery = int(report.battery)
     if not web_ui_cfg or not web_ui_cfg.beacons:
         log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
         return
@@ -1151,7 +1189,7 @@ def save_dashboard_config_to_file(config_data: DashboardConfig) -> bool:
 @app.on_event("startup")
 async def startup_event():
     """Runs on application startup. Loads both configurations and sets up MQTT."""
-    global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg
+    global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg, tracker_states
 
     # Capture the running event loop for thread-safe calls from MQTT callback
     main_event_loop = asyncio.get_running_loop()
@@ -1188,6 +1226,15 @@ async def startup_event():
         # log.info("Web UI configuration (web_config.json) loaded/initialized.") # Reduced verbosity
         pass
 
+    devices = device_dao.get_active_devices()[0]
+
+    if devices and len(devices) > 0:
+        for device in devices:
+            tracker_states[device.dev_eui] = TrackerState.toTrackerState(device)
+        log.info("tracker list has been loaded successfully when startup...")
+    else:
+        log.info("there is no tracker need to load in application when startup...")
+
     # Check if any MQTT sources are enabled and setup accordingly
     any_mqtt_enabled = False
     if runtime_cfg:
@@ -1210,7 +1257,7 @@ async def startup_event():
     #     log.info(f"Server startup: Cleaned {cleaned_count} expired sessions from database.")
     # except Exception as e:
     #     log.warning(f"Failed to cleanup expired sessions on startup: {e}")
-    
+
     log.info("Server startup complete.")
 
 
@@ -1249,6 +1296,23 @@ async def shutdown_event():
             client.loop_stop()
             client.disconnect()
             log.info(f"{source_type} MQTT client disconnected.")
+
+    if len(tracker_states) > 0:
+        devices = device_dao.get_active_devices()[0]
+        devices_map = {}
+        if devices and len(devices) > 0:
+            devices_map = {device.dev_eui: device for device in devices}
+
+        for tracker_id, tracker_state in tracker_states.items():
+            if tracker_id in devices_map:
+                device_dao.update_device_status(
+                    dev_eui=tracker_id,
+                    battery_level=tracker_state.battery,
+                    last_message_timestamp_ms=tracker_state.last_update_time
+                )
+        log.info("the tracker state has been saved successfully when shutdown...")
+    else:
+        log.info("there is no tracker need to save in app when shutdown...")
     log.info("Application shutdown complete.")
 
 
@@ -1382,10 +1446,30 @@ async def list_device_alarms(
 
 
 @app.get("/api/trackers")
-async def get_trackers():
+async def get_trackers(request: TrackerStateQueryRequest = None):
     """Returns the current state of all known trackers."""
-    return tracker_states
+    devices = device_dao.get_active_devices()[0]
+    if not devices or len(devices) == 0:
+        return {}
+        # devices_map = {device.dev_eui: device for device in devices}
 
+    result = {}
+    for device in devices:
+        tracker_state = tracker_states.get(device.dev_eui, None)
+        choose_state = {}
+        match = True
+        if tracker_state is None:
+            choose_state = TrackerInfo.fromDeviceRecord(device)
+        else:
+            choose_state = tracker_state.toTrackerInfo(device)
+        if request is not None and request.online_status is not None:
+            match = (request.online_status == choose_state.online)
+        if request is not None and request.is_favorite is not None:
+            match = (request.is_favorite == choose_state.is_favorite)
+        if match:
+            result[device.dev_eui] = choose_state
+    return result
+    # return tracker_states
 
 @app.get("/api/server-runtime-config", response_model=Optional[config_manager.ServerRuntimeConfig])
 async def get_api_server_runtime_config():
@@ -2007,6 +2091,218 @@ async def get_allow_tracker_list():
     except Exception as e:
         log.error(f"Error getting tracker_list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# --- Group Management API ---
+
+@app.post("/api/groups", status_code=200)
+async def create_group(group_request: GroupCreateRequest, dep=Depends(check_authority)):
+    """
+    创建分组接口
+    """
+    try:
+        # 检查分组名称是否已存在（不包括已删除的）
+        if group_dao.group_name_exists(group_request.group_name, include_deleted=False):
+            raise HTTPException(status_code=400, detail="分组名称已存在")
+        
+        # 创建分组
+        group = group_dao.create_group(group_request.group_name)
+        
+        log.info(f"Created group: {group.group_name} (ID: {group.id})")
+        return {
+            "success": True,
+            "message": "分组创建成功",
+            "data": {
+                "id": group.id,
+                "group_name": group.group_name
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error creating group: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"创建分组失败: {str(e)}")
+
+
+@app.get("/api/groups", response_model=List[GroupListItem])
+async def get_groups():
+    """
+    获取分组列表接口（仅返回ID和名称，不包括已删除的）
+    """
+    try:
+        # 获取所有未删除的分组
+        groups, total = group_dao.get_active_groups(page=1, page_size=1000)  # 大页面大小获取所有
+        
+        # 转换为响应格式
+        group_list = [
+            GroupListItem(id=group.id, group_name=group.group_name) 
+            for group in groups
+        ]
+        
+        return group_list
+        
+    except Exception as e:
+        log.error(f"Error getting groups: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取分组列表失败: {str(e)}")
+
+
+@app.put("/api/groups/{group_id}", status_code=200)
+async def update_group(group_id: int, group_request: GroupUpdateRequest, dep=Depends(check_authority)):
+    """
+    更新分组名称接口
+    """
+    try:
+        # 检查分组是否存在
+        existing_group = group_dao.get_by_id(group_id)
+        if not existing_group or existing_group.is_deleted():
+            raise HTTPException(status_code=404, detail="分组不存在或已被删除")
+        
+        # 检查新名称是否与其他分组重复（排除当前分组）
+        if group_dao.group_name_exists(group_request.group_name, exclude_id=group_id, include_deleted=False):
+            raise HTTPException(status_code=400, detail="分组名称已存在")
+        
+        # 更新分组名称
+        updated_group = group_dao.update_group_name(group_id, group_request.group_name)
+        
+        if not updated_group:
+            raise HTTPException(status_code=500, detail="更新分组失败")
+        
+        log.info(f"Updated group {group_id}: {existing_group.group_name} -> {updated_group.group_name}")
+        return {
+            "success": True,
+            "message": "分组更新成功",
+            "data": {
+                "id": updated_group.id,
+                "group_name": updated_group.group_name
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating group {group_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"更新分组失败: {str(e)}")
+
+
+@app.delete("/api/groups/{group_id}", status_code=200)
+async def delete_group(group_id: int, dep=Depends(check_authority)):
+    """
+    删除分组接口（软删除）
+    """
+    try:
+        # 检查分组是否存在
+        existing_group = group_dao.get_by_id(group_id)
+        if not existing_group or existing_group.is_deleted():
+            raise HTTPException(status_code=404, detail="分组不存在或已被删除")
+        
+        # 软删除分组
+        deleted_group = group_dao.soft_delete_group(group_id)
+        
+        if not deleted_group:
+            raise HTTPException(status_code=500, detail="删除分组失败")
+
+        device_dao.update_devices_group(old_group_id=group_id, new_group_id=0)
+
+        log.info(f"Soft deleted group {group_id}: {existing_group.group_name}")
+        return {
+            "success": True,
+            "message": "分组删除成功"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error deleting group {group_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除分组失败: {str(e)}")
+
+
+# --- Device Management API ---
+@app.put("/api/devices/{dev_eui}", status_code=200)
+async def update_device(dev_eui: str, device_request: DeviceUpdateRequest, dep=Depends(check_authority)):
+    """
+    更新设备信息接口
+    """
+    try:
+        # 检查设备是否存在
+        existing_device = device_dao.get_by_dev_eui(dev_eui)
+        if not existing_device or existing_device.is_deleted():
+            raise HTTPException(status_code=404, detail="设备不存在或已被删除")
+        
+        # 如果指定了分组ID，检查分组是否存在
+        if device_request.group_id is not None and device_request.group_id > 0:
+            group = group_dao.get_by_id(device_request.group_id)
+            if not group or group.is_deleted():
+                raise HTTPException(status_code=400, detail="指定的分组不存在")
+        
+        # 构建更新数据
+        update_data = {}
+        if device_request.device_name is not None:
+            update_data["device_name"] = device_request.device_name
+        if device_request.group_id is not None:
+            update_data["group_id"] = device_request.group_id
+        if device_request.is_favorite is not None:
+            update_data["is_favorite"] = device_request.is_favorite
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有提供要更新的数据")
+        
+        # 更新设备
+        updated_device = device_dao.update_device_info(dev_eui=dev_eui, **update_data)
+        
+        if not updated_device:
+            raise HTTPException(status_code=500, detail="更新设备失败")
+        
+        log.info(f"Updated device {dev_eui}: {existing_device.device_name}")
+        return {
+            "success": True,
+            "message": "设备更新成功",
+            "data": {
+                "dev_eui": dev_eui,
+                "device_name": updated_device.device_name
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating device {dev_eui}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"更新设备失败: {str(e)}")
+
+
+@app.post("/api/devices/search", response_model=List[DeviceListItem])
+async def search_devices(search_request: DeviceSearchRequest, dep=Depends(check_authority)):
+    """
+    搜索设备接口
+    """
+    try:
+        devices, total = device_dao.search_devices(
+            search_request.keyword, 
+            search_request.page, 
+            search_request.page_size
+        )
+        
+        # 转换为响应格式
+        device_list = []
+        for device in devices:
+            device_item = DeviceListItem(
+                id=device.id,
+                dev_eui=device.dev_eui,
+                device_name=device.device_name,
+                group_id=device.group_id,
+                is_online=device.is_online,
+                is_favorite=device.is_favorite,
+                battery_level=device.battery_level,
+                create_time=device.create_time.isoformat() if device.create_time else "",
+                last_data_update_time=device.last_data_update_time.isoformat() if device.last_data_update_time else None
+            )
+            device_list.append(device_item)
+        
+        return device_list
+        
+    except Exception as e:
+        log.error(f"Error searching devices: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"搜索设备失败: {str(e)}")
 
 
 @app.post("/api/shutdown", status_code=200)

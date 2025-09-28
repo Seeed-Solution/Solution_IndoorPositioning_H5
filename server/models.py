@@ -189,6 +189,157 @@ class ServiceCredentialsRequest(BaseModel):
         }
 
 
+class GroupCreateRequest(BaseModel):
+    """
+    创建分组请求模型
+    """
+    group_name: str = Field(..., min_length=1, max_length=100, description="分组名称")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "group_name": "生产车间A"
+            }
+        }
+
+
+class GroupUpdateRequest(BaseModel):
+    """
+    更新分组请求模型
+    """
+    group_name: str = Field(..., min_length=1, max_length=100, description="新的分组名称")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "group_name": "生产车间B"
+            }
+        }
+
+
+class GroupListItem(BaseModel):
+    """
+    分组列表项响应模型
+    """
+    id: int = Field(..., description="分组ID")
+    group_name: str = Field(..., description="分组名称")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "group_name": "生产车间A"
+            }
+        }
+
+
+class DeviceCreateRequest(BaseModel):
+    """
+    创建设备请求模型
+    """
+    dev_eui: str = Field(..., min_length=16, max_length=16, description="设备EUI（16位字符）")
+    device_name: str = Field(..., min_length=1, max_length=20, description="设备名称（最多20字符）")
+    group_id: Optional[int] = Field(None, description="分组ID，可为空")
+    is_favorite: bool = Field(default=False, description="是否收藏")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "dev_eui": "1234567890ABCDEF",
+                "device_name": "传感器001",
+                "group_id": 1,
+                "is_favorite": False
+            }
+        }
+
+
+class DeviceUpdateRequest(BaseModel):
+    """
+    更新设备请求模型
+    """
+    dev_eui: Optional[str] = Field(None, min_length=1, max_length=20, description="eui")
+    device_name: Optional[str] = Field(None, min_length=1, max_length=20, description="设备名称")
+    group_id: Optional[int] = Field(None, description="分组ID")
+    is_favorite: Optional[bool] = Field(None, description="是否收藏")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "device_name": "传感器002",
+                "group_id": 2,
+                "is_favorite": True
+            }
+        }
+
+
+class DeviceStatusUpdateRequest(BaseModel):
+    """
+    设备状态更新请求模型
+    """
+    is_online: Optional[bool] = Field(None, description="是否在线")
+    battery_level: Optional[int] = Field(None, ge=0, le=100, description="电量（0-100）")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "is_online": True,
+                "battery_level": 85
+            }
+        }
+
+class TrackerStateQueryRequest(BaseModel):
+    online_status: Optional[str] = Field(None, description="在线状态")
+    is_favorite: Optional[bool] = Field(None, description="是否收藏")
+
+
+class DeviceListItem(BaseModel):
+    """
+    设备列表项响应模型
+    """
+    id: int = Field(..., description="设备ID")
+    dev_eui: str = Field(..., description="设备EUI")
+    device_name: str = Field(..., description="设备名称")
+    group_id: Optional[int] = Field(None, description="分组ID")
+    is_online: bool = Field(..., description="是否在线")
+    is_favorite: bool = Field(..., description="是否收藏")
+    battery_level: Optional[int] = Field(None, description="电量")
+    create_time: str = Field(..., description="创建时间")
+    last_data_update_time: Optional[str] = Field(None, description="最后数据更新时间")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "dev_eui": "1234567890ABCDEF",
+                "device_name": "传感器001",
+                "group_id": 1,
+                "is_online": True,
+                "is_favorite": False,
+                "battery_level": 85,
+                "create_time": "2024-01-01T10:00:00",
+                "last_data_update_time": "2024-01-01T15:30:00"
+            }
+        }
+
+
+class DeviceSearchRequest(BaseModel):
+    """
+    设备搜索请求模型
+    """
+    keyword: str = Field(..., min_length=1, description="搜索关键词（设备名称或EUI）")
+    page: int = Field(default=1, ge=1, description="页码")
+    page_size: int = Field(default=20, ge=1, le=100, description="每页数量")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "keyword": "传感器",
+                "page": 1,
+                "page_size": 20
+            }
+        }
+
+
 class LoginRequest(BaseModel):
     """
     登录请求模型
@@ -220,34 +371,18 @@ class DetectedBeacon(BaseModel):
 class TrackerReport(BaseModel):
     trackerId: str # Corresponds to device devEui from MQTT topic
     timestamp: int # Unix ms timestamp from message payload
+    receive_time: Optional[int] = int(datetime.now().timestamp())
     detectedBeacons: List[DetectedBeacon] = []
     sos: int = 2 # 0: 恢复, 1: 触发, 2: 未知
     locType: str = 'bluetooth'
     loc: dict[str, Any] = {}
     sourceType: str = "sensecap"
-
-
-class TrackerState(BaseModel):
-    trackerId: str
-    tracker_number: Optional[int] = None  # 固定的数字标记
-    x: Optional[float] = None
-    y: Optional[float] = None
-    last_update_time: int # Unix ms timestamp (server time of this update)
-    last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
-    last_detected_beacons: List[DetectedBeacon] = [] 
-    position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
-    used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
-    map: Optional[str] = "unknown"
-    sos: int = 0
-    type: Optional[str] = "calculation"
-    radius: float = 0
+    battery: Optional[int] = -1
 
 
 class UserSessionInfo(BaseModel):
     username: str
     role: str
-
-
 
 
 # --- Old combined ConfigData and CommonSettings (can be removed after refactoring) ---
@@ -283,6 +418,113 @@ class UserSessionInfo(BaseModel):
 #     settings: OldCommonSettings
 #     mqtt: OldMqttConfig
 #     server: OldServerConfig
+
+
+# --- Device Information Model ---
+
+@dataclass
+class DeviceRecord:
+    """设备信息数据模型"""
+    id: Optional[int] = None
+    dev_eui: str = ""  # 设备EUI，CHAR(16)
+    device_name: str = ""  # 设备名称，CHAR(20)
+    group_id: int = 0  # 分组ID，0表示默认分组
+    is_favorite: bool = False  # 是否收藏
+    battery_level: Optional[int] = 0  # 电量（0-100），可为空
+    create_time: Optional[datetime] = None  # 创建时间
+    delete_time: Optional[datetime] = None  # 删除时间（软删除）
+    last_data_update_time: Optional[datetime] = None  # 最后一次数据更新时间
+    
+    def __post_init__(self):
+        if self.create_time is None:
+            self.create_time = datetime.now()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，方便JSON序列化"""
+        data = asdict(self)
+        # 转换datetime为字符串
+        if self.create_time:
+            data['create_time'] = self.create_time.isoformat()
+        if self.delete_time:
+            data['delete_time'] = self.delete_time.isoformat()
+        if self.last_data_update_time:
+            data['last_data_update_time'] = self.last_data_update_time.isoformat()
+        return data
+    
+    def to_json(self) -> str:
+        """转换为JSON字符串"""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'DeviceRecord':
+        """从字典创建对象"""
+        # 转换字符串为datetime
+        if 'create_time' in data and isinstance(data['create_time'], str):
+            data['create_time'] = datetime.fromisoformat(data['create_time'])
+        if 'delete_time' in data and isinstance(data['delete_time'], str):
+            data['delete_time'] = datetime.fromisoformat(data['delete_time'])
+        if 'last_data_update_time' in data and isinstance(data['last_data_update_time'], str):
+            data['last_data_update_time'] = datetime.fromisoformat(data['last_data_update_time'])
+        return cls(**data)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'DeviceRecord':
+        """从JSON字符串创建对象"""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+    
+    def is_deleted(self) -> bool:
+        """检查设备是否已被删除"""
+        return self.delete_time is not None
+
+
+# --- Group Management Model ---
+
+@dataclass
+class GroupRecord:
+    """分组管理数据模型"""
+    id: Optional[int] = None
+    group_name: str = ""
+    create_time: Optional[datetime] = None
+    delete_time: Optional[datetime] = None  # 软删除时间，None表示未删除
+    
+    def __post_init__(self):
+        if self.create_time is None:
+            self.create_time = datetime.now()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，方便JSON序列化"""
+        data = asdict(self)
+        # 转换datetime为字符串
+        if self.create_time:
+            data['create_time'] = self.create_time.isoformat()
+        if self.delete_time:
+            data['delete_time'] = self.delete_time.isoformat()
+        return data
+    
+    def to_json(self) -> str:
+        """转换为JSON字符串"""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'GroupRecord':
+        """从字典创建对象"""
+        # 转换字符串为datetime
+        if 'create_time' in data and isinstance(data['create_time'], str):
+            data['create_time'] = datetime.fromisoformat(data['create_time'])
+        if 'delete_time' in data and isinstance(data['delete_time'], str):
+            data['delete_time'] = datetime.fromisoformat(data['delete_time'])
+        return cls(**data)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'GroupRecord':
+        """从JSON字符串创建对象"""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+    
+    def is_deleted(self) -> bool:
+        """检查分组是否已被删除"""
+        return self.delete_time is not None
 
 
 # --- Device Alarm Record Model ---
@@ -377,4 +619,103 @@ class DeviceAlarmRecord:
     def from_json(cls, json_str: str) -> 'DeviceAlarmRecord':
         """从JSON字符串创建对象"""
         data = json.loads(json_str)
-        return cls.from_dict(data) 
+        return cls.from_dict(data)
+
+
+class TrackerState(BaseModel):
+    trackerId: str
+    x: Optional[float] = None
+    y: Optional[float] = None
+    last_update_time: Optional[int] = 0 # Unix ms timestamp in ms (server time of this update)
+    last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
+    last_detected_beacons: List[DetectedBeacon] = []
+    position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
+    used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
+    map: Optional[str] = "unknown"
+    sos: int = 0
+    type: Optional[str] = "calculation"
+    radius: float = 0
+    battery: Optional[int] = -1
+    online: Optional[str] = "unknown"
+
+    def toTrackerInfo(self, device_record: DeviceRecord) -> "TrackerInfo":
+        """将TrackerState和DeviceRecord合并转换为TrackerInfo"""
+        # 创建TrackerInfo实例，合并两个对象的数据
+        tracker_info = TrackerInfo(
+            # TrackerState字段
+            trackerId=self.trackerId,
+            x=self.x,
+            y=self.y,
+            last_update_time=self.last_update_time,
+            last_known_measurement_time=self.last_known_measurement_time,
+            last_detected_beacons=self.last_detected_beacons,
+            position_history=self.position_history,
+            used_beacon_macs=self.used_beacon_macs,
+            map=self.map,
+            sos=self.sos,
+            type=self.type,
+            radius=self.radius,
+            battery=self.battery,
+            online=self.online,
+            
+            # DeviceRecord字段
+            id=device_record.id,
+            device_name=device_record.device_name,
+            group_id=device_record.group_id,
+            is_favorite=device_record.is_favorite,
+        )
+        if self.battery == -1:
+            self.battery = device_record.battery_level
+        return tracker_info
+
+    @staticmethod
+    def toTrackerState(deviceRecord: DeviceRecord) -> "TrackerState":
+        """将TrackerInfo转换为TrackerState"""
+        tracker_state = TrackerState(
+            trackerId=deviceRecord.dev_eui,
+            battery=deviceRecord.battery_level,
+            online="unknown",
+        )
+        if deviceRecord.last_data_update_time:
+            tracker_state.last_update_time = int(deviceRecord.last_data_update_time.timestamp()) * 1000
+        return tracker_state
+
+
+class TrackerInfo(BaseModel):
+    """追踪器信息，包含TrackerState和DeviceRecord的所有字段"""
+    # TrackerState字段
+    trackerId: str
+    tracker_number: Optional[int] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    last_update_time: int
+    last_known_measurement_time: Optional[int] = None
+    last_detected_beacons: List[DetectedBeacon] = []
+    position_history: List[Tuple[float, float, int]] = []
+    used_beacon_macs: List[str] = []
+    map: Optional[str] = "unknown"
+    sos: int = 0
+    type: Optional[str] = "calculation"
+    radius: float = 0
+    battery: Optional[int] = -1
+    online: Optional[str] = "unknown"
+    
+    # DeviceRecord字段
+    id: Optional[int] = None
+    device_name: str = ""
+    group_id: int = 0
+    is_favorite: bool = False
+
+    @staticmethod
+    def fromDeviceRecord(device: DeviceRecord) -> "TrackerInfo":
+        return TrackerInfo(
+            trackerId=device.dev_eui,
+            last_update_time=device.last_data_update_time.timestamp() * 1000,
+            device_name=device.device_name,
+            group_id=device.group_id,
+            is_favorite=device.is_favorite
+        )
+
+    class Config:
+        # 允许任意类型，因为包含datetime等复杂类型
+        arbitrary_types_allowed = True

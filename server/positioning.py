@@ -164,10 +164,14 @@ def calculate_position(
         # distance index type
         return beacons_with_coords_dist[0][2], beacons_with_coords_dist[0][3], "approximate"
 
-    log.info(f"device(id: {device_id}) Using map '{map_name}' with {len(beacons_with_coords_dist)} beacons for positioning")
+    log.info(f"device(id: {device_id}) Using map '{map_name}' with {beacons_with_coords_dist}")
     # log.info(f"device(id: {device_id}) 完成蓝牙测距, best_beacons:{best_beacons}")
-    estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
-    return estimated_position
+    try:
+        estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
+        return estimated_position
+    except Exception as err:
+        estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
+        print("err")
 
 # --- Kalman Filter Implementation ---
 class KalmanFilter2D:
