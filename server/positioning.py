@@ -166,12 +166,8 @@ def calculate_position(
 
     log.info(f"device(id: {device_id}) Using map '{map_name}' with {beacons_with_coords_dist}")
     # log.info(f"device(id: {device_id}) 完成蓝牙测距, best_beacons:{best_beacons}")
-    try:
-        estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
-        return estimated_position
-    except Exception as err:
-        estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
-        print("err")
+    estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
+    return estimated_position
 
 # --- Kalman Filter Implementation ---
 class KalmanFilter2D:
