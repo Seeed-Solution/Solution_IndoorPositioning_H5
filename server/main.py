@@ -20,6 +20,7 @@ from server.components.beacon_holder import beacon_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.dao.group_dao import group_dao
 from server.dao.device_dao import device_dao
+from server.components.event_manager import event_manager
 from server.components.uplink_collector import UplinkCollector
 import requests
 from server.components.session_holder import session_holder
@@ -46,7 +47,8 @@ from server.models import (  # Grouped imports for models
     LoginRequest,  # Import WebUISettings directly
     UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,
     DeviceCreateRequest, DeviceUpdateRequest, DeviceStatusUpdateRequest, DeviceListItem, DeviceSearchRequest,
-    DeviceRecord, TrackerInfo, TrackerStateQueryRequest
+    DeviceRecord, TrackerInfo, TrackerStateQueryRequest,
+    EventTriggerCreateRequest, EventTriggerUpdateRequest, EventTriggerListItem
 )
 from server.positioning import KalmanFilter2D
 
@@ -1235,6 +1237,13 @@ async def startup_event():
     else:
         log.info("there is no tracker need to load in application when startup...")
 
+    # Initialize event manager
+    try:
+        event_manager.initialize()
+        log.info("Event manager initialized successfully during startup.")
+    except Exception as e:
+        log.error(f"Failed to initialize event manager during startup: {e}", exc_info=True)
+
     # Check if any MQTT sources are enabled and setup accordingly
     any_mqtt_enabled = False
     if runtime_cfg:
@@ -2303,6 +2312,272 @@ async def search_devices(search_request: DeviceSearchRequest, dep=Depends(check_
     except Exception as e:
         log.error(f"Error searching devices: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"搜索设备失败: {str(e)}")
+
+
+# --- Event Trigger Management API ---
+
+@app.post("/api/events", status_code=200)
+async def create_event_trigger(event_request: EventTriggerCreateRequest):
+    """
+    创建事件触发条件接口
+    """
+    try:
+        # 检查事件名称是否已存在
+        if event_manager.get_cache_stats()["initialized"]:
+            # 如果缓存已初始化，使用DAO检查
+            from server.dao.event_trigger_dao import event_trigger_dao
+            if event_trigger_dao.event_name_exists(event_request.event_name, include_deleted=False):
+                raise HTTPException(status_code=400, detail="事件名称已存在")
+        
+        # 使用事件管理器创建事件
+        event = event_manager.create_event(
+            event_name=event_request.event_name,
+            event_type=event_request.event_type,
+            device_range=event_request.device_range,
+            ble_range=event_request.ble_range,
+            time_range=event_request.time_range,
+            ble_rule=event_request.ble_rule,
+            dis_range=event_request.dis_range,
+            enable_status=event_request.enable_status
+        )
+        
+        if not event:
+            raise HTTPException(status_code=500, detail="创建事件失败")
+        
+        log.info(f"Created event trigger: {event.event_name} (ID: {event.id})")
+        return {
+            "success": True,
+            "message": "事件创建成功",
+            "data": {
+                "id": event.id,
+                "event_name": event.event_name,
+                "event_type": event.event_type
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error creating event trigger: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"创建事件失败: {str(e)}")
+
+
+@app.get("/api/events", response_model=List[EventTriggerListItem])
+async def get_event_triggers(
+        page: int = Query(1, ge=1),
+        page_size: int = Query(20, ge=1, le=100)):
+    """
+    获取事件触发条件列表接口（分页）
+    """
+    try:
+        from server.dao.event_trigger_dao import event_trigger_dao
+        events, total = event_trigger_dao.get_active_event_triggers(page, page_size)
+        
+        # 转换为响应格式
+        event_list = []
+        for event in events:
+            event_item = EventTriggerListItem(
+                id=event.id,
+                event_name=event.event_name,
+                event_type=event.event_type,
+                device_range=event.get_device_range_list(),
+                ble_range=event.get_ble_range_list(),
+                time_range=event.time_range,
+                ble_rule=event.ble_rule,
+                dis_range=event.dis_range,
+                enable_status=event.enable_status,
+                create_time=event.create_time.isoformat() if event.create_time else ""
+            )
+            event_list.append(event_item)
+        
+        return event_list
+        
+    except Exception as e:
+        log.error(f"Error getting event triggers: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取事件列表失败: {str(e)}")
+
+
+@app.get("/api/events/{event_id}", response_model=EventTriggerListItem)
+async def get_event_trigger(event_id: int):
+    """
+    获取单个事件触发条件详情接口
+    """
+    try:
+        from server.dao.event_trigger_dao import event_trigger_dao
+        event = event_trigger_dao.get_by_id(event_id)
+        
+        if not event or event.is_deleted():
+            raise HTTPException(status_code=404, detail="事件不存在或已被删除")
+        
+        return EventTriggerListItem(
+            id=event.id,
+            event_name=event.event_name,
+            event_type=event.event_type,
+            device_range=event.get_device_range_list(),
+            ble_range=event.get_ble_range_list(),
+            time_range=event.time_range,
+            ble_rule=event.ble_rule,
+            dis_range=event.dis_range,
+            enable_status=event.enable_status,
+            create_time=event.create_time.isoformat() if event.create_time else ""
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error getting event trigger {event_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取事件详情失败: {str(e)}")
+
+
+@app.put("/api/events/{event_id}", status_code=200)
+async def update_event_trigger(event_id: int, event_request: EventTriggerUpdateRequest, dep=Depends(check_authority)):
+    """
+    更新事件触发条件接口
+    """
+    try:
+        from server.dao.event_trigger_dao import event_trigger_dao
+        
+        # 检查事件是否存在
+        existing_event = event_trigger_dao.get_by_id(event_id)
+        if not existing_event or existing_event.is_deleted():
+            raise HTTPException(status_code=404, detail="事件不存在或已被删除")
+        
+        # 检查新名称是否与其他事件重复（如果提供了新名称）
+        if event_request.event_name and event_request.event_name != existing_event.event_name:
+            if event_trigger_dao.event_name_exists(event_request.event_name, exclude_id=event_id, include_deleted=False):
+                raise HTTPException(status_code=400, detail="事件名称已存在")
+        
+        # 构建更新数据
+        update_data = {}
+        if event_request.event_name is not None:
+            update_data["event_name"] = event_request.event_name
+        if event_request.event_type is not None:
+            update_data["event_type"] = event_request.event_type
+        if event_request.device_range is not None:
+            update_data["device_range_list"] = event_request.device_range
+        if event_request.ble_range is not None:
+            update_data["ble_range_list"] = event_request.ble_range
+        if event_request.time_range is not None:
+            update_data["time_range"] = event_request.time_range
+        if event_request.ble_rule is not None:
+            update_data["ble_rule"] = event_request.ble_rule
+        if event_request.dis_range is not None:
+            update_data["dis_range"] = event_request.dis_range
+        if event_request.enable_status is not None:
+            update_data["enable_status"] = event_request.enable_status
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有提供要更新的数据")
+        
+        # 使用事件管理器更新事件
+        updated_event = event_manager.update_event(event_id, **update_data)
+        
+        if not updated_event:
+            raise HTTPException(status_code=500, detail="更新事件失败")
+        
+        log.info(f"Updated event trigger {event_id}: {existing_event.event_name}")
+        return {
+            "success": True,
+            "message": "事件更新成功",
+            "data": {
+                "id": updated_event.id,
+                "event_name": updated_event.event_name,
+                "event_type": updated_event.event_type
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating event trigger {event_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"更新事件失败: {str(e)}")
+
+
+@app.delete("/api/events/{event_id}", status_code=200)
+async def delete_event_trigger(event_id: int, dep=Depends(check_authority)):
+    """
+    删除事件触发条件接口（软删除）
+    """
+    try:
+        from server.dao.event_trigger_dao import event_trigger_dao
+        
+        # 检查事件是否存在
+        existing_event = event_trigger_dao.get_by_id(event_id)
+        if not existing_event or existing_event.is_deleted():
+            raise HTTPException(status_code=404, detail="事件不存在或已被删除")
+        
+        # 使用事件管理器删除事件
+        success = event_manager.delete_event(event_id)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="删除事件失败")
+        
+        log.info(f"Soft deleted event trigger {event_id}: {existing_event.event_name}")
+        return {
+            "success": True,
+            "message": "事件删除成功"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error deleting event trigger {event_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除事件失败: {str(e)}")
+
+
+@app.post("/api/events/{event_id}/enable", status_code=200)
+async def enable_event_trigger(event_id: int, dep=Depends(check_authority)):
+    """
+    启用事件触发条件接口
+    """
+    try:
+        # 使用事件管理器启用事件
+        success = event_manager.enable_event(event_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="事件不存在或启用失败")
+        
+        log.info(f"Enabled event trigger: {event_id}")
+        return {
+            "success": True,
+            "message": "事件已启用"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error enabling event trigger {event_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"启用事件失败: {str(e)}")
+
+
+@app.get("/api/events/device/{eui}", status_code=200)
+async def get_event_by_device(eui: str, dep=Depends(check_authority)):
+    return event_manager.get_events_for_device(eui)
+
+
+@app.post("/api/events/{event_id}/disable", status_code=200)
+async def disable_event_trigger(event_id: int, dep=Depends(check_authority)):
+    """
+    禁用事件触发条件接口
+    """
+    try:
+        # 使用事件管理器禁用事件
+        success = event_manager.disable_event(event_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="事件不存在或禁用失败")
+        
+        log.info(f"Disabled event trigger: {event_id}")
+        return {
+            "success": True,
+            "message": "事件已禁用"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error disabling event trigger {event_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"禁用事件失败: {str(e)}")
 
 
 @app.post("/api/shutdown", status_code=200)

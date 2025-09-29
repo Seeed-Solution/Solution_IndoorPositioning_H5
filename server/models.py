@@ -340,6 +340,90 @@ class DeviceSearchRequest(BaseModel):
         }
 
 
+class EventTriggerCreateRequest(BaseModel):
+    """
+    创建事件触发条件请求模型
+    """
+    event_name: str = Field(..., min_length=1, max_length=100, description="事件名称")
+    event_type: int = Field(..., description="事件类型")
+    device_range: Optional[List[str]] = Field(default=[], description="设备范围列表")
+    ble_range: Optional[List[str]] = Field(default=[], description="BLE范围列表")
+    time_range: Optional[str] = Field(default="", max_length=100, description="时间范围")
+    ble_rule: Optional[int] = Field(default=0, description="BLE规则")
+    dis_range: Optional[float] = Field(default=0.0, ge=0, description="距离范围")
+    enable_status: Optional[bool] = Field(default=True, description="启用状态")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "event_name": "设备离线告警",
+                "event_type": 1,
+                "device_range": ["device001", "device002"],
+                "ble_range": ["00:11:22:33:44:55"],
+                "time_range": "09:00-18:00",
+                "ble_rule": 1,
+                "dis_range": 10.0,
+                "enable_status": True
+            }
+        }
+
+
+class EventTriggerUpdateRequest(BaseModel):
+    """
+    更新事件触发条件请求模型
+    """
+    event_name: Optional[str] = Field(None, min_length=1, max_length=100, description="事件名称")
+    event_type: Optional[int] = Field(None, description="事件类型")
+    device_range: Optional[List[str]] = Field(None, description="设备范围列表")
+    ble_range: Optional[List[str]] = Field(None, description="BLE范围列表")
+    time_range: Optional[str] = Field(None, max_length=100, description="时间范围")
+    ble_rule: Optional[int] = Field(None, description="BLE规则")
+    dis_range: Optional[float] = Field(None, ge=0, description="距离范围")
+    enable_status: Optional[bool] = Field(None, description="启用状态")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "event_name": "设备离线告警-更新",
+                "event_type": 2,
+                "device_range": ["device003"],
+                "enable_status": False
+            }
+        }
+
+
+class EventTriggerListItem(BaseModel):
+    """
+    事件触发条件列表项响应模型
+    """
+    id: int = Field(..., description="事件ID")
+    event_name: str = Field(..., description="事件名称")
+    event_type: int = Field(..., description="事件类型")
+    device_range: List[str] = Field(..., description="设备范围列表")
+    ble_range: List[str] = Field(..., description="BLE范围列表")
+    time_range: str = Field(..., description="时间范围")
+    ble_rule: int = Field(..., description="BLE规则")
+    dis_range: float = Field(..., description="距离范围")
+    enable_status: bool = Field(..., description="启用状态")
+    create_time: str = Field(..., description="创建时间")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "event_name": "设备离线告警",
+                "event_type": 1,
+                "device_range": ["device001", "device002"],
+                "ble_range": ["00:11:22:33:44:55"],
+                "time_range": "09:00-18:00",
+                "ble_rule": 1,
+                "dis_range": 10.0,
+                "enable_status": True,
+                "create_time": "2024-01-01T10:00:00"
+            }
+        }
+
+
 class LoginRequest(BaseModel):
     """
     登录请求模型
@@ -418,6 +502,94 @@ class UserSessionInfo(BaseModel):
 #     settings: OldCommonSettings
 #     mqtt: OldMqttConfig
 #     server: OldServerConfig
+
+
+# --- Event Trigger Model ---
+
+@dataclass
+class EventTriggerRecord:
+    """事件触发条件数据模型"""
+    id: Optional[int] = None
+    event_name: str = ""  # 事件名称
+    event_type: int = 0  # 事件类型  1:sos, 2:offline, 3:checkin, 4:leaving
+    device_range: str = "[]"  # 设备范围，JSON格式存储list[str]
+    ble_range: str = "[]"  # BLE范围，JSON格式存储list[str]
+    time_range: str = ""  # 时间范围
+    ble_rule: int = 0  # BLE规则
+    dis_range: float = 0.0  # 距离范围
+    enable_status: bool = True  # 启用状态
+    create_time: Optional[datetime] = None  # 创建时间
+    delete_time: Optional[datetime] = None  # 删除时间（软删除）
+    
+    def __post_init__(self):
+        if self.create_time is None:
+            self.create_time = datetime.now()
+    
+    def get_device_range_list(self) -> List[str]:
+        """获取设备范围列表"""
+        try:
+            return json.loads(self.device_range) if self.device_range else []
+        except json.JSONDecodeError:
+            return []
+    
+    def set_device_range_list(self, device_list: List[str]):
+        """设置设备范围列表"""
+        self.device_range = json.dumps(device_list, ensure_ascii=False)
+    
+    def get_ble_range_list(self) -> List[str]:
+        """获取BLE范围列表"""
+        try:
+            return json.loads(self.ble_range) if self.ble_range else []
+        except json.JSONDecodeError:
+            return []
+    
+    def set_ble_range_list(self, ble_list: List[str]):
+        """设置BLE范围列表"""
+        self.ble_range = json.dumps(ble_list, ensure_ascii=False)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，方便JSON序列化"""
+        data = asdict(self)
+        # 转换datetime为字符串
+        if self.create_time:
+            data['create_time'] = self.create_time.isoformat()
+        if self.delete_time:
+            data['delete_time'] = self.delete_time.isoformat()
+        # 解析JSON字段为列表
+        data['device_range_list'] = self.get_device_range_list()
+        data['ble_range_list'] = self.get_ble_range_list()
+        return data
+    
+    def to_json(self) -> str:
+        """转换为JSON字符串"""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'EventTriggerRecord':
+        """从字典创建对象"""
+        # 转换字符串为datetime
+        if 'create_time' in data and isinstance(data['create_time'], str):
+            data['create_time'] = datetime.fromisoformat(data['create_time'])
+        if 'delete_time' in data and isinstance(data['delete_time'], str):
+            data['delete_time'] = datetime.fromisoformat(data['delete_time'])
+        
+        # 处理列表字段
+        if 'device_range_list' in data:
+            data['device_range'] = json.dumps(data.pop('device_range_list'), ensure_ascii=False)
+        if 'ble_range_list' in data:
+            data['ble_range'] = json.dumps(data.pop('ble_range_list'), ensure_ascii=False)
+        
+        return cls(**data)
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'EventTriggerRecord':
+        """从JSON字符串创建对象"""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+    
+    def is_deleted(self) -> bool:
+        """检查事件是否已被删除"""
+        return self.delete_time is not None
 
 
 # --- Device Information Model ---

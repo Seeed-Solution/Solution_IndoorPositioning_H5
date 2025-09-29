@@ -116,10 +116,25 @@ class BaseDao(Generic[T]):
             return [self._to_model(obj) for obj in table_objs]
     
     def update_by_dev_eui(self, dev_eui: str, **kwargs) -> Optional[T]:
-        """根据ID更新记录"""
+        """根据dev_eui更新记录"""
         with self.get_session() as session:
             instance = session.query(self.table_class).filter(
                 self.table_class.dev_eui == dev_eui
+            ).first()
+            if instance:
+                for key, value in kwargs.items():
+                    if hasattr(instance, key):
+                        setattr(instance, key, value)
+                session.flush()
+                session.refresh(instance)
+                return self._to_model(instance)
+            return None
+
+    def update_by_id(self, id: int, **kwargs) -> Optional[T]:
+        """根据ID更新记录"""
+        with self.get_session() as session:
+            instance = session.query(self.table_class).filter(
+                self.table_class.id == id
             ).first()
             if instance:
                 for key, value in kwargs.items():
