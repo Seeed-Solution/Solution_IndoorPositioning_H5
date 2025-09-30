@@ -48,6 +48,13 @@
       >
         <i class="fas fa-satellite-dish"></i> {{ t('config.management.trackerConfig') }}
       </button>
+      <button 
+        @click="activeMainTab = 'alarm'" 
+        :class="{ active: activeMainTab === 'alarm' }"
+        class="config-tab-button"
+      >
+        <i class="fas fa-bell"></i> Alarm Settings
+      </button>
     </div>
 
     <!-- 地图与信标配置标签内容 -->
@@ -800,6 +807,11 @@
       </div>
     </div>
 
+    <!-- Alarm Settings标签内容 -->
+    <div v-if="activeMainTab === 'alarm'" class="main-tab-content">
+      <AlarmSettings @update-status="handleAlarmStatusUpdate" />
+    </div>
+
     <!-- 隐藏的文件输入元素 -->
     <input 
       type="file" 
@@ -997,6 +1009,7 @@ import { useI18n } from 'vue-i18n';
 import BeaconManagerTab from '@/components/configuration/BeaconManagerTab.vue';
 import MapEditorTab from '@/components/configuration/MapEditorTab.vue';
 import GeneralSettingsTab from '@/components/configuration/GeneralSettingsTab.vue';
+import AlarmSettings from '@/components/AlarmSettings.vue';
 import { 
   loadDashboardConfiguration, 
   saveDashboardConfiguration,
@@ -1102,6 +1115,7 @@ const credentialsError = ref('');
 // 重启服务相关状态
 const isRestartingService = ref(false);
 
+
 // SenseCap验证错误状态
 const sensecapValidationErrors = ref({
   applicationID: '',
@@ -1180,6 +1194,7 @@ const isPasswordFormValid = computed(() => {
          !passwordErrors.value.newPassword &&
          !passwordErrors.value.confirmPassword;
 });
+
 
 // 监听密码表单输入变化，动态清除错误信息
 watch(passwordForm, (newForm, oldForm) => {
@@ -3517,6 +3532,13 @@ const restartService = async () => {
   }
 };
 
+// Alarm组件状态更新处理
+const handleAlarmStatusUpdate = (message) => {
+  configStatusMessage.value = message;
+  setTimeout(() => { configStatusMessage.value = '' }, 3000);
+};
+
+
 </script>
 
 <style scoped>
@@ -5668,5 +5690,6 @@ select {
   transform: translateY(-2px);
   box-shadow: 0 5px 12px rgba(40, 167, 69, 0.4);
 }
+
 
 </style> 

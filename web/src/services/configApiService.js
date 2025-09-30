@@ -214,4 +214,38 @@ export const changePassword = async (currentPassword, newPassword) => {
   }
 };
 
+// 专门用于TrackerModeConfig组件的tracker数据获取
+export const loadLatestTrackerData = async () => {
+  try {
+    const response = await httpClient.get(API_ENDPOINTS.TRACKERS);
+    return response.data; // 返回对象格式: { "trackerId": { ...trackerData } }
+  } catch (error) {
+    console.error('Error loading latest tracker data:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to load latest tracker data.');
+    } else {
+      throw new Error(`Failed to load latest tracker data: ${error.message}`);
+    }
+  }
+};
+
+// 更新设备信息API
+export const updateDevice = async (trackerId, deviceData) => {
+  try {
+    const response = await httpClient.put(`/devices/${trackerId}`, deviceData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating device:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to update device.');
+    } else {
+      throw new Error(`Failed to update device: ${error.message}`);
+    }
+  }
+};
+
 // You might add other API calls related to configuration here later. 
