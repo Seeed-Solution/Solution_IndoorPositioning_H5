@@ -223,6 +223,20 @@ class DeviceDao(BaseDao[DeviceRecord]):
             })
             return updated_count
 
+    def batch_update_devices_group(self, dev_eui_list: List[str], new_group_id: int) -> int:
+        """批量更新指定设备列表的分组ID"""
+        if not dev_eui_list:
+            return 0
+            
+        with self.get_session() as session:
+            updated_count = session.query(self.table_class).filter(
+                self.table_class.dev_eui.in_(dev_eui_list),
+                self.table_class.delete_time.is_(None)
+            ).update({
+                self.table_class.group_id: new_group_id
+            }, synchronize_session=False)  # 批量更新时需要设置此参数
+            return updated_count
+
     def get_devices_by_battery_level(self, min_level: Optional[int] = None,
                                    max_level: Optional[int] = None,
                                    page: int = 1, page_size: int = 20) -> Tuple[List[DeviceRecord], int]:

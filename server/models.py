@@ -340,6 +340,22 @@ class DeviceSearchRequest(BaseModel):
         }
 
 
+class DeviceBatchUpdateGroupRequest(BaseModel):
+    """
+    批量更新设备分组请求模型
+    """
+    dev_eui_list: List[str] = Field(..., min_items=1, description="设备EUI列表，至少包含1个设备")
+    group_id: int = Field(...,  description="目标分组ID，0表示默认分组")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "dev_eui_list": ["1234567890ABCDEF", "FEDCBA0987654321"],
+                "group_id": 1
+            }
+        }
+
+
 class EventTriggerCreateRequest(BaseModel):
     """
     创建事件触发条件请求模型

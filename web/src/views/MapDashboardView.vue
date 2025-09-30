@@ -523,6 +523,7 @@ const handleKeydown = (event) => {
   }
 };
 
+
 // Lifecycle
 onMounted(() => {
   console.log('[MapDashboard] Component mounted, connecting WebSocket...');

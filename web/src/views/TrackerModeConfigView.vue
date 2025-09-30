@@ -38,7 +38,17 @@
       </div>
     </div>
 
-    <!-- Map Viewer Section -->
+    <!-- Tracker List Section -->
+    <TrackerList 
+      :trackers="trackers"
+      @edit-tracker="handleEditTracker"
+      @add-tracker="handleAddTracker"
+      @toggle-star="handleToggleStar"
+      @show-alert="handleShowAlert"
+    />
+
+    <!-- Map Viewer Section - TEMPORARILY DISABLED -->
+    <!-- 
     <div class="map-viewer-section card">
       <div class="card-header">
         <h2><i class="fas fa-map-marked-alt"></i> {{ $t('tracker.mapViewer') }}</h2>
@@ -102,11 +112,13 @@
         </div>
       </div>
     </div>
+    -->
     
     <!-- Status Messages -->
     <p v-if="statusMessage" class="status-message" :class="statusMessageType">{{ statusMessage }}</p>
     
-    <!-- No Map Selected State -->
+    <!-- No Map Selected State - TEMPORARILY DISABLED -->
+    <!-- 
     <div v-if="!selectedMapConfig && wsStatus === 'connected'" class="empty-state-card">
       <div class="empty-state">
         <i class="fas fa-map-marked-alt empty-state-icon"></i>
@@ -114,6 +126,7 @@
         <p>{{ $t('tracker.selectMapToView') }}</p>
       </div>
     </div>
+    -->
     
     <!-- Disconnected State -->
     <div v-if="wsStatus === 'disconnected'" class="empty-state-card">
@@ -129,6 +142,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import MapPreview from '@/components/MapPreview.vue';
+import TrackerList from '@/components/TrackerList.vue';
 import { loadConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { loadWebConfiguration, loadDashboardConfiguration, loadServerConfiguration, loadTrackers } from '@/services/configApiService.js';
 import { getWsBaseUrl, buildWsUrl } from '@/config/api.js';
@@ -480,7 +494,6 @@ const loadAllTrackers = async () => {
 };
 
 const loadAvailableMaps = async () => {
-  showStatus('Loading available maps...', 'info');
   try {
     // Load dashboard configuration which contains the maps array
     const dashboardConfig = await loadDashboardConfiguration();
@@ -490,7 +503,6 @@ const loadAvailableMaps = async () => {
       availableMaps.value = dashboardConfig.maps;
       
       if (dashboardConfig.maps.length > 0) {
-        showStatus(`Found ${dashboardConfig.maps.length} available map(s)`, 'success');
         // Auto-select the first map if none selected
         if (!selectedMapConfig.value) {
           selectedMapConfig.value = dashboardConfig.maps[0];
@@ -502,7 +514,6 @@ const loadAvailableMaps = async () => {
       // Fallback: single map in dashboard config
       availableMaps.value = [dashboardConfig];
       selectedMapConfig.value = dashboardConfig;
-      showStatus('Found 1 available map', 'success');
     } else {
       // No maps found, try fallback sources
       showStatus('No maps found in dashboard. Checking fallback sources...', 'warning');
@@ -532,7 +543,6 @@ const loadAvailableMaps = async () => {
       availableMaps.value = fallbackMaps;
       
       if (fallbackMaps.length > 0) {
-        showStatus(`Found ${fallbackMaps.length} fallback map(s)`, 'success');
         if (!selectedMapConfig.value) {
           selectedMapConfig.value = fallbackMaps[0];
         }
@@ -569,6 +579,77 @@ const fetchFullServerConfig = async () => {
 const isMqttEffectivelyEnabled = computed(() => {
   return currentServerConfig.value?.mqtt?.enabled && liveMqttStatusForServerSettings.value !== 'disabled';
 });
+
+// TrackerList事件处理方法
+const handleEditTracker = (tracker) => {
+  console.log('[TrackerModeConfig] Edit tracker:', tracker);
+  
+  // 实现编辑设备的逻辑
+  showStatus(`编辑设备: ${tracker.name || tracker.trackerId}`, 'info');
+  
+  // TODO: 这里需要实现具体的编辑弹窗或页面跳转
+  // 可能需要：
+  // 1. 打开编辑模态框
+  // 2. 加载设备详细信息
+  // 3. 提供表单让用户编辑设备名称、分组、参数等
+};
+
+const handleAddTracker = () => {
+  console.log('[TrackerModeConfig] Add new tracker');
+  
+  // 实现添加设备的逻辑
+  showStatus('打开添加设备界面', 'info');
+  
+  // TODO: 这里需要实现具体的添加设备逻辑
+  // 可能需要：
+  // 1. 打开添加设备模态框
+  // 2. 提供表单让用户输入设备信息（EUI、名称、分组等）
+  // 3. 调用后端API注册新设备
+  // 4. 更新设备列表
+};
+
+const handleToggleStar = async (tracker) => {
+  console.log('[TrackerModeConfig] Toggle star for tracker:', tracker.trackerId, tracker.starred);
+  
+  try {
+    // 实现收藏/取消收藏的逻辑
+    const action = tracker.starred ? '取消收藏' : '收藏';
+    showStatus(`${action}设备: ${tracker.name || tracker.trackerId}`, 'info');
+    
+    // TODO: 这里需要调用后端API保存收藏状态
+    // 示例API调用：
+    // const response = await fetch(`/api/trackers/${tracker.trackerId}/star`, {
+    //   method: 'PUT',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ starred: tracker.starred })
+    // });
+    
+    // if (!response.ok) {
+    //   throw new Error('保存收藏状态失败');
+    // }
+    
+    showStatus(`${action}成功`, 'success');
+  } catch (error) {
+    console.error('[TrackerModeConfig] Error toggling star:', error);
+    showStatus(`${tracker.starred ? '取消收藏' : '收藏'}失败: ${error.message}`, 'error');
+    // 回滚状态
+    tracker.starred = !tracker.starred;
+  }
+};
+
+const handleShowAlert = (tracker) => {
+  console.log('[TrackerModeConfig] Show alert for tracker:', tracker);
+  
+  // 实现显示设备警报设置的逻辑
+  showStatus(`打开设备警报设置: ${tracker.name || tracker.trackerId}`, 'info');
+  
+  // TODO: 这里需要实现具体的警报设置逻辑
+  // 可能需要：
+  // 1. 打开警报设置模态框
+  // 2. 显示当前的警报配置（低电量警报、离线警报、区域警报等）
+  // 3. 提供界面让用户配置警报参数
+  // 4. 调用后端API保存警报设置
+};
 
 // 定时器引用
 let statsUpdateInterval = null;

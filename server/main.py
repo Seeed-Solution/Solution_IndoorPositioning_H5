@@ -47,7 +47,7 @@ from server.models import (  # Grouped imports for models
     LoginRequest,  # Import WebUISettings directly
     UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,
     DeviceCreateRequest, DeviceUpdateRequest, DeviceStatusUpdateRequest, DeviceListItem, DeviceSearchRequest,
-    DeviceRecord, TrackerInfo, TrackerStateQueryRequest,
+    DeviceBatchUpdateGroupRequest, DeviceRecord, TrackerInfo, TrackerStateQueryRequest,
     EventTriggerCreateRequest, EventTriggerUpdateRequest, EventTriggerListItem
 )
 from server.positioning import KalmanFilter2D
@@ -2112,7 +2112,7 @@ async def create_group(group_request: GroupCreateRequest, dep=Depends(check_auth
     try:
         # 检查分组名称是否已存在（不包括已删除的）
         if group_dao.group_name_exists(group_request.group_name, include_deleted=False):
-            raise HTTPException(status_code=400, detail="分组名称已存在")
+            raise HTTPException(status_code=409, detail="分组名称已存在")
         
         # 创建分组
         group = group_dao.create_group(group_request.group_name)
@@ -2169,7 +2169,7 @@ async def update_group(group_id: int, group_request: GroupUpdateRequest, dep=Dep
         
         # 检查新名称是否与其他分组重复（排除当前分组）
         if group_dao.group_name_exists(group_request.group_name, exclude_id=group_id, include_deleted=False):
-            raise HTTPException(status_code=400, detail="分组名称已存在")
+            raise HTTPException(status_code=409, detail="分组名称已存在")
         
         # 更新分组名称
         updated_group = group_dao.update_group_name(group_id, group_request.group_name)
@@ -2312,6 +2312,54 @@ async def search_devices(search_request: DeviceSearchRequest, dep=Depends(check_
     except Exception as e:
         log.error(f"Error searching devices: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"搜索设备失败: {str(e)}")
+
+
+@app.post("/api/devices/batch-update-group", status_code=200)
+async def batch_update_devices_group(request: DeviceBatchUpdateGroupRequest, dep=Depends(check_authority)):
+    """
+    批量更新设备分组接口
+    """
+    try:
+        # 检查分组是否存在（如果group_id > 0）
+        if request.group_id > 0:
+            group = group_dao.get_by_id(request.group_id)
+            if not group or group.is_deleted():
+                raise HTTPException(status_code=400, detail="指定的分组不存在")
+        
+        # 验证设备EUI列表不能为空
+        if not request.dev_eui_list:
+            raise HTTPException(status_code=400, detail="设备EUI列表不能为空")
+        
+        # 检查设备是否存在（可选，根据业务需求决定是否严格检查）
+        existing_devices = []
+        for dev_eui in request.dev_eui_list:
+            device = device_dao.get_by_dev_eui(dev_eui)
+            if device and not device.is_deleted():
+                existing_devices.append(dev_eui)
+        
+        if not existing_devices:
+            raise HTTPException(status_code=400, detail="没有找到有效的设备")
+        
+        # 执行批量更新
+        updated_count = device_dao.batch_update_devices_group(existing_devices, request.group_id)
+        
+        log.info(f"Batch updated {updated_count} devices to group {request.group_id}: {existing_devices}")
+        
+        return {
+            "success": True,
+            "message": f"成功更新 {updated_count} 个设备的分组",
+            "data": {
+                "updated_count": updated_count,
+                "group_id": request.group_id,
+                "updated_devices": existing_devices
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error batch updating devices group: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"批量更新设备分组失败: {str(e)}")
 
 
 # --- Event Trigger Management API ---
