@@ -1480,6 +1480,12 @@ async def get_trackers(request: TrackerStateQueryRequest = None):
     return result
     # return tracker_states
 
+@app.get("/api/beacons")
+async def get_beacons() -> dict[str, list[WebUIBeaconConfig]]:
+    all_beacon_by_map = beacon_holder.get_all_beacon_by_map()
+    return all_beacon_by_map
+
+
 @app.get("/api/server-runtime-config", response_model=Optional[config_manager.ServerRuntimeConfig])
 async def get_api_server_runtime_config():
     global runtime_cfg, mqtt_connection_statuses  # Ensure mqtt_connection_statuses is accessible
