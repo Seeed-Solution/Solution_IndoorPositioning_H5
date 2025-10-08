@@ -106,9 +106,10 @@
         <div v-else class="tracker-list-view">
           <div class="tracker-list-header">
             <h4>{{ t('tracker.trackers') }} ({{ trackerList.length }})</h4>
-            <button @click="toggleTrails" class="button-secondary map-trail-toggle-btn">
+            <!-- Show Trails按钮暂时注释掉，以后需要时可以恢复 -->
+            <!-- <button @click="toggleTrails" class="button-secondary map-trail-toggle-btn">
               <i :class="['fas', localShowTrails ? 'fa-eye-slash' : 'fa-eye']"></i> {{ localShowTrails ? t('tracker.hideTrails') : t('tracker.showTrails') }}
-            </button>
+            </button> -->
           </div>
           <ul v-if="trackerList.length > 0">
             <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item" :class="{ 'tracker-sos': tracker.sos === 1 }" @click="showTrackerAlarmRecords(tracker)">

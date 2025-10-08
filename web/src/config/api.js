@@ -178,7 +178,11 @@ export const API_ENDPOINTS = {
   // 地图和数据相关
   MAP_EXAMPLE_FORMAT: '/map-example-format',
   DEFAULT_TEST_CONFIG: '/default-test-config',
-  LIST_ALARM: '/list_alarm'
+  LIST_ALARM: '/list_alarm',
+  
+  // 事件/告警相关
+  EVENTS: '/events',
+  EVENT_BY_ID: (id) => `/events/${id}`
 }
 
 // 开发环境下打印配置信息

@@ -12,7 +12,23 @@
       </div>
     </div>
     <div class="card-content">
-      <div v-if="alarmList.length === 0" class="empty-alarm-list">
+      <!-- 加载状态 -->
+      <div v-if="isLoadingAlarms" class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Loading alarms...</p>
+      </div>
+      
+      <!-- 加载错误 -->
+      <div v-else-if="alarmLoadError" class="error-state">
+        <i class="fas fa-exclamation-triangle"></i>
+        <p>{{ alarmLoadError }}</p>
+        <button @click="loadAlarmList" class="retry-btn">
+          <i class="fas fa-redo"></i> Retry
+        </button>
+      </div>
+      
+      <!-- 空告警列表 -->
+      <div v-else-if="alarmList.length === 0" class="empty-alarm-list">
         <i class="fas fa-bell-slash empty-icon"></i>
         <p>No alarms configured</p>
         <p class="hint">Click "Create Alarm" to add your first alarm</p>
@@ -76,11 +92,11 @@
         <!-- 分页和统计 -->
         <div class="alarm-table-footer">
           <div class="alarm-stats">
-            Total {{ alarmList.length }} alarms
+            Total {{ totalAlarms }} alarms
           </div>
           <div class="alarm-pagination" v-if="totalPages > 1">
             <button 
-              @click="currentPage = Math.max(1, currentPage - 1)"
+              @click="goToPreviousPage"
               :disabled="currentPage === 1"
               class="pagination-btn"
             >
@@ -90,7 +106,7 @@
               {{ currentPage }} / {{ totalPages }}
             </span>
             <button 
-              @click="currentPage = Math.min(totalPages, currentPage + 1)"
+              @click="goToNextPage"
               :disabled="currentPage === totalPages"
               class="pagination-btn"
             >
@@ -103,7 +119,7 @@
 
     <!-- 创建/编辑报警模态框 -->
     <div v-if="showAlarmModal" class="modal-overlay" @click="closeAlarmModal">
-      <div class="alarm-modal" @click.stop>
+      <div class="alarm-modal" @click.stop="handleModalClick">
         <div class="modal-header">
           <h3>
             <i class="fas fa-bell"></i>
@@ -291,6 +307,136 @@
               <span v-if="alarmErrors.beaconScope" class="error-message">{{ alarmErrors.beaconScope }}</span>
             </div>
             
+            <!-- Check-in Event 额外配置项 -->
+            <div v-if="alarmForm.type === 'checkin'" class="form-group">
+              <label>Check-in Rule</label>
+              <div class="checkin-rule-options">
+                <!-- 暂时屏蔽，后期根据需要启用 -->
+                <!-- 
+                <label class="checkin-option">
+                  <input 
+                    type="radio" 
+                    value="sequential"
+                    v-model="alarmForm.checkinRule"
+                    name="checkinRule"
+                  />
+                  <span class="radio-mark"></span>
+                  <div class="checkin-content">
+                    <div class="checkin-title">Sequential check-in at all beacons</div>
+                    <div class="checkin-description">Trigger when device beacons in all configured beacons in order</div>
+                  </div>
+                </label>
+                
+                <label class="checkin-option">
+                  <input 
+                    type="radio" 
+                    value="all"
+                    v-model="alarmForm.checkinRule"
+                    name="checkinRule"
+                  />
+                  <span class="radio-mark"></span>
+                  <div class="checkin-content">
+                    <div class="checkin-title">Check-in at all beacons</div>
+                    <div class="checkin-description">Trigger when device checks in at all of the configured beacons in any order</div>
+                  </div>
+                </label>
+                -->
+                
+                <label class="checkin-option">
+                  <input 
+                    type="radio" 
+                    value="any"
+                    v-model="alarmForm.checkinRule"
+                    name="checkinRule"
+                  />
+                  <span class="radio-mark"></span>
+                  <div class="checkin-content">
+                    <div class="checkin-title">Check-in at any beacon</div>
+                    <div class="checkin-description">Trigger when device checks in at any of the configured beacons</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Check-in Range Configuration -->
+            <div v-if="alarmForm.type === 'checkin'" class="form-group">
+              <label for="checkinRange">Check-in Range</label>
+              <div class="range-input-group">
+                <input 
+                  type="number" 
+                  id="checkinRange"
+                  v-model="alarmForm.checkinRange"
+                  class="form-input range-input"
+                  :class="{ 'error': alarmErrors.checkinRange }"
+                  placeholder="10"
+                  min="1"
+                  max="100"
+                  step="0.1"
+                />
+                <span class="range-unit">m</span>
+              </div>
+              <div class="range-help-text">
+                Device must be within this distance from beacon to trigger check-in (0.5-50 meters)
+              </div>
+              <span v-if="alarmErrors.checkinRange" class="error-message">{{ alarmErrors.checkinRange }}</span>
+            </div>
+            
+            <!-- Position Detection 额外配置项 -->
+            <div v-if="alarmForm.type === 'position'" class="form-group">
+              <label>Trigger Duration</label>
+              <div class="trigger-duration-options">
+                <label class="trigger-option">
+                  <input 
+                    type="radio" 
+                    value="immediate"
+                    v-model="alarmForm.triggerType"
+                    name="triggerType"
+                  />
+                  <span class="radio-mark"></span>
+                  <div class="trigger-content">
+                    <div class="trigger-title">Immediate trigger</div>
+                    <div class="trigger-description">Trigger alarm immediately when device leaves beacon range</div>
+                  </div>
+                </label>
+                
+                <label class="trigger-option">
+                  <input 
+                    type="radio" 
+                    value="duration"
+                    v-model="alarmForm.triggerType"
+                    name="triggerType"
+                  />
+                  <span class="radio-mark"></span>
+                  <div class="trigger-content">
+                    <div class="trigger-title">Duration-based trigger</div>
+                    <div class="trigger-description">Trigger alarm when device stays away from beacon for specified duration</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Duration Configuration (只在选择了 duration-based trigger 时显示) -->
+            <div v-if="alarmForm.type === 'position' && alarmForm.triggerType === 'duration'" class="form-group">
+              <label for="durationConfig">Duration Configuration</label>
+              <div class="duration-input-group">
+                <input 
+                  type="number" 
+                  id="durationConfig"
+                  v-model="alarmForm.triggerDuration"
+                  class="form-input duration-input"
+                  :class="{ 'error': alarmErrors.triggerDuration }"
+                  placeholder="10"
+                  min="1"
+                  max="1440"
+                />
+                <span class="duration-unit">Minutes</span>
+              </div>
+              <div class="duration-help-text">
+                How long must stay away from beacon for this duration before triggering alarm
+              </div>
+              <span v-if="alarmErrors.triggerDuration" class="error-message">{{ alarmErrors.triggerDuration }}</span>
+            </div>
+            
             <div class="form-group">
               <label>Enable Alarm</label>
               <div class="alarm-status">
@@ -332,11 +478,71 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDelete">
+      <div class="delete-confirm-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-exclamation-triangle"></i>
+            Confirm Deletion
+          </h3>
+        </div>
+        <div class="modal-body">
+          <p class="delete-message">
+            Are you sure you want to delete the alarm 
+            <strong>"{{ deleteTargetAlarm?.name }}"</strong>?
+          </p>
+          <p class="delete-warning">
+            This action cannot be undone.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button 
+            @click="confirmDelete"
+            class="delete-confirm-btn"
+          >
+            <i class="fas fa-trash"></i> 
+            Delete
+          </button>
+          <button 
+            @click="cancelDelete"
+            class="delete-cancel-btn"
+          >
+            <i class="fas fa-times"></i> Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 错误提示弹窗 -->
+    <div v-if="showErrorModal" class="modal-overlay" @click="closeErrorModal">
+      <div class="error-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-exclamation-circle"></i>
+            操作失败
+          </h3>
+        </div>
+        <div class="modal-body">
+          <p class="error-message-text" v-html="errorMessage.replace('\n', '<br>')"></p>
+        </div>
+        <div class="modal-footer">
+          <button 
+            @click="closeErrorModal"
+            class="error-confirm-btn"
+          >
+            <i class="fas fa-check"></i> 
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { fetchApi } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
 
@@ -352,40 +558,12 @@ const props = defineProps({
 const emit = defineEmits(['update-status']);
 
 // Alarm Settings 相关状态
-const alarmList = ref([
-  {
-    id: 1,
-    name: 'SOS Alarm',
-    type: 'sos',
-    selectedDevices: [], // 从API加载后填充真实的trackerId
-    enabled: true,
-    createdAt: '2023-12-01'
-  },
-  {
-    id: 2,
-    name: 'Offline Alarm',
-    type: 'offline',
-    selectedDevices: [],
-    enabled: true,
-    createdAt: '2023-12-02'
-  },
-  {
-    id: 3,
-    name: 'Check-in Event',
-    type: 'checkin',
-    selectedDevices: [],
-    enabled: false,
-    createdAt: '2023-12-03'
-  },
-  {
-    id: 4,
-    name: 'Position Detection',
-    type: 'position',
-    selectedDevices: [],
-    enabled: true,
-    createdAt: '2023-12-04'
-  }
-]);
+const alarmList = ref([]);
+const isLoadingAlarms = ref(false);
+const alarmLoadError = ref('');
+const totalAlarms = ref(0);
+const totalPagesFromAPI = ref(0);
+const hasNextPage = ref(false);
 
 const showAlarmModal = ref(false);
 const isEditingAlarm = ref(false);
@@ -398,6 +576,10 @@ const alarmForm = ref({
   type: '',
   selectedDevices: [],
   selectedBeacons: [],
+  checkinRule: 'any',
+  checkinRange: 10,
+  triggerType: 'immediate',
+  triggerDuration: 5,
   enabled: true
 });
 
@@ -405,7 +587,9 @@ const alarmErrors = ref({
   name: '',
   type: '',
   deviceScope: '',
-  beaconScope: ''
+  beaconScope: '',
+  checkinRange: '',
+  triggerDuration: ''
 });
 
 // 分页相关
@@ -427,15 +611,22 @@ const isLoadingBeacons = ref(false);
 const beaconLoadError = ref('');
 const beaconScopeDropdown = ref(null);
 
-// 计算属性
+// 删除确认弹窗相关状态
+const showDeleteConfirm = ref(false);
+const deleteTargetAlarm = ref(null);
+
+// 错误提示弹窗相关状态
+const showErrorModal = ref(false);
+const errorMessage = ref('');
+
+// 计算属性  
 const totalPages = computed(() => {
-  return Math.ceil(alarmList.value.length / itemsPerPage);
+  return totalPagesFromAPI.value || 1;
 });
 
 const paginatedAlarms = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  return alarmList.value.slice(start, end);
+  // 由于后端已经分页，直接返回当前加载的数据
+  return alarmList.value;
 });
 
 // Device Scope 相关计算属性
@@ -467,6 +658,146 @@ const isGroupIndeterminate = computed(() => {
     return selectedInGroup.length > 0 && selectedInGroup.length < groupDeviceIds.length;
   };
 });
+
+// 数据转换方法
+const eventTypeToString = (eventType) => {
+  const typeMap = {
+    1: 'sos',
+    2: 'offline', 
+    3: 'checkin',
+    4: 'position'
+  };
+  return typeMap[eventType] || 'unknown';
+};
+
+const stringToEventType = (typeString) => {
+  const typeMap = {
+    'sos': 1,
+    'offline': 2,
+    'checkin': 3,
+    'position': 4
+  };
+  return typeMap[typeString] || 1;
+};
+
+const convertBackendToFrontend = (backendEvent) => {
+  const isImmediate = backendEvent.time_range === 0;
+  
+  // 处理设备范围：如果接收到 ["all"]，转换为选择所有设备
+  let selectedDevices = backendEvent.device_range || [];
+  if (selectedDevices.length === 1 && selectedDevices[0] === "all") {
+    // 如果设备数据已加载，使用所有设备ID；否则保持 ["all"] 等待后续处理
+    selectedDevices = allDeviceIds.value.length > 0 ? [...allDeviceIds.value] : ["all"];
+  }
+  
+  return {
+    id: backendEvent.id,
+    name: backendEvent.event_name,
+    type: eventTypeToString(backendEvent.event_type),
+    selectedDevices: selectedDevices,
+    selectedBeacons: backendEvent.ble_range || [],
+    checkinRule: backendEvent.ble_rule === 1 ? 'any' : 'all',
+    checkinRange: backendEvent.dis_range || 10,
+    triggerType: isImmediate ? 'immediate' : 'duration',
+    // 保留原始的 time_range 值，这样编辑时能正确判断
+    triggerDuration: isImmediate ? 10 : backendEvent.time_range,
+    // 添加原始值以便编辑时参考
+    time_range: backendEvent.time_range,
+    enabled: backendEvent.enable_status,
+    createdAt: backendEvent.create_time ? new Date(backendEvent.create_time).toISOString().split('T')[0] : ''
+  };
+};
+
+const convertFrontendToBackend = (frontendEvent) => {
+  // 处理设备范围：如果选择了所有设备，只推送 ["all"]
+  let deviceRange = frontendEvent.selectedDevices || [];
+  if (deviceRange.length > 0 && allDeviceIds.value.length > 0) {
+    // 检查是否选择了所有设备
+    const isAllDevicesSelected = allDeviceIds.value.every(id => deviceRange.includes(id));
+    if (isAllDevicesSelected) {
+      deviceRange = ["all"];
+    }
+  }
+  
+  const baseData = {
+    event_name: frontendEvent.name,
+    event_type: stringToEventType(frontendEvent.type),
+    device_range: deviceRange,
+    enable_status: frontendEvent.enabled
+  };
+
+  // 根据告警类型添加相应的字段
+  switch (frontendEvent.type) {
+    case 'sos':
+    case 'offline':
+      // SOS和离线告警只需要基础字段，不需要beacon相关配置
+      break;
+      
+    case 'checkin':
+      // 签到事件需要beacon配置和签到规则
+      baseData.ble_range = frontendEvent.selectedBeacons || [];
+      baseData.ble_rule = frontendEvent.checkinRule === 'any' ? 1 : 2;
+      baseData.dis_range = frontendEvent.checkinRange || 10;
+      // 签到事件不需要time_range
+      break;
+      
+    case 'position':
+      // 位置检测需要beacon配置和触发时间
+      baseData.ble_range = frontendEvent.selectedBeacons || [];
+      baseData.time_range = frontendEvent.triggerType === 'immediate' ? 0 : (frontendEvent.triggerDuration || 10);
+      // 位置检测不需要ble_rule和dis_range
+      break;
+  }
+
+  return baseData;
+};
+
+// 加载告警列表
+const loadAlarmList = async (page = null) => {
+  try {
+    isLoadingAlarms.value = true;
+    alarmLoadError.value = '';
+    
+    // 使用传入的页码或当前页码
+    const targetPage = page !== null ? page : currentPage.value;
+    
+    // 构建带分页参数的URL
+    const url = new URL(API_ENDPOINTS.EVENTS, window.location.origin);
+    url.searchParams.append('page', targetPage.toString());
+    url.searchParams.append('page_size', itemsPerPage.toString());
+    
+    const response = await fetchApi(url.pathname + url.search);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const responseData = await response.json();
+    
+    // 转换后端数据格式到前端格式
+    alarmList.value = responseData.data.map(convertBackendToFrontend);
+    
+    // 更新分页信息
+    const pagination = responseData.pagination;
+    totalAlarms.value = pagination.total;
+    totalPagesFromAPI.value = pagination.total_pages;
+    hasNextPage.value = targetPage < pagination.total_pages;
+    
+    console.log('Alarm list loaded:', alarmList.value);
+    console.log('Pagination info:', pagination);
+    emit('update-status', `Loaded ${alarmList.value.length} alarms (page ${targetPage} of ${pagination.total_pages}, total: ${pagination.total})`);
+    
+  } catch (error) {
+    console.error('Failed to load alarm list:', error);
+    alarmLoadError.value = `Failed to load alarms: ${error.message}`;
+    emit('update-status', `Failed to load alarms: ${error.message}`);
+    // 发生错误时重置分页信息
+    totalAlarms.value = 0;
+    totalPagesFromAPI.value = 0;
+    hasNextPage.value = false;
+  } finally {
+    isLoadingAlarms.value = false;
+  }
+};
 
 // 方法
 const getAlarmTypeClass = (type) => {
@@ -613,6 +944,13 @@ const loadDevicesAndGroups = async () => {
     }
     
     console.log('Device groups loaded:', deviceGroups.value);
+    
+    // 设备数据加载完成后，处理可能存在的 ["all"] 特殊情况
+    if (alarmForm.value.selectedDevices.length === 1 && alarmForm.value.selectedDevices[0] === "all") {
+      // 将 ["all"] 转换为所有设备ID
+      alarmForm.value.selectedDevices = [...allDeviceIds.value];
+      console.log('Converted ["all"] to all device IDs:', alarmForm.value.selectedDevices.length, 'devices');
+    }
     
   } catch (error) {
     console.error('Failed to load devices and groups:', error);
@@ -767,13 +1105,19 @@ const openCreateAlarmModal = async () => {
     type: '',
     selectedDevices: [],
     selectedBeacons: [],
+    checkinRule: 'any',
+    checkinRange: 10,
+    triggerType: 'immediate',
+    triggerDuration: 10, // 修改默认值为10分钟
     enabled: true
   };
   alarmErrors.value = {
     name: '',
     type: '',
     deviceScope: '',
-    beaconScope: ''
+    beaconScope: '',
+    checkinRange: '',
+    triggerDuration: ''
   };
   alarmSaveError.value = '';
   showDeviceDropdown.value = false;
@@ -789,18 +1133,31 @@ const openCreateAlarmModal = async () => {
 const editAlarm = async (alarm) => {
   isEditingAlarm.value = true;
   editingAlarmId.value = alarm.id;
+  
+  // 确保数据格式正确，处理可能的后端格式数据
+  const timeRange = alarm.time_range !== undefined ? alarm.time_range : alarm.triggerDuration;
+  const isImmediate = alarm.triggerType === 'immediate' || timeRange === 0;
+  
   alarmForm.value = {
-    name: alarm.name,
-    type: alarm.type,
-    selectedDevices: alarm.selectedDevices || [],
-    selectedBeacons: alarm.selectedBeacons || [],
-    enabled: alarm.enabled
+    name: alarm.name || alarm.event_name || '',
+    type: alarm.type || eventTypeToString(alarm.event_type) || '',
+    selectedDevices: alarm.selectedDevices || alarm.device_range || [],
+    selectedBeacons: alarm.selectedBeacons || alarm.ble_range || [],
+    checkinRule: alarm.checkinRule || (alarm.ble_rule === 1 ? 'any' : 'all') || 'any',
+    checkinRange: alarm.checkinRange || alarm.dis_range || 10,
+    triggerType: alarm.triggerType || (timeRange === 0 ? 'immediate' : 'duration') || 'immediate',
+    // 编辑时：如果是duration模式，显示实际值；如果是immediate模式，保存一个默认值但不显示
+    triggerDuration: isImmediate ? 10 : (alarm.triggerDuration || timeRange || 10),
+    enabled: alarm.enabled !== undefined ? alarm.enabled : (alarm.enable_status !== undefined ? alarm.enable_status : true)
   };
+  
   alarmErrors.value = {
     name: '',
     type: '',
     deviceScope: '',
-    beaconScope: ''
+    beaconScope: '',
+    checkinRange: '',
+    triggerDuration: ''
   };
   alarmSaveError.value = '';
   showDeviceDropdown.value = false;
@@ -810,6 +1167,12 @@ const editAlarm = async (alarm) => {
   // 加载设备数据
   if (deviceGroups.value.length === 0) {
     await loadDevicesAndGroups();
+  }
+  
+  // 设备数据加载完成后，处理 ["all"] 的特殊情况
+  if (alarmForm.value.selectedDevices.length === 1 && alarmForm.value.selectedDevices[0] === "all") {
+    // 将 ["all"] 转换为所有设备ID
+    alarmForm.value.selectedDevices = [...allDeviceIds.value];
   }
 };
 
@@ -825,13 +1188,19 @@ const closeAlarmModal = () => {
     type: '',
     selectedDevices: [],
     selectedBeacons: [],
+    checkinRule: 'any',
+    checkinRange: 10,
+    triggerType: 'immediate',
+    triggerDuration: 10, // 修改默认值为10分钟
     enabled: true
   };
   alarmErrors.value = {
     name: '',
     type: '',
     deviceScope: '',
-    beaconScope: ''
+    beaconScope: '',
+    checkinRange: '',
+    triggerDuration: ''
   };
   alarmSaveError.value = '';
   showDeviceDropdown.value = false;
@@ -843,7 +1212,9 @@ const validateAlarmForm = () => {
     name: '',
     type: '',
     deviceScope: '',
-    beaconScope: ''
+    beaconScope: '',
+    checkinRange: '',
+    triggerDuration: ''
   };
 
   let isValid = true;
@@ -887,6 +1258,28 @@ const validateAlarmForm = () => {
     }
   }
 
+  // 验证签到范围 (仅对 checkin 类型)
+  if (alarmForm.value.type === 'checkin') {
+    if (!alarmForm.value.checkinRange || alarmForm.value.checkinRange < 0.5) {
+      alarmErrors.value.checkinRange = 'Check-in range must be at least 0.5 meters';
+      isValid = false;
+    } else if (alarmForm.value.checkinRange > 100) {
+      alarmErrors.value.checkinRange = 'Check-in range cannot exceed 100 meters';
+      isValid = false;
+    }
+  }
+
+  // 验证触发持续时间 (仅对 position 类型且选择了 duration 模式)
+  if (alarmForm.value.type === 'position' && alarmForm.value.triggerType === 'duration') {
+    if (!alarmForm.value.triggerDuration || alarmForm.value.triggerDuration < 1) {
+      alarmErrors.value.triggerDuration = 'Duration must be at least 1 minute';
+      isValid = false;
+    } else if (alarmForm.value.triggerDuration > 1440) {
+      alarmErrors.value.triggerDuration = 'Duration cannot exceed 1440 minutes (24 hours)';
+      isValid = false;
+    }
+  }
+
   return isValid;
 };
 
@@ -899,53 +1292,86 @@ const saveAlarm = async () => {
     alarmSaving.value = true;
     alarmSaveError.value = '';
 
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // 转换前端数据格式到后端格式
+    const backendData = convertFrontendToBackend(alarmForm.value);
 
     if (isEditingAlarm.value) {
-      // 编辑现有报警
-      const index = alarmList.value.findIndex(alarm => alarm.id === editingAlarmId.value);
-      if (index !== -1) {
-        alarmList.value[index] = {
-          ...alarmList.value[index],
-          name: alarmForm.value.name.trim(),
-          type: alarmForm.value.type,
-          selectedDevices: [...alarmForm.value.selectedDevices],
-          selectedBeacons: [...alarmForm.value.selectedBeacons],
-          enabled: alarmForm.value.enabled,
-          updatedAt: new Date().toISOString().split('T')[0]
-        };
+      // 编辑现有报警 - PUT /api/events/{id}
+      const response = await fetchApi(API_ENDPOINTS.EVENT_BY_ID(editingAlarmId.value), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(backendData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
       emit('update-status', 'Alarm updated successfully');
     } else {
-      // 创建新报警
-      const newAlarm = {
-        id: Math.max(...alarmList.value.map(a => a.id), 0) + 1,
-        name: alarmForm.value.name.trim(),
-        type: alarmForm.value.type,
-        selectedDevices: [...alarmForm.value.selectedDevices],
-        selectedBeacons: [...alarmForm.value.selectedBeacons],
-        enabled: alarmForm.value.enabled,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      alarmList.value.push(newAlarm);
+      // 创建新报警 - POST /api/events
+      const response = await fetchApi(API_ENDPOINTS.EVENTS, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(backendData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
       emit('update-status', 'Alarm created successfully');
     }
 
-    closeAlarmModal();
+    emit('update-status', isEditingAlarm.value ? 'Alarm updated successfully' : 'Alarm created successfully');
 
   } catch (error) {
     console.error('保存报警失败:', error);
-    alarmSaveError.value = `Failed to save alarm: ${error.message}`;
+    
+    // 解析状态码
+    const statusCode = error.message.includes('status:') ? 
+      parseInt(error.message.match(/status: (\d+)/)?.[1]) : null;
+    
+    // 显示错误弹窗
+    showError(error, statusCode);
   } finally {
+    // 无论成功还是失败都重置保存状态
     alarmSaving.value = false;
+    
+    // 成功时关闭弹窗，失败时保持弹窗打开让用户可以重试
+    if (!showErrorModal.value) {
+      closeAlarmModal();
+    }
+    
+    // 无论成功还是失败都重新加载列表数据
+    await loadAlarmList();
   }
 };
 
 const toggleAlarmStatus = async (alarm) => {
+  const originalStatus = alarm.enabled;
+  
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // 调用切换状态 API - PUT /api/events/{id}
+    const response = await fetchApi(API_ENDPOINTS.EVENT_BY_ID(alarm.id), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: alarm.id,
+        enable_status: alarm.enabled
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     
     const message = alarm.enabled ? 'Alarm enabled' : 'Alarm disabled';
     emit('update-status', message);
@@ -953,53 +1379,185 @@ const toggleAlarmStatus = async (alarm) => {
   } catch (error) {
     console.error('切换报警状态失败:', error);
     // 回滚状态
-    alarm.enabled = !alarm.enabled;
-    emit('update-status', `Failed to toggle alarm status: ${error.message}`);
+    alarm.enabled = originalStatus;
+    
+    // 解析状态码
+    const statusCode = error.message.includes('status:') ? 
+      parseInt(error.message.match(/status: (\d+)/)?.[1]) : null;
+    
+    // 显示错误弹窗
+    showError(error, statusCode);
+    emit('update-status', `Failed to toggle alarm status`);
+  } finally {
+    // 无论成功还是失败都重新加载列表数据
+    await loadAlarmList();
   }
 };
 
-const deleteAlarm = async (alarmId, index) => {
+// 显示删除确认弹窗
+const showDeleteConfirmModal = (alarmId, index) => {
   const alarm = alarmList.value.find(a => a.id === alarmId);
   if (!alarm) return;
+  
+  deleteTargetAlarm.value = { ...alarm, index };
+  showDeleteConfirm.value = true;
+};
 
-  const confirmed = confirm(`Are you sure you want to delete "${alarm.name}"?`);
-  if (!confirmed) return;
+// 取消删除
+const cancelDelete = () => {
+  showDeleteConfirm.value = false;
+  deleteTargetAlarm.value = null;
+};
 
+// 确认删除
+const confirmDelete = async () => {
+  if (!deleteTargetAlarm.value) return;
+  
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    alarmList.value = alarmList.value.filter(a => a.id !== alarmId);
-    
-    // 调整当前页码，防止超出范围
-    const newTotalPages = Math.ceil(alarmList.value.length / itemsPerPage);
-    if (currentPage.value > newTotalPages && newTotalPages > 0) {
-      currentPage.value = newTotalPages;
+    // 调用删除 API - DELETE /api/events/{id}
+    const response = await fetchApi(API_ENDPOINTS.EVENT_BY_ID(deleteTargetAlarm.value.id), {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
     emit('update-status', 'Alarm deleted successfully');
     
   } catch (error) {
     console.error('删除报警失败:', error);
-    emit('update-status', `Failed to delete alarm: ${error.message}`);
+    
+    // 解析状态码
+    const statusCode = error.message.includes('status:') ? 
+      parseInt(error.message.match(/status: (\d+)/)?.[1]) : null;
+    
+    // 显示错误弹窗
+    showError(error, statusCode);
+    emit('update-status', `Failed to delete alarm`);
+  } finally {
+    // 关闭确认弹窗
+    showDeleteConfirm.value = false;
+    deleteTargetAlarm.value = null;
+    
+    // 无论成功还是失败都重新加载列表数据
+    await loadAlarmList();
+    
+    // 如果当前页没有数据了，且不是第一页，回到上一页
+    if (alarmList.value.length === 0 && currentPage.value > 1) {
+      currentPage.value--;
+      await loadAlarmList();
+    }
   }
 };
 
-// 处理点击外部关闭下拉框
-const handleClickOutside = (event) => {
+// 兼容原有的删除方法名
+const deleteAlarm = showDeleteConfirmModal;
+
+// 错误处理方法
+const showError = (error, statusCode = null) => {
+  let message = '请联系管理员或者稍后重试';
+  
+  // 根据状态码显示特定错误信息
+  if (statusCode) {
+    switch (statusCode) {
+      case 403:
+        message = '没有权限执行此操作';
+        break;
+      case 404:
+        message = '对应资源不存在';
+        break;
+      case 409:
+        message = '名称重复，请使用其他名称';
+        break;
+      default:
+        message = '请联系管理员或者稍后重试';
+    }
+  }
+  
+  // 如果有具体的错误信息，可以添加到默认消息后面
+  if (error && error.message && !error.message.includes('HTTP error')) {
+    message += `\n错误详情: ${error.message}`;
+  }
+  
+  errorMessage.value = message;
+  showErrorModal.value = true;
+};
+
+const closeErrorModal = () => {
+  showErrorModal.value = false;
+  errorMessage.value = '';
+};
+
+// 分页相关方法
+const goToPreviousPage = async () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+    await loadAlarmList(currentPage.value);
+  }
+};
+
+const goToNextPage = async () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+    await loadAlarmList(currentPage.value);
+  }
+};
+
+// 处理模态框内的点击事件
+const handleModalClick = (event) => {
   // 检查设备选择下拉框
-  if (showDeviceDropdown.value && deviceScopeDropdown.value && !deviceScopeDropdown.value.contains(event.target)) {
-    showDeviceDropdown.value = false;
+  if (showDeviceDropdown.value && deviceScopeDropdown.value) {
+    const deviceDropdownElement = deviceScopeDropdown.value;
+    if (deviceDropdownElement && !deviceDropdownElement.contains(event.target)) {
+      showDeviceDropdown.value = false;
+    }
   }
   
   // 检查beacon选择下拉框
-  if (showBeaconDropdown.value && beaconScopeDropdown.value && !beaconScopeDropdown.value.contains(event.target)) {
-    showBeaconDropdown.value = false;
+  if (showBeaconDropdown.value && beaconScopeDropdown.value) {
+    const beaconDropdownElement = beaconScopeDropdown.value;
+    if (beaconDropdownElement && !beaconDropdownElement.contains(event.target)) {
+      showBeaconDropdown.value = false;
+    }
   }
 };
 
-// 组件挂载时预加载设备数据和添加事件监听
+// 处理点击外部关闭下拉框（保留作为备用）
+const handleClickOutside = (event) => {
+  // 只在模态框外部生效
+  if (!showAlarmModal.value) return;
+  
+  // 检查设备选择下拉框
+  if (showDeviceDropdown.value && deviceScopeDropdown.value) {
+    const deviceDropdownElement = deviceScopeDropdown.value;
+    if (deviceDropdownElement && !deviceDropdownElement.contains(event.target)) {
+      showDeviceDropdown.value = false;
+    }
+  }
+  
+  // 检查beacon选择下拉框
+  if (showBeaconDropdown.value && beaconScopeDropdown.value) {
+    const beaconDropdownElement = beaconScopeDropdown.value;
+    if (beaconDropdownElement && !beaconDropdownElement.contains(event.target)) {
+      showBeaconDropdown.value = false;
+    }
+  }
+};
+
+// 监听触发类型变化，当从 immediate 切换到 duration 时设置合理的默认值
+watch(() => alarmForm.value.triggerType, (newValue, oldValue) => {
+  // 只在 position 类型告警时处理
+  if (alarmForm.value.type === 'position' && oldValue === 'immediate' && newValue === 'duration') {
+    // 从 immediate 切换到 duration 时，总是设置为默认值 10
+    // 这样用户看到的是有意义的数值，而不是 0
+    alarmForm.value.triggerDuration = 10;
+  }
+});
+
+// 组件挂载时预加载数据和添加事件监听
 onMounted(() => {
+  loadAlarmList();
   loadDevicesAndGroups();
   document.addEventListener('click', handleClickOutside);
 });
@@ -1326,33 +1884,34 @@ onBeforeUnmount(() => {
 
 /* Modal 样式 */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  z-index: 1000;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  z-index: 1000 !important;
   backdrop-filter: blur(2px);
-  padding: 1rem 0;
-  box-sizing: border-box;
-  overflow-y: auto;
+  padding: 1rem 0 !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
 }
 
 .alarm-modal {
-  background: white;
+  background: white !important;
   border-radius: 12px;
-  width: 95%;
-  max-width: 700px;
-  max-height: 95vh;
-  min-height: 70vh;
+  width: 95% !important;
+  max-width: 700px !important;
+  max-height: 95vh !important;
+  min-height: 80vh !important;
+  height: auto !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease-out;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 @keyframes modalSlideIn {
@@ -1389,10 +1948,11 @@ onBeforeUnmount(() => {
 }
 
 .alarm-modal .modal-body {
-  padding: 1.5rem;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  padding: 1.5rem !important;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  min-height: 400px !important;
+  max-height: none !important;
 }
 
 .alarm-modal .modal-footer {
@@ -1615,6 +2175,8 @@ onBeforeUnmount(() => {
 }
 
 /* 加载和错误状态样式 */
+.loading-state,
+.error-state,
 .loading-devices,
 .device-load-error,
 .no-devices,
@@ -1628,6 +2190,28 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   color: #6c757d;
   font-size: 0.9rem;
+}
+
+.loading-state {
+  flex-direction: column;
+  text-align: center;
+}
+
+.loading-state i {
+  color: #007bff;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.error-state {
+  flex-direction: column;
+  text-align: center;
+}
+
+.error-state i {
+  color: #dc3545;
+  font-size: 2rem;
+  margin-bottom: 1rem;
 }
 
 .loading-devices i {
@@ -1781,6 +2365,184 @@ onBeforeUnmount(() => {
   margin-bottom: 0.5rem;
 }
 
+/* Check-in Event 额外配置样式 */
+.checkin-rule-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.checkin-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.checkin-option:hover {
+  border-color: #667eea;
+  background: #f8f9fa;
+}
+
+.checkin-option input[type="radio"] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.checkin-option input[type="radio"]:checked + .radio-mark + .checkin-content .checkin-title {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.checkin-option:has(input[type="radio"]:checked) {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.checkin-content {
+  flex: 1;
+}
+
+.checkin-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.checkin-description {
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.range-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.range-input {
+  width: 120px !important;
+  text-align: center;
+}
+
+.range-unit {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.range-help-text {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Position Detection 额外配置样式 */
+.trigger-duration-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.trigger-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.trigger-option:hover {
+  border-color: #667eea;
+  background: #f8f9fa;
+}
+
+.trigger-option input[type="radio"] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.trigger-option input[type="radio"]:checked + .radio-mark + .trigger-content .trigger-title {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.trigger-option:has(input[type="radio"]:checked) {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.radio-mark {
+  display: none;
+}
+
+.trigger-content {
+  flex: 1;
+}
+
+.trigger-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.trigger-description {
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.duration-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.duration-input {
+  width: 120px !important;
+  text-align: center;
+}
+
+.duration-unit {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.duration-help-text {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
 .save-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -1849,6 +2611,203 @@ onBeforeUnmount(() => {
   color: #dc3545;
 }
 
+/* 删除确认弹窗样式 */
+.delete-confirm-modal {
+  background: white !important;
+  border-radius: 12px;
+  width: 90% !important;
+  max-width: 450px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: auto !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.delete-confirm-modal .modal-header {
+  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.delete-confirm-modal .modal-header h3 {
+  margin: 0;
+  color: #dc3545;
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.delete-confirm-modal .modal-header h3 i {
+  color: #dc3545;
+  font-size: 1.5rem;
+}
+
+.delete-confirm-modal .modal-body {
+  padding: 1.5rem !important;
+  text-align: center;
+  flex: 1 !important;
+}
+
+.delete-message {
+  font-size: 1rem;
+  color: #495057;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.delete-message strong {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.delete-warning {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin: 0;
+  font-style: italic;
+}
+
+.delete-confirm-modal .modal-footer {
+  padding: 1rem 1.5rem 1.5rem 1.5rem;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.delete-confirm-btn {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  min-width: 120px;
+  justify-content: center;
+}
+
+.delete-confirm-btn:hover {
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.delete-cancel-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.delete-cancel-btn:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+/* 错误提示弹窗样式 */
+.error-modal {
+  background: white !important;
+  border-radius: 12px;
+  width: 90% !important;
+  max-width: 450px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: auto !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.error-modal .modal-header {
+  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.error-modal .modal-header h3 {
+  margin: 0;
+  color: #dc3545;
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.error-modal .modal-header h3 i {
+  color: #dc3545;
+  font-size: 1.5rem;
+}
+
+.error-modal .modal-body {
+  padding: 1.5rem !important;
+  text-align: center;
+  flex: 1 !important;
+}
+
+.error-message-text {
+  font-size: 1rem;
+  color: #495057;
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.error-modal .modal-footer {
+  padding: 1rem 1.5rem 1.5rem 1.5rem;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: center;
+}
+
+.error-confirm-btn {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  min-width: 120px;
+  justify-content: center;
+}
+
+.error-confirm-btn:hover {
+  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .alarm-table-container {
@@ -1888,6 +2847,21 @@ onBeforeUnmount(() => {
   
   .alarm-modal .save-btn,
   .alarm-modal .cancel-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .delete-confirm-modal {
+    width: 95% !important;
+    max-width: 400px !important;
+  }
+  
+  .delete-confirm-modal .modal-footer {
+    flex-direction: column;
+  }
+  
+  .delete-confirm-btn,
+  .delete-cancel-btn {
     width: 100%;
     justify-content: center;
   }

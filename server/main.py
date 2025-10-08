@@ -17,6 +17,7 @@ import random
 import hashlib
 import base64
 from server.components.beacon_holder import beacon_holder
+from server.components.device_holder import device_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.dao.group_dao import group_dao
 from server.dao.device_dao import device_dao
@@ -105,7 +106,7 @@ mqtt_connection_status: str = "disconnected"  # Added for live MQTT status
 is_mqtt_intentionally_disconnected: bool = False  # Flag for manual disconnects
 shutdown_flag: bool = False  # Flag for graceful shutdown
 
-tracker_states: Dict[str, TrackerState] = {}  # Stores the latest state for each tracker
+# tracker_states: Dict[str, TrackerState] = {}  # Stores the latest state for each tracker - Moved to device_holder
 kalman_filters: Dict[str, KalmanFilter2D] = {}  # Stores Kalman filter instance per tracker
 mqtt_clients: Dict[str, Optional[mqtt.Client]] = {}  # Multiple MQTT clients for different data sources
 mqtt_connection_statuses: Dict[str, str] = {}  # Connection status for each data source
@@ -766,28 +767,28 @@ def on_message(client, userdata, msg):
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global web_ui_cfg, runtime_cfg, tracker_states, kalman_filters, dashboard_cfg
+    global web_ui_cfg, runtime_cfg, kalman_filters, dashboard_cfg
 
-    device = tracker_states.get(report.trackerId, None)
+    device = device_holder.get_tracker_state(report.trackerId)
     if device is None:
         try:
             log.info(f"the new tracker is detected({report.trackerId})...")
             device_result = device_dao.create_device(dev_eui=report.trackerId)
-            tracker_states[report.trackerId] = TrackerState(
+            device_holder.set_tracker_state(report.trackerId, TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=report.receive_time * 1000,
                 online="online"
-            )
+            ))
             if device_result is not None:
                 log.info(f"the new tracker is been saved({report.trackerId})...")
         except Exception as err:
             log.info(f"the new tracker({report.trackerId}) saving failure, e: \n{err}")
 
-    tracker_states[report.trackerId].online = "online"
-    tracker_states[report.trackerId].last_update_time = report.receive_time * 1000
+    device_holder.update_tracker_online_status(report.trackerId, "online")
+    device_holder.update_tracker_last_update_time(report.trackerId, report.receive_time * 1000)
 
     if int(report.battery) != -1:
-        tracker_states[report.trackerId].battery = int(report.battery)
+        device_holder.update_tracker_battery(report.trackerId, int(report.battery))
     if not web_ui_cfg or not web_ui_cfg.beacons:
         log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
         return
@@ -812,7 +813,7 @@ async def process_tracker_report(report: TrackerReport):
         # })
         return
 
-    if report.sos != 2 and tracker_states.get(report.trackerId, None):
+    if report.sos != 2 and device_holder.get_tracker_state(report.trackerId):
         log.info(f'broadcast tracker sos event: {report.trackerId}')
         await notify_tracker_state({
             "type": "tracker_sos",
@@ -822,7 +823,7 @@ async def process_tracker_report(report: TrackerReport):
             }}
         })
 
-        previous_sos = tracker_states.get(report.trackerId, {}).sos
+        previous_sos = device_holder.get_tracker_sos(report.trackerId)
 
         if not previous_sos:
             previous_sos = 0
@@ -836,7 +837,7 @@ async def process_tracker_report(report: TrackerReport):
         # 如果状态发生变化，创建告警记录
         if previous_sos != current_sos and current_sos != 2:  # 排除未知状态
             # 更新设备SOS状态映射
-            tracker_states.get(report.trackerId, {}).sos = current_sos
+            device_holder.update_tracker_sos(report.trackerId, current_sos)
 
             # 确定使用的定位信息和类型
             alarm_loc = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc', default_value=None)
@@ -853,7 +854,7 @@ async def process_tracker_report(report: TrackerReport):
                 alarm_time = datetime.fromtimestamp(report.timestamp / 1000.0)
 
                 # 获取设备当前所在的地图
-                current_tracker_state = tracker_states.get(report.trackerId)
+                current_tracker_state = device_holder.get_tracker_state(report.trackerId)
                 map_name = current_tracker_state.map if current_tracker_state and current_tracker_state.map else None
 
                 alarm_record_dao.create_record(
@@ -870,7 +871,7 @@ async def process_tracker_report(report: TrackerReport):
                 log.error(f"创建告警记录失败: {e}")
         else:
             # 如果状态没有变化，仍需更新映射以跟踪当前状态
-            tracker_states.get(report.trackerId, {}).sos = current_sos
+            device_holder.update_tracker_sos(report.trackerId, current_sos)
             log.info(
                 f"设备 {report.trackerId} SOS无状态变化: previous_sos: {previous_sos}, current_sos: {current_sos}，不会创建告警记录")
 
@@ -881,7 +882,7 @@ async def process_tracker_report(report: TrackerReport):
     log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
     tracker_id = report.trackerId
     current_time_ms = int(time.time() * 1000)
-    last_state = tracker_states.get(tracker_id)
+    last_state = device_holder.get_tracker_state(tracker_id)
     last_known_pos = (
         last_state.x, last_state.y) if last_state and last_state.x is not None and last_state.y is not None else None
     dt = (current_time_ms - last_state.last_update_time) / 1000.0 if last_state else 0.1
@@ -964,7 +965,7 @@ async def process_tracker_report(report: TrackerReport):
             radius=calculated_position[0]
         )
 
-        tracker_states[tracker_id] = new_state
+        device_holder.set_tracker_state(tracker_id, new_state)
 
         tracker_data_payload = {
             "trackerId": tracker_id,
@@ -1031,7 +1032,7 @@ async def process_tracker_report(report: TrackerReport):
         sos=sos
     )
 
-    tracker_states[tracker_id] = new_state
+    device_holder.set_tracker_state(tracker_id, new_state)
 
     # Prepare data for WebSocket broadcast
     position_payload = None
@@ -1191,7 +1192,7 @@ def save_dashboard_config_to_file(config_data: DashboardConfig) -> bool:
 @app.on_event("startup")
 async def startup_event():
     """Runs on application startup. Loads both configurations and sets up MQTT."""
-    global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg, tracker_states
+    global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg
 
     # Capture the running event loop for thread-safe calls from MQTT callback
     main_event_loop = asyncio.get_running_loop()
@@ -1232,7 +1233,7 @@ async def startup_event():
 
     if devices and len(devices) > 0:
         for device in devices:
-            tracker_states[device.dev_eui] = TrackerState.toTrackerState(device)
+            device_holder.set_tracker_state(device.dev_eui, TrackerState.toTrackerState(device))
         log.info("tracker list has been loaded successfully when startup...")
     else:
         log.info("there is no tracker need to load in application when startup...")
@@ -1306,13 +1307,13 @@ async def shutdown_event():
             client.disconnect()
             log.info(f"{source_type} MQTT client disconnected.")
 
-    if len(tracker_states) > 0:
+    if device_holder.get_tracker_count() > 0:
         devices = device_dao.get_active_devices()[0]
         devices_map = {}
         if devices and len(devices) > 0:
             devices_map = {device.dev_eui: device for device in devices}
 
-        for tracker_id, tracker_state in tracker_states.items():
+        for tracker_id, tracker_state in device_holder.get_all_tracker_states().items():
             if tracker_id in devices_map:
                 device_dao.update_device_status(
                     dev_eui=tracker_id,
@@ -1464,7 +1465,7 @@ async def get_trackers(request: TrackerStateQueryRequest = None):
 
     result = {}
     for device in devices:
-        tracker_state = tracker_states.get(device.dev_eui, None)
+        tracker_state = device_holder.get_tracker_state(device.dev_eui)
         choose_state = {}
         match = True
         if tracker_state is None:
@@ -2416,7 +2417,7 @@ async def create_event_trigger(event_request: EventTriggerCreateRequest):
         raise HTTPException(status_code=500, detail=f"创建事件失败: {str(e)}")
 
 
-@app.get("/api/events", response_model=List[EventTriggerListItem])
+@app.get("/api/events")
 async def get_event_triggers(
         page: int = Query(1, ge=1),
         page_size: int = Query(20, ge=1, le=100)):
@@ -2444,11 +2445,33 @@ async def get_event_triggers(
             )
             event_list.append(event_item)
         
-        return event_list
+        # 计算总页数
+        total_pages = (total + page_size - 1) // page_size
+        
+        return {
+            "data": event_list,
+            "pagination": {
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages
+            }
+        }
         
     except Exception as e:
         log.error(f"Error getting event triggers: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取事件列表失败: {str(e)}")
+
+@app.get("/api/events/device/{dev_eui}")
+async def get_event_by_device(dev_eui: str):
+    try:
+        list_alarm = event_manager.get_events_for_device(dev_eui)
+        return list_alarm
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取设备事件失败: {str(e)}")
 
 
 @app.get("/api/events/{event_id}", response_model=EventTriggerListItem)

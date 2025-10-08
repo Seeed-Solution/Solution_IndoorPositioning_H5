@@ -21,7 +21,7 @@
           
           <!-- Tracker统计 -->
           <div class="stat-item tracker-stats">
-            <div class="stat-number">{{ allowTrackerList.length }}</div>
+            <div class="stat-number">{{ totalTrackersCount }}</div>
             <div class="stat-label">{{ t('config.management.totalTrackers') }}</div>
           </div>
           <div class="stat-item tracker-stats">
@@ -1170,15 +1170,14 @@ const shouldShowSaveFunction = computed(() => {
 });
 
 // Tracker相关统计
+const totalTrackersCount = computed(() => {
+  // 统计总的tracker数量
+  return allTrackers.value.length;
+});
+
 const onlineTrackersCount = computed(() => {
-  // 统计15分钟内有更新的tracker（与TrackerModeConfigView保持一致）
-  const now = Date.now();
-  const fifteenMinutesMs = 15 * 60 * 1000; // 15 minutes in milliseconds
-  
   return allTrackers.value.filter(tracker => {
-    if (!tracker.last_update_time) return false;
-    const lastUpdateTime = new Date(tracker.last_update_time).getTime();
-    return (now - lastUpdateTime) <= fifteenMinutesMs;
+    return tracker.online === 'online';
   }).length;
 });
 
@@ -2810,23 +2809,28 @@ const loadTrackerList = async () => {
 // 加载tracker状态数据
 const loadTrackersData = async () => {
   try {
-    const data = await loadTrackers();
+    // 直接使用/trackers接口，与AlarmSettings.vue保持一致
+    const response = await fetchApi('/trackers');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const trackersData = await response.json();
+    
     // 处理返回的数据格式（可能是对象或数组）
-    if (Array.isArray(data)) {
-      allTrackers.value = data;
-      trackersData.value = {};
-    } else if (data && typeof data === 'object') {
+    if (Array.isArray(trackersData)) {
+      allTrackers.value = trackersData;
+    } else if (trackersData && typeof trackersData === 'object') {
       // 如果是对象格式，转换为数组用于统计
-      allTrackers.value = Object.values(data);
-      trackersData.value = data;
+      allTrackers.value = Object.values(trackersData);
     } else {
       allTrackers.value = [];
-      trackersData.value = {};
     }
+    
+    console.log('Tracker数据已加载:', allTrackers.value.length, '个设备');
   } catch (error) {
     console.error('加载tracker数据失败:', error);
     allTrackers.value = [];
-    trackersData.value = {};
   }
 };
 

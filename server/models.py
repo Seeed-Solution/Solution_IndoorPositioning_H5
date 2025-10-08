@@ -364,7 +364,7 @@ class EventTriggerCreateRequest(BaseModel):
     event_type: int = Field(..., description="事件类型")
     device_range: Optional[List[str]] = Field(default=[], description="设备范围列表")
     ble_range: Optional[List[str]] = Field(default=[], description="BLE范围列表")
-    time_range: Optional[str] = Field(default="", max_length=100, description="时间范围")
+    time_range: Optional[int] = Field(default=0, description="时间范围")
     ble_rule: Optional[int] = Field(default=0, description="BLE规则")
     dis_range: Optional[float] = Field(default=0.0, ge=0, description="距离范围")
     enable_status: Optional[bool] = Field(default=True, description="启用状态")
@@ -376,7 +376,7 @@ class EventTriggerCreateRequest(BaseModel):
                 "event_type": 1,
                 "device_range": ["device001", "device002"],
                 "ble_range": ["00:11:22:33:44:55"],
-                "time_range": "09:00-18:00",
+                "time_range": 0,
                 "ble_rule": 1,
                 "dis_range": 10.0,
                 "enable_status": True
@@ -392,7 +392,7 @@ class EventTriggerUpdateRequest(BaseModel):
     event_type: Optional[int] = Field(None, description="事件类型")
     device_range: Optional[List[str]] = Field(None, description="设备范围列表")
     ble_range: Optional[List[str]] = Field(None, description="BLE范围列表")
-    time_range: Optional[str] = Field(None, max_length=100, description="时间范围")
+    time_range: Optional[int] = Field(default=0, description="时间范围")
     ble_rule: Optional[int] = Field(None, description="BLE规则")
     dis_range: Optional[float] = Field(None, ge=0, description="距离范围")
     enable_status: Optional[bool] = Field(None, description="启用状态")
@@ -417,7 +417,7 @@ class EventTriggerListItem(BaseModel):
     event_type: int = Field(..., description="事件类型")
     device_range: List[str] = Field(..., description="设备范围列表")
     ble_range: List[str] = Field(..., description="BLE范围列表")
-    time_range: str = Field(..., description="时间范围")
+    time_range: int = Field(default=0, description="时间范围")
     ble_rule: int = Field(..., description="BLE规则")
     dis_range: float = Field(..., description="距离范围")
     enable_status: bool = Field(..., description="启用状态")
@@ -431,7 +431,7 @@ class EventTriggerListItem(BaseModel):
                 "event_type": 1,
                 "device_range": ["device001", "device002"],
                 "ble_range": ["00:11:22:33:44:55"],
-                "time_range": "09:00-18:00",
+                "time_range": 0,
                 "ble_rule": 1,
                 "dis_range": 10.0,
                 "enable_status": True,
@@ -527,10 +527,10 @@ class EventTriggerRecord:
     """事件触发条件数据模型"""
     id: Optional[int] = None
     event_name: str = ""  # 事件名称
-    event_type: int = 0  # 事件类型  1:sos, 2:offline, 3:checkin, 4:leaving
+    event_type: int = 0  # 事件类型  1:sos, 2:offline, 3:checkin, 4: position detection
     device_range: str = "[]"  # 设备范围，JSON格式存储list[str]
     ble_range: str = "[]"  # BLE范围，JSON格式存储list[str]
-    time_range: str = ""  # 时间范围
+    time_range: int = 0  # 时间范围
     ble_rule: int = 0  # BLE规则
     dis_range: float = 0.0  # 距离范围
     enable_status: bool = True  # 启用状态

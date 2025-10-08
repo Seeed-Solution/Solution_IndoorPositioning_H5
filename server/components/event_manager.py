@@ -80,7 +80,7 @@ class EventManager:
 
     def create_event(self, event_name: str, event_type: int, 
                     device_range: List[str] = None, ble_range: List[str] = None,
-                    time_range: str = "", ble_rule: int = 0, dis_range: float = 0.0,
+                    time_range: int = 0, ble_rule: int = 0, dis_range: float = 0.0,
                     enable_status: bool = True) -> Optional[EventTriggerRecord]:
         """创建事件，先保存到数据库，再添加到缓存"""
         try:
@@ -209,7 +209,7 @@ class EventManager:
             direct_events = self._device_events.get(dev_eui, []).copy()
             
             # 通配符事件
-            wildcard_events = self._device_events.get('*', []).copy()
+            wildcard_events = self._device_events.get('all', []).copy()
             
             # 合并并去重
             all_events = direct_events + wildcard_events

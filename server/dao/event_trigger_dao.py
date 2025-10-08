@@ -15,7 +15,7 @@ class EventTriggerTable(Base):
     event_type = Column(Integer, nullable=False, default=0, comment='事件类型') ## 1:sos, 2:offline, 3:checkin, 4:leaving
     device_range = Column(Text, nullable=False, default='[]', comment='设备范围JSON')
     ble_range = Column(Text, nullable=False, default='[]', comment='BLE范围JSON')
-    time_range = Column(String(100), nullable=False, default='', comment='时间范围')
+    time_range = Column(Integer, nullable=False, default=0, comment='时间范围')
     ble_rule = Column(Integer, nullable=False, default=0, comment='BLE规则')
     dis_range = Column(Float, nullable=False, default=0.0, comment='距离范围')
     enable_status = Column(Boolean, nullable=False, default=True, comment='启用状态')
@@ -40,7 +40,7 @@ class EventTriggerDao(BaseDao[EventTriggerRecord]):
 
     def create_event_trigger(self, event_name: str, event_type: int, 
                            device_range: List[str] = None, ble_range: List[str] = None,
-                           time_range: str = "", ble_rule: int = 0, dis_range: float = 0.0,
+                           time_range: int = 0, ble_rule: int = 0, dis_range: float = 0.0,
                            enable_status: bool = True) -> EventTriggerRecord:
         """创建新的事件触发条件"""
         import json

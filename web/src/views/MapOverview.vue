@@ -1,0 +1,1145 @@
+<template>
+  <div class="map-overview-container">
+
+    <!-- 页面内容 -->
+    <div class="page-content">
+      <!-- 页面标题 -->
+      <h1 class="page-title">Map Dashboard</h1>
+
+      <!-- 状态消息 -->
+      <div v-if="statusMessage" class="status-message" :class="statusMessage.toLowerCase().includes('error') ? 'error' : statusMessage.toLowerCase().includes('success') ? 'success' : 'info'">
+        {{ statusMessage }}
+      </div>
+
+      <!-- 连接状态和统计信息 -->
+      <div class="status-bar">
+        <!-- WebSocket 连接状态 -->
+        <div class="connection-status">
+          <i :class="wsStatusIcon" class="status-icon"></i>
+          <span class="status-label">WebSocket:</span>
+          <span :class="['status-value', wsStatus === 'connected' ? 'connected' : 'disconnected']">
+            {{ wsStatusText }}
+          </span>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-section">
+          <div class="stat-item">
+            <i class="fas fa-map stat-icon"></i>
+            <span class="stat-number">{{ totalMaps }}</span>
+            <span class="stat-label">Maps</span>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-broadcast-tower stat-icon"></i>
+            <span class="stat-number">{{ totalBeacons }}</span>
+            <span class="stat-label">Beacons</span>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-map-marker-alt stat-icon"></i>
+            <span class="stat-number">{{ totalTrackers }}</span>
+            <span class="stat-label">Trackers</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 地图概览区域 -->
+      <div class="map-overview-section">
+        <div class="section-header">
+          <div class="section-title">
+            <i class="fas fa-map section-icon"></i>
+            <span>Map Overview</span>
+          </div>
+          <button class="fullscreen-btn" @click="toggleFullscreen">
+            <i class="fas fa-expand"></i>
+            Fullscreen
+          </button>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="main-content-area">
+          <!-- 左侧：地图选择器和地图显示 -->
+          <div class="map-section">
+            <!-- 地图选择器 -->
+            <div class="map-selector">
+              <div class="map-viewer-header">
+                <div class="map-viewer-title">
+                  <i class="fas fa-eye map-viewer-icon"></i>
+                  <span class="map-viewer-label">Map Viewer</span>
+                </div>
+                <div class="map-dropdown">
+                  <select v-model="selectedMapIndex" class="map-select" @change="onMapChange">
+                    <option v-for="(map, index) in availableMaps" :key="index" :value="index">
+                      {{ map.map?.name || `Map ${index + 1}` }} ({{ map.beacons?.length || 0 }} beacons)
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 地图显示区域 -->
+            <div class="map-display-container">
+              <div v-if="selectedMap" class="map-display">
+                <MapPreview 
+                  :config="selectedMap"
+                  :trackers="getTrackersForMap(selectedMap)"
+                  :initialShowTrails="false"
+                />
+              </div>
+              <div v-else class="no-map-selected">
+                <i class="fas fa-map-marked-alt no-map-icon"></i>
+                <p>Please select a map to view</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 全屏模式 -->
+    <div v-if="isFullscreen" class="fullscreen-overlay">
+      <div class="fullscreen-container">
+        <!-- 右上角关闭按钮 -->
+        <button @click="exitFullscreen" class="btn-close-floating" title="退出全屏">
+          <i class="fas fa-times"></i>
+        </button>
+
+        <!-- 全屏布局 -->
+        <div class="fullscreen-content">
+          <!-- 左侧地图列表 -->
+          <div class="fullscreen-map-list">
+            <div class="map-list-header">
+              <i class="fas fa-map map-list-icon"></i>
+              <span class="map-list-title">Map</span>
+            </div>
+            <div class="map-list-items">
+              <div 
+                v-for="(map, index) in availableMaps" 
+                :key="index"
+                class="map-list-item"
+                :class="{ active: selectedMapIndex === index }"
+                @click="selectMapInFullscreen(index)"
+              >
+                <div class="map-item-header">
+                  <span class="map-item-name">{{ map.map?.name || `Map ${index + 1}` }}</span>
+                  <div class="map-item-stats">
+                    <span class="beacon-count">{{ map.beacons?.length || 0 }} Beacons</span>
+                    <span class="tracker-count">{{ Object.keys(getTrackersForMap(map)).length }} Online Trackers</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 中间地图显示 -->
+          <div class="fullscreen-map-area">
+            <div class="fullscreen-map-header">
+              <h2 class="current-map-title">{{ selectedMap?.map?.name || 'No Map Selected' }}</h2>
+              <div class="map-header-stats">
+                <span class="header-stat">
+                  <i class="fas fa-broadcast-tower"></i>
+                  {{ selectedMap?.beacons?.length || 0 }}
+                </span>
+                <span class="header-stat">
+                  <i class="fas fa-map-marker-alt"></i>
+                  {{ Object.keys(getTrackersForMap(selectedMap || {})).length }}
+                </span>
+              </div>
+            </div>
+            <div class="fullscreen-map-display">
+              <MapPreview 
+                v-if="selectedMap"
+                :config="selectedMap"
+                :trackers="getTrackersForMap(selectedMap)"
+                :initialShowTrails="false"
+              />
+              <div v-else class="no-map-placeholder">
+                <i class="fas fa-map-marked-alt"></i>
+                <p>请选择一个地图查看</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { 
+  loadDashboardConfiguration,
+  loadTrackers
+} from '@/services/configApiService.js'
+import { loadConfigFromLocalStorage } from '@/services/localStorageService.js'
+import { buildWsUrl } from '@/config/api.js'
+import MapPreview from '@/components/MapPreview.vue'
+
+const router = useRouter()
+
+// Config storage key
+const CONFIG_STORAGE_KEY = 'mapDashboardConfig'
+
+// 响应式数据
+const wsStatus = ref('disconnected') // connected, connecting, disconnected, error
+const totalMaps = ref(0)
+const totalBeacons = ref(0)
+const totalTrackers = ref(0)
+const selectedMapIndex = ref(0)
+const showTrails = ref(false)
+const isLoading = ref(false)
+const statusMessage = ref('')
+
+// 全屏模式状态
+const isFullscreen = ref(false)
+
+// 地图配置数据
+const availableMaps = ref([])
+const currentFullConfig = ref([])
+
+// tracker数据 - 通过API和WebSocket获取
+const trackers = ref({})
+const ws = ref(null)
+
+// 计算属性
+const selectedMap = computed(() => {
+  return availableMaps.value[selectedMapIndex.value] || null
+})
+
+const filteredTrackers = computed(() => {
+  if (!selectedMap.value) return []
+  return Object.values(getTrackersForMap(selectedMap.value))
+})
+
+const wsStatusText = computed(() => {
+  switch (wsStatus.value) {
+    case 'connected': return 'Connected'
+    case 'connecting': return 'Connecting...'
+    case 'disconnected': return 'Disconnected'
+    case 'error': return 'Connection Error'
+    default: return 'Unknown'
+  }
+})
+
+const wsStatusIcon = computed(() => {
+  switch (wsStatus.value) {
+    case 'connected': return 'fas fa-wifi status-connected'
+    case 'connecting': return 'fas fa-spinner fa-spin status-connecting'
+    case 'disconnected': return 'fas fa-wifi-slash status-disconnected'
+    case 'error': return 'fas fa-exclamation-triangle status-error'
+    default: return 'fas fa-question-circle status-unknown'
+  }
+})
+
+// 方法
+const showStatus = (msg, type = 'info') => {
+  statusMessage.value = `${type.toUpperCase()}: ${msg}`
+  setTimeout(() => { statusMessage.value = '' }, 7000)
+}
+
+const initializeMasterConfig = async () => {
+  isLoading.value = true
+  showStatus('Loading master configuration...', 'info')
+  
+  try {
+    const config = await loadDashboardConfiguration()
+    if (config && config.maps) {
+      currentFullConfig.value = config.maps
+      availableMaps.value = config.maps
+      
+      // 更新统计信息
+      totalMaps.value = config.maps.length
+      totalBeacons.value = config.maps.reduce((total, mapConfig) => 
+        total + (mapConfig.beacons?.length || 0), 0)
+      
+      showStatus('Master configuration loaded from server.', 'success')
+      console.log('[MapOverview] Loaded maps:', config.maps)
+    } else {
+      showStatus('No master configuration found on server. Checking local storage...', 'info')
+      loadMasterConfigFromStorage()
+    }
+  } catch (error) {
+    console.error('[MapOverview] Error loading master configuration from server:', error)
+    showStatus(`Failed to load master config from server: ${error.message || 'Unknown error'}. Trying local storage.`, 'error')
+    loadMasterConfigFromStorage()
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const loadMasterConfigFromStorage = () => {
+  const loaded = loadConfigFromLocalStorage(CONFIG_STORAGE_KEY)
+  if (loaded && loaded.maps) {
+    currentFullConfig.value = loaded.maps
+    availableMaps.value = loaded.maps
+    
+    // 更新统计信息
+    totalMaps.value = loaded.maps.length
+    totalBeacons.value = loaded.maps.reduce((total, mapConfig) => 
+      total + (mapConfig.beacons?.length || 0), 0)
+    
+    showStatus('Master configuration loaded from local storage.')
+    console.log('[MapOverview] Loaded maps from storage:', loaded.maps)
+  } else {
+    availableMaps.value = []
+    totalMaps.value = 0
+    totalBeacons.value = 0
+    showStatus('No configuration found.', 'warn')
+  }
+}
+
+const getTrackersForMap = (mapConfig) => {
+  // 根据地图名称筛选相关的tracker
+  const mapName = mapConfig.map?.name;
+  if (!mapName) {
+    return {};
+  }
+  
+  const filteredTrackers = {};
+  Object.entries(trackers.value).forEach(([trackerId, tracker]) => {
+    if (tracker.map === mapName) {
+      filteredTrackers[trackerId] = tracker;
+    }
+  });
+  
+  return filteredTrackers;
+}
+
+// 预加载 tracker 数据的函数
+const preloadTrackers = async () => {
+  try {
+    console.log('[MapOverview] Preloading trackers data from /api/trackers...')
+    const trackersData = await loadTrackers()
+    
+    // 处理返回的数据格式
+    if (trackersData) {
+      if (Array.isArray(trackersData)) {
+        // 如果是数组格式，转换为对象
+        trackers.value = trackersData.reduce((acc, tracker) => {
+          if (tracker.trackerId) {
+            acc[tracker.trackerId] = tracker
+          }
+          return acc
+        }, {})
+      } else if (typeof trackersData === 'object') {
+        // 如果是对象格式，直接使用
+        trackers.value = trackersData
+      } else {
+        trackers.value = {}
+      }
+      
+      console.log(`[MapOverview] Successfully preloaded ${Object.keys(trackers.value).length} trackers`)
+      // 更新tracker统计
+      totalTrackers.value = Object.keys(trackers.value).length
+    } else {
+      trackers.value = {}
+      console.log('[MapOverview] No tracker data received from API')
+    }
+  } catch (error) {
+    console.error('[MapOverview] Error preloading trackers:', error)
+    trackers.value = {}
+  }
+}
+
+const connectWebSocket = () => {
+  if (ws.value && ws.value.readyState === WebSocket.OPEN) return;
+  
+  // 使用配置化的WebSocket URL
+  const wsUrl = buildWsUrl('/ws');
+  console.log('[MapOverview] Connecting to WebSocket:', wsUrl);
+  ws.value = new WebSocket(wsUrl);
+  wsStatus.value = 'connecting';
+
+  ws.value.onopen = () => {
+    wsStatus.value = 'connected';
+    console.log('[MapOverview] WebSocket connected');
+  };
+
+  ws.value.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === 'initial_state') {
+        trackers.value = message.data || {};
+        totalTrackers.value = Object.keys(trackers.value).length;
+      } else if (message.type === 'tracker_update') {
+        console.log('[MapOverview] Processing tracker_update. Data:', message.data);
+        const updatedTrackerId = Object.keys(message.data)[0];
+        if (updatedTrackerId && message.data[updatedTrackerId]) {
+          const newTrackerData = message.data[updatedTrackerId];
+          console.log(`[MapOverview] Updating tracker ${updatedTrackerId} with (raw incoming):`, newTrackerData);
+
+          const trackerInstanceData = {
+            trackerId: newTrackerData.trackerId,
+            position: newTrackerData.position ? {
+              x: newTrackerData.position.x,
+              y: newTrackerData.position.y,
+              accuracy: newTrackerData.position.accuracy
+            } : null,
+            timestamp: newTrackerData.timestamp,
+            sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
+            sos_happen: newTrackerData.sos_happen,
+            last_detected_beacons: newTrackerData.last_detected_beacons
+              ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
+              : [],
+            position_history: newTrackerData.position_history
+              ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry)
+              : [],
+            map: newTrackerData.map
+          };
+
+          if (!trackers.value[updatedTrackerId]) {
+            trackers.value = { ...trackers.value, [updatedTrackerId]: trackerInstanceData };
+          } else {
+            trackers.value[updatedTrackerId] = trackerInstanceData;
+          }
+          
+          // 更新tracker统计
+          totalTrackers.value = Object.keys(trackers.value).length;
+        }
+      } else if (message.type === 'tracker_location_approximate') {
+        const updatedTrackerId = Object.keys(message.data)[0];
+        if (updatedTrackerId && message.data[updatedTrackerId]) {
+          const newTrackerData = message.data[updatedTrackerId];
+
+          const trackerInstanceData = {
+            trackerId: newTrackerData.trackerId,
+            position: null, // 区域定位没有精确position
+            radius: newTrackerData.radius,
+            timestamp: newTrackerData.timestamp,
+            sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
+            sos_happen: newTrackerData.sos_happen,
+            last_detected_beacons: newTrackerData.last_detected_beacons
+              ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
+              : [],
+            map: newTrackerData.map
+          };
+
+          console.log(`[MapOverview] Processed beacon data:`, trackerInstanceData.last_detected_beacons);
+
+          if (!trackers.value[updatedTrackerId]) {
+            trackers.value = { ...trackers.value, [updatedTrackerId]: trackerInstanceData };
+          } else {
+            trackers.value[updatedTrackerId] = trackerInstanceData;
+          }
+          
+          // 更新tracker统计
+          totalTrackers.value = Object.keys(trackers.value).length;
+        }
+      } else if (message.type === 'tracker_sos') {
+        console.log('[MapOverview] Processing tracker_sos. Data:', message.data);
+        const updatedTrackerId = Object.keys(message.data)[0];
+        if (updatedTrackerId && message.data[updatedTrackerId]) {
+          if (!trackers.value[updatedTrackerId]) {
+            console.log('[MapOverview] not found the tracker: ', updatedTrackerId);
+            return;
+          }
+          const newTrackerEvent = message.data[updatedTrackerId];
+          trackers.value[updatedTrackerId].sos = newTrackerEvent.sos;
+          trackers.value[updatedTrackerId].sos_happen = newTrackerEvent.timestamp;
+        }
+      } else {
+        console.log('[MapOverview] Received unhandled message type:', message.type, 'Data:', message.data);
+      }
+    } catch (error) {
+      console.error('[MapOverview] FATAL: Error parsing WebSocket message or in handler. Raw data:', event.data, 'Error:', error);
+    }
+  };
+
+  ws.value.onerror = (error) => {
+    wsStatus.value = 'error';
+    console.error('[MapOverview] WebSocket error:', error);
+  };
+
+  ws.value.onclose = () => {
+    wsStatus.value = 'disconnected';
+    console.log('[MapOverview] WebSocket disconnected');
+  };
+};
+
+const onMapChange = () => {
+  console.log('Map changed to:', selectedMap.value)
+  // 这里后续会添加地图切换的逻辑
+}
+
+const toggleTrails = () => {
+  showTrails.value = !showTrails.value
+  console.log('Trails toggled:', showTrails.value)
+  // 这里后续会添加轨迹显示/隐藏的逻辑
+}
+
+const toggleFullscreen = () => {
+  isFullscreen.value = true
+  // 阻止body滚动
+  document.body.style.overflow = 'hidden'
+  console.log('Entered fullscreen mode')
+}
+
+const exitFullscreen = () => {
+  isFullscreen.value = false
+  // 恢复body滚动
+  document.body.style.overflow = ''
+  console.log('Exited fullscreen mode')
+}
+
+const selectMapInFullscreen = (index) => {
+  selectedMapIndex.value = index
+  console.log('Selected map in fullscreen:', availableMaps.value[index])
+}
+
+// 键盘事件处理
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    exitFullscreen()
+  }
+}
+
+// 生命周期钩子
+onMounted(async () => {
+  console.log('MapOverview component mounted')
+  
+  // 初始化地图配置
+  await initializeMasterConfig()
+  
+  // 预加载tracker数据
+  await preloadTrackers()
+  
+  // 建立WebSocket连接
+  connectWebSocket()
+  
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  console.log('MapOverview component unmounting, closing WebSocket...')
+  if (ws.value) {
+    ws.value.onclose = null
+    ws.value.close()
+  }
+  
+  // 移除键盘事件监听
+  window.removeEventListener('keydown', handleKeydown)
+  
+  // 确保恢复body滚动
+  document.body.style.overflow = ''
+})
+</script>
+
+<style scoped>
+.map-overview-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶部导航标签 */
+.top-nav-tabs {
+  display: flex;
+  justify-content: center;
+  background-color: white;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0;
+}
+
+.nav-tab {
+  padding: 1rem 2rem;
+  text-decoration: none;
+  color: #666;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.nav-tab:hover {
+  color: #4CAF50;
+  background-color: rgba(76, 175, 80, 0.05);
+}
+
+.nav-tab.active {
+  color: #4CAF50;
+  border-bottom-color: #4CAF50;
+  font-weight: 600;
+}
+
+/* 页面内容 */
+.page-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 1rem auto;
+  width: 100%;
+  background: white;
+  border-radius: 8px;
+}
+
+.page-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2rem;
+}
+
+/* 状态消息 */
+.status-message {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.status-message.info {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.status-message.success {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.status-message.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
+
+/* 状态栏 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-icon {
+  font-size: 1.2rem;
+}
+
+.status-icon.status-connected {
+  color: #4CAF50;
+}
+
+.status-icon.status-connecting {
+  color: #2196F3;
+}
+
+.status-icon.status-disconnected {
+  color: #f44336;
+}
+
+.status-icon.status-error {
+  color: #ff9800;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #666;
+}
+
+.status-value {
+  font-weight: 600;
+}
+
+.status-value.connected {
+  color: #4CAF50;
+}
+
+.status-value.disconnected {
+  color: #f44336;
+}
+
+.stats-section {
+  display: flex;
+  gap: 2rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.stat-icon {
+  color: #2196F3;
+  font-size: 1rem;
+}
+
+.stat-number {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #2196F3;
+  min-width: 30px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+/* 地图概览区域 */
+.map-overview-section {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.section-icon {
+  color: #2196F3;
+}
+
+.fullscreen-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.3s;
+}
+
+.fullscreen-btn:hover {
+  background: #1976D2;
+}
+
+/* 主要内容区域 */
+.main-content-area {
+  display: flex;
+  height: 600px;
+}
+
+/* 地图区域 */
+.map-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.map-selector {
+  padding: 1rem;
+  background: #fafafa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.map-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.map-viewer-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.map-viewer-icon {
+  color: #666;
+}
+
+.map-viewer-label {
+  font-weight: 500;
+  color: #333;
+}
+
+.map-dropdown {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.map-select {
+  min-width: 250px;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.9rem;
+  color: #333;
+  cursor: pointer;
+}
+
+.map-select:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+/* 地图显示区域 */
+.map-display-container {
+  flex: 1;
+  position: relative;
+}
+
+.map-display {
+  height: 100%;
+  background: #f9f9f9;
+}
+
+.map-display :deep(.map-preview-container) {
+  height: 100%;
+}
+
+
+.no-map-selected {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+.no-map-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .main-content-area {
+    height: auto;
+  }
+  
+  .map-section {
+    width: 100%;
+    height: 600px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-content {
+    padding: 1rem;
+  }
+  
+  .status-bar {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .stats-section {
+    justify-content: space-around;
+    gap: 1rem;
+  }
+  
+  .nav-tab {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+}
+
+/* 全屏模式样式 */
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.fullscreen-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 浮动关闭按钮 */
+.btn-close-floating {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-close-floating:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+/* 全屏内容布局 */
+.fullscreen-content {
+  flex: 1;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 左侧地图列表 */
+.fullscreen-map-list {
+  width: 220px;
+  background: white;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-list-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  font-weight: 600;
+  color: #333;
+}
+
+.map-list-icon {
+  color: #2196F3;
+  font-size: 1.1rem;
+}
+
+.map-list-title {
+  font-size: 1rem;
+}
+
+.map-list-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.map-list-item {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.map-list-item:hover {
+  background: #f0f8ff;
+}
+
+.map-list-item.active {
+  background: #e3f2fd;
+  border-color: #2196F3;
+}
+
+.map-item-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map-item-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.map-item-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.beacon-count,
+.tracker-count {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.beacon-count {
+  color: #ff9800;
+}
+
+.tracker-count {
+  color: #4caf50;
+}
+
+/* 中间地图区域 */
+.fullscreen-map-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  overflow: hidden;
+}
+
+.fullscreen-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.current-map-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.map-header-stats {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.header-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.header-stat i {
+  color: #2196F3;
+  font-size: 1.1rem;
+}
+
+.fullscreen-map-display {
+  flex: 1;
+  background: #f9f9f9;
+  overflow: hidden;
+  position: relative;
+}
+
+.fullscreen-map-display :deep(.map-preview-container) {
+  height: 100%;
+}
+
+.no-map-placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+.no-map-placeholder i {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+
+/* 全屏模式响应式设计 */
+@media (max-width: 1200px) {
+  .fullscreen-map-list {
+    width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .fullscreen-content {
+    flex-direction: column;
+  }
+  
+  .fullscreen-map-list {
+    width: 100%;
+    height: 120px;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .map-list-items {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  
+  .map-list-item {
+    min-width: 150px;
+    margin-bottom: 0;
+  }
+  
+  .btn-close-floating {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+}
+</style>

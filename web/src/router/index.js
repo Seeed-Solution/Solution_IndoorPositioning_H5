@@ -4,6 +4,7 @@ import MasterConfigView from '@/views/MasterConfigView.vue'; // New Master Confi
 import LocalModeConfigView from '@/views/LocalModeConfigView.vue'; // Renamed from PersonalModeConfigView
 import TrackerModeConfigView from '@/views/TrackerModeConfigView.vue'; // Import the new view
 import MapDashboardView from '@/views/MapDashboardView.vue'; // Import the map dashboard view
+import MapOverview from '@/views/MapOverview.vue'; // Import the new map overview view
 import LoginView from '@/views/LoginView.vue'; // Import the login view
 // import HomeView from '@/views/HomeView.vue';
 // import ConfigurationView from '@/views/ConfigurationView.vue'; // Old, to be removed or reworked
@@ -52,6 +53,12 @@ const routes = [
     path: '/map-dashboard', // Define path for map dashboard
     name: 'MapDashboard', // Name for the map dashboard route
     component: MapDashboardView, // Use the new component
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/map-overview', // Define path for map overview
+    name: 'MapOverview', // Name for the map overview route
+    component: MapOverview, // Use the new component
     meta: { requiresAuth: true }
   },
   {
