@@ -5,6 +5,8 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 import json
 
+import server.constant.event_constant as event_constant
+
 # --- Models for Miniprogram Exported Configuration (e.g., map_beacon_config.json) ---
 
 class MapEntity(BaseModel):
@@ -288,6 +290,7 @@ class DeviceStatusUpdateRequest(BaseModel):
         }
 
 class TrackerStateQueryRequest(BaseModel):
+    dev_eui_list: Optional[list[str]] = Field(None, description="eui list")
     online_status: Optional[str] = Field(None, description="在线状态")
     is_favorite: Optional[bool] = Field(None, description="是否收藏")
 
@@ -467,6 +470,7 @@ class DetectedBeacon(BaseModel):
     rssi: int
     configured_x: Optional[float] = None
     configured_y: Optional[float] = None
+    dis: Optional[float] = -1
 
 class TrackerReport(BaseModel):
     trackerId: str # Corresponds to device devEui from MQTT topic
@@ -475,6 +479,7 @@ class TrackerReport(BaseModel):
     detectedBeacons: List[DetectedBeacon] = []
     sos: int = 2 # 0: 恢复, 1: 触发, 2: 未知
     locType: str = 'bluetooth'
+    map_name: str = "unknown"
     loc: dict[str, Any] = {}
     sourceType: str = "sensecap"
     battery: Optional[int] = -1
@@ -768,7 +773,11 @@ class DeviceAlarmRecord:
     pos_type: str = "bluetooth"
     loc: Dict[str, Any] = None
     beacons: Optional[List[Dict[str, Any]]] = None
-    sos: int = 0
+    status: int = 1
+    event_type: int = 1
+    event_id: int = 1
+    event_name: str = ""
+    desc: Optional[Dict[str, Any]] = None
     map_name: Optional[str] = 'unknown'
     
     def __post_init__(self):
@@ -818,7 +827,7 @@ class TrackerState(BaseModel):
     last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
     last_detected_beacons: List[DetectedBeacon] = []
     position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
-    used_beacon_macs: List[str] = []  # MAC addresses of beacons used in position calculation
+    used_beacons: List[DetectedBeacon] = []  # MAC addresses of beacons used in position calculation
     map: Optional[str] = "unknown"
     sos: int = 0
     type: Optional[str] = "calculation"
@@ -838,7 +847,7 @@ class TrackerState(BaseModel):
             last_known_measurement_time=self.last_known_measurement_time,
             last_detected_beacons=self.last_detected_beacons,
             position_history=self.position_history,
-            used_beacon_macs=self.used_beacon_macs,
+            used_beacons=self.used_beacons,
             map=self.map,
             sos=self.sos,
             type=self.type,
@@ -863,6 +872,7 @@ class TrackerState(BaseModel):
             trackerId=deviceRecord.dev_eui,
             battery=deviceRecord.battery_level,
             online="unknown",
+            sos=event_constant.SOS_STATUS_UNKNOWN
         )
         if deviceRecord.last_data_update_time:
             tracker_state.last_update_time = int(deviceRecord.last_data_update_time.timestamp()) * 1000
@@ -880,7 +890,7 @@ class TrackerInfo(BaseModel):
     last_known_measurement_time: Optional[int] = None
     last_detected_beacons: List[DetectedBeacon] = []
     position_history: List[Tuple[float, float, int]] = []
-    used_beacon_macs: List[str] = []
+    used_beacons: List[DetectedBeacon] = []
     map: Optional[str] = "unknown"
     sos: int = 0
     type: Optional[str] = "calculation"

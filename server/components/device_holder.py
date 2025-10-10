@@ -3,6 +3,8 @@
 负责管理所有设备的实时状态数据
 """
 
+import server.constant.event_constant as event_constant
+
 from typing import Dict, Optional, List
 from server.models import TrackerState
 import threading
@@ -53,7 +55,7 @@ class DeviceHolder:
         """获取设备SOS状态"""
         with self._lock:
             tracker = self._tracker_states.get(tracker_id)
-            return tracker.sos if tracker else None
+            return tracker.sos if tracker else event_constant.SOS_STATUS_UNKNOWN
     
     def get_all_tracker_states(self) -> Dict[str, TrackerState]:
         """获取所有设备状态的副本"""
@@ -89,5 +91,26 @@ class DeviceHolder:
             return list(self._tracker_states.keys())
 
 
+class DeviceEventHolder:
+
+    def __init__(self):
+        self._event_holder: dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def get_device_event_timestamp(self, dev_eui: str, event_id: int) -> int:
+        with self._lock:
+            return self._event_holder.get(f"{dev_eui}:{event_id}", 0)
+
+    def set_device_event_timestamp(self, dev_eui: str, event_id: int, timestamp: int):
+        with self._lock:
+            self._event_holder[f"{dev_eui}:{event_id}"] = timestamp
+
+    def delete_device_event_timestamp(self, dev_eui: str, event_id):
+        with self._lock:
+            del self._event_holder[f"{dev_eui}:{event_id}"]
+
+
 # 全局设备状态管理器实例
 device_holder = DeviceHolder()
+device_event_holder = DeviceEventHolder()
+

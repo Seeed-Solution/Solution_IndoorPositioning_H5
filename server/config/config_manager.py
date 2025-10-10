@@ -2,12 +2,20 @@
 import json
 from pathlib import Path
 from typing import Optional, Tuple
-from .models import MiniprogramConfig, ServerRuntimeConfig, MiniprogramBeaconConfig, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest
+from server.models import (
+    MiniprogramConfig, ServerRuntimeConfig, MiniprogramBeaconConfig,
+    PartialServerRuntimeConfig, DashboardConfig, WebUIConfig, WebUISettings,
+    PasswordChangeRequest, ServiceCredentialsRequest
+)
+
+from server.components.beacon_holder import beacon_holder
 
 # Define paths for the two configuration files
 # These paths are relative to the project root, assuming FastAPI runs from there.
-MINIPROGRAM_CONFIG_FILE_PATH = Path("server/miniprogram_config.json")
-SERVER_RUNTIME_CONFIG_FILE_PATH = Path("server/server_runtime_config.json")
+MINIPROGRAM_CONFIG_FILE_PATH = Path("server/config/miniprogram_config.json")
+SERVER_RUNTIME_CONFIG_FILE_PATH = Path("server/config/server_runtime_config.json")
+DASHBOARD_CONFIG_FILE_PATH = Path("server/config/dashboard_config.json")
+# WEB_CONFIG_FILE_PATH = Path("server/config/web_config.json")
 
 # Placeholder for passwords when returning config to frontend
 PASSWORD_PLACEHOLDER = "********" 
@@ -15,6 +23,67 @@ PASSWORD_PLACEHOLDER = "********"
 # Caches for the loaded configurations
 miniprogram_cfg_cache: Optional[MiniprogramConfig] = None
 server_runtime_cfg_cache: Optional[ServerRuntimeConfig] = None
+dashboard_cfg: Optional[DashboardConfig] = None
+# web_ui_cfg: Optional[WebUIConfig] = None
+
+
+# def load_web_ui_config() -> Optional[WebUIConfig]:
+#     global web_ui_cfg, beacon_map
+#     if not WEB_CONFIG_FILE_PATH.is_file():
+#         print(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH}. Initializing with defaults.")
+#         # Initialize with default if file doesn't exist
+#         default_settings = WebUISettings()  # Use direct model name
+#         web_ui_cfg = WebUIConfig(map=None, beacons=[], settings=default_settings)
+#         save_web_ui_config(web_ui_cfg)  # Save the initial default config
+#         return web_ui_cfg
+#     try:
+#         with open(WEB_CONFIG_FILE_PATH, 'r') as f:
+#             data = json.load(f)
+#             web_ui_cfg = WebUIConfig(**data)
+#             print(f"Web UI configuration loaded successfully from {WEB_CONFIG_FILE_PATH}.")
+#             # if web_ui_cfg and len(web_ui_cfg.beacons):
+#             #     for beacon in web_ui_cfg.beacons:
+#             #         if not beacon.map:
+#             #             beacon = web_ui_cfg.map.name
+#             #         beacon_map[beacon.macAddress] = beacon
+#             return web_ui_cfg
+#     except FileNotFoundError:
+#         print(
+#             f"Error: Web UI configuration file not found at {WEB_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
+#         return None  # Should not happen if check above is correct
+#     except json.JSONDecodeError as e:
+#         print(
+#             f"Error: decoding JSON from Web UI config file {WEB_CONFIG_FILE_PATH}: {e}")
+#         return None
+#     except Exception as e:
+#         print(f"Error: to load Web UI configuration from {WEB_CONFIG_FILE_PATH}: {e}")
+#         return None
+
+
+def load_dashboard_config() -> Optional[DashboardConfig]:
+    global dashboard_cfg
+    if not DASHBOARD_CONFIG_FILE_PATH.is_file():
+        print(f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH}. Initializing with defaults.")
+        dashboard_cfg = DashboardConfig(maps=[])
+        # save_web_ui_config(dashboard_cfg) # Save the initial default config
+        return dashboard_cfg
+    try:
+        with open(DASHBOARD_CONFIG_FILE_PATH, 'r') as f:
+            data = json.load(f)
+            dashboard_cfg = DashboardConfig(**data)
+            print(f"Dashboard configuration loaded successfully from {DASHBOARD_CONFIG_FILE_PATH}.")
+            beacon_holder.update_by_dashboard_config(dashboard_cfg)
+            return dashboard_cfg
+    except FileNotFoundError:
+        print(
+            f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
+        return None  # Should not happen if check above is correct
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON from Dashboard config file {DASHBOARD_CONFIG_FILE_PATH}: {e}")
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to load Dashboard configuration from {DASHBOARD_CONFIG_FILE_PATH}: {e}")
+        return None
 
 def load_miniprogram_config() -> Optional[MiniprogramConfig]:
     """Loads the miniprogram-generated configuration (map, beacons, basic settings)."""
@@ -65,6 +134,18 @@ def load_server_runtime_config() -> Optional[ServerRuntimeConfig]:
         # Consider creating a default one if it doesn't exist, or ensure manual creation.
         server_runtime_cfg_cache = None
         return None
+
+
+def save_dashboard_config_to_file(config_data: DashboardConfig) -> bool:
+    try:
+        with open(DASHBOARD_CONFIG_FILE_PATH, 'w') as f:
+            json.dump(config_data.model_dump(mode='json'), f, indent=4)
+        print(f"Dashboard configuration saved successfully to {DASHBOARD_CONFIG_FILE_PATH}.")
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to save Dashboard configuration to {DASHBOARD_CONFIG_FILE_PATH}: {e}")
+        return False
+
 
 def save_miniprogram_config(config_data: MiniprogramConfig) -> bool:
     """Saves the miniprogram-generated configuration data to its file."""
@@ -393,11 +474,19 @@ def get_miniprogram_config() -> Optional[MiniprogramConfig]:
         load_miniprogram_config() # Attempt to load if not already loaded
     return miniprogram_cfg_cache
 
+
 def get_server_runtime_config() -> Optional[ServerRuntimeConfig]:
     """Returns the currently loaded server runtime configuration."""
     if server_runtime_cfg_cache is None:
         load_server_runtime_config() # Attempt to load if not already loaded
     return server_runtime_cfg_cache
+
+
+def get_dashboard_config() -> Optional[DashboardConfig]:
+    if dashboard_cfg is None:
+        load_dashboard_config()
+    return dashboard_cfg
+
 
 # This helper function might still be useful, but it now uses MiniprogramConfig
 def get_beacon_by_mac(mac_address: str) -> Optional[MiniprogramBeaconConfig]:
@@ -415,6 +504,7 @@ def get_beacon_by_mac(mac_address: str) -> Optional[MiniprogramBeaconConfig]:
 print("Initializing configuration manager...")
 load_miniprogram_config()
 load_server_runtime_config()
+load_dashboard_config()
 
 # Example of how to potentially create a default server_runtime_config.json if it's missing
 # This is optional and depends on desired behavior.

@@ -8,7 +8,7 @@ from .positioning import calculate_position, KalmanFilter2D
 from .main import manager
 
 # --- Constants ---
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "config/config.json"
 TRACKER_STALE_TIMEOUT = timedelta(seconds=60)
 KF_PROCESS_VARIANCE = 0.5
 KF_MEASUREMENT_VARIANCE = 15.0

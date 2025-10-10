@@ -1,7 +1,11 @@
-from cachetools import TTLCache
 
-cache = TTLCache(maxsize=999999, ttl=30)
+def testNone():
+    return None
 
-cache["aaa"] = '111'
+def main():
+    result = testNone()
+    if result:
+        print("None is true")
 
-print(cache.get("aaa"))
+if __name__ == '__main__':
+    main()

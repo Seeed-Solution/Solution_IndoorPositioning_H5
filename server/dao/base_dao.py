@@ -200,3 +200,28 @@ class BaseDao(Generic[T]):
             table_objs = query.offset(offset).limit(page_size).all()
             
             return [self._to_model(obj) for obj in table_objs], total
+
+    def find_all_by_filters(self, order_by: Optional[str] = None, desc_order: bool = True,
+                        **filters) -> List[T]:
+        """根据条件查询"""
+        with self.get_session() as session:
+            query = session.query(self.table_class)
+
+            # 添加过滤条件
+            for key, value in filters.items():
+                if hasattr(self.table_class, key):
+                    if value is None:
+                        query = query.filter(getattr(self.table_class, key).is_(None))
+                    else:
+                        query = query.filter(getattr(self.table_class, key) == value)
+
+            # 排序
+            if order_by and hasattr(self.table_class, order_by):
+                order_column = getattr(self.table_class, order_by)
+                if desc_order:
+                    query = query.order_by(desc(order_column))
+                else:
+                    query = query.order_by(order_column)
+
+            table_objs = query.all()
+            return [self._to_model(obj) for obj in table_objs]

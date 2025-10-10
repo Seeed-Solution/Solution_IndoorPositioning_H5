@@ -89,6 +89,12 @@ class DeviceDao(BaseDao[DeviceRecord]):
             **condition
         )
 
+    def get_all_device(self) -> List[DeviceRecord]:
+        condition = {
+            "delete_time": None
+        }
+        return self.find_all_by_filters(order_by="create_time", desc_order=True, **condition)
+
     def get_devices_by_group(self, group_id: Optional[int], page: int = 1, 
                            page_size: int = 20, include_deleted: bool = False) -> Tuple[List[DeviceRecord], int]:
         """根据分组ID获取设备列表"""

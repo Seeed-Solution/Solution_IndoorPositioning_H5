@@ -115,6 +115,18 @@ class EventTriggerDao(BaseDao[EventTriggerRecord]):
             **filters
         )
 
+    def get_all_event_by_type(self, event_type: int) -> List[EventTriggerRecord]:
+        filters = {
+            "event_type": event_type,
+            "delete_time": None
+        }
+        return self.find_all_by_filters(
+            order_by='create_time',
+            desc_order=True,
+            **filters)
+
+
+
     def search_event_triggers(self, keyword: str, page: int = 1, page_size: int = 20,
                             include_deleted: bool = False) -> Tuple[List[EventTriggerRecord], int]:
         """按关键词搜索事件触发条件（按事件名称）"""

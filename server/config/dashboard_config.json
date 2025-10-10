@@ -353512,9 +353512,5 @@
         "signalPropagationFactor": 2.5
       }
     }
-  ],
-  "beacons": [],
-  "settings": {
-      "signalPropagationFactor": 2.5
-  }
+  ]
 }

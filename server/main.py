@@ -1,23 +1,24 @@
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, Request, Depends
+from fastapi import (
+    FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response,
+    Query, Request, Depends
+)
 from pydantic import BaseModel
-from typing import List, Optional
 from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import paho.mqtt.client as mqtt
 import logging
-import datetime
 import time
-import math
-from typing import List, Dict, Optional, Any, Tuple
+from typing import List, Dict, Optional, Tuple
 import os  # Keep one os import
 import random
 import hashlib
 import base64
 from server.components.beacon_holder import beacon_holder
 from server.components.device_holder import device_holder
+from server.components.websocket_holder import websocket_holder
 from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.dao.group_dao import group_dao
 from server.dao.device_dao import device_dao
@@ -26,7 +27,12 @@ from server.components.uplink_collector import UplinkCollector
 import requests
 from server.components.session_holder import session_holder
 
-# from server.clients.paas_client import get_sensecap_client, initialize_sensecap_client
+from server.handler import uplink_consumer as uplink_consumer
+
+from server.handler import message_format_hanlder as message_formatter
+from server.handler import message_listen_handler as message_listener
+from server.handler import position_resolve_handler as position_resolver
+from server.handler import event_consumer as event_consumer
 
 # Import project modules
 # from . import config_manager
@@ -39,16 +45,15 @@ from server.components.session_holder import session_holder
 # from .positioning import KalmanFilter2D
 
 # Import project modules
-from server import config_manager
-from server import positioning
+from server.config import config_manager
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
     MiniprogramConfig, WebUIConfig, DashboardConfig, MqttServerConfig,
-    WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest,
+    PartialServerRuntimeConfig, PasswordChangeRequest,
     LoginRequest,  # Import WebUISettings directly
     UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,
-    DeviceCreateRequest, DeviceUpdateRequest, DeviceStatusUpdateRequest, DeviceListItem, DeviceSearchRequest,
-    DeviceBatchUpdateGroupRequest, DeviceRecord, TrackerInfo, TrackerStateQueryRequest,
+    DeviceUpdateRequest, DeviceListItem, DeviceSearchRequest,
+    DeviceBatchUpdateGroupRequest, TrackerInfo, TrackerStateQueryRequest,
     EventTriggerCreateRequest, EventTriggerUpdateRequest, EventTriggerListItem
 )
 from server.positioning import KalmanFilter2D
@@ -75,15 +80,11 @@ app.add_middleware(
 )
 
 # Define the path for the web configuration file
-WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "web_config.json")
-DASHBOARD_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "dashboard_config.json")
+WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config/web_config.json")
 
-# Path to the default test configuration file
-# Assuming 'test/config2.json' is relative to the project root where server/main.py might be, or a sibling to 'server' directory.
-# Adjust the path as per your actual project structure.
-# If main.py is in server/, and test/ is a sibling of server/, then ../test/config2.json
+
 DEFAULT_TEST_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "config2.json")
-MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "map-example-format.json")  # Path to map example format in server directory
+MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "config/map-example-format.json")  # Path to map example format in server directory
 
 # Mount static files (for serving the client-side HTML/JS)
 # Make sure the client directory exists relative to where uvicorn is run (usually project root)
@@ -97,7 +98,6 @@ except RuntimeError:
 # --- Global State ---
 # Replace single current_config with two separate config holders
 miniprogram_cfg: Optional[MiniprogramConfig] = None
-web_ui_cfg: Optional[WebUIConfig] = None  # Added for web UI config
 dashboard_cfg: Optional[DashboardConfig] = None
 runtime_cfg: Optional[
     config_manager.ServerRuntimeConfig] = None  # Use qualified name to avoid circular import if ServerRuntimeConfig is also defined here
@@ -106,8 +106,7 @@ mqtt_connection_status: str = "disconnected"  # Added for live MQTT status
 is_mqtt_intentionally_disconnected: bool = False  # Flag for manual disconnects
 shutdown_flag: bool = False  # Flag for graceful shutdown
 
-# tracker_states: Dict[str, TrackerState] = {}  # Stores the latest state for each tracker - Moved to device_holder
-kalman_filters: Dict[str, KalmanFilter2D] = {}  # Stores Kalman filter instance per tracker
+
 mqtt_clients: Dict[str, Optional[mqtt.Client]] = {}  # Multiple MQTT clients for different data sources
 mqtt_connection_statuses: Dict[str, str] = {}  # Connection status for each data source
 beacon_map: Dict[str, WebUIBeaconConfig] = {}
@@ -120,92 +119,65 @@ class TrackerListUpdateRequest(BaseModel):
     tracker_list: List[str] = []
 
 
-# --- WebSocket Connection Manager ---
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    def _parse_basic_auth(self, auth_header: str) -> Optional[Tuple[str, str]]:
-        """解析HTTP Basic Authentication头部，返回(username, password)或None"""
-        try:
-            if not auth_header.startswith('Basic '):
-                return None
-            
-            # 移除'Basic '前缀并解码base64
-            encoded_credentials = auth_header[6:]
-            decoded_bytes = base64.b64decode(encoded_credentials)
-            decoded_str = decoded_bytes.decode('utf-8')
-            
-            # 分割用户名和密码
-            if ':' not in decoded_str:
-                return None
-                
-            username, password = decoded_str.split(':', 1)
-            return (username, password)
-        except Exception as e:
-            logging.warning(f"Error parsing Basic Auth header: {e}")
+# --- WebSocket Authentication Functions ---
+def _parse_basic_auth(auth_header: str) -> Optional[Tuple[str, str]]:
+    """解析HTTP Basic Authentication头部，返回(username, password)或None"""
+    try:
+        if not auth_header.startswith('Basic '):
             return None
-
-    def _verify_basic_auth(self, username: str, password: str) -> bool:
-        """验证Basic Auth凭据是否与runtime_config中的配置匹配"""
-        global runtime_cfg
-        if not runtime_cfg:
-            return False
-        return runtime_cfg.username == username and runtime_cfg.password == password
-
-    async def connect(self, websocket: WebSocket):
-        # 首先检查cookie认证
-        session_token = websocket.cookies.get("session_token")
-        if session_token and len(session_token) > 0 and session_holder.get(session_token):
-            logging.info(f"ws-session: {session_token}")
-            await websocket.accept()
-            self.active_connections.append(websocket)
-            log.info(f"WebSocket client connected via session: {websocket.client}")
-            return
         
-        # 检查Authorization头部的Basic Auth
-        auth_header = websocket.headers.get("Authorization")
-        if auth_header:
-            credentials = self._parse_basic_auth(auth_header)
-            if credentials:
-                username, password = credentials
-                if self._verify_basic_auth(username, password):
-                    logging.info(f"ws-basic-auth: {username}")
-                    await websocket.accept()
-                    self.active_connections.append(websocket)
-                    log.info(f"WebSocket client connected via Basic Auth: {websocket.client}")
-                    return
-                else:
-                    logging.warning(f"WebSocket Basic Auth failed for user: {username}")
+        # 移除'Basic '前缀并解码base64
+        encoded_credentials = auth_header[6:]
+        decoded_bytes = base64.b64decode(encoded_credentials)
+        decoded_str = decoded_bytes.decode('utf-8')
+        
+        # 分割用户名和密码
+        if ':' not in decoded_str:
+            return None
+            
+        username, password = decoded_str.split(':', 1)
+        return (username, password)
+    except Exception as e:
+        logging.warning(f"Error parsing Basic Auth header: {e}")
+        return None
+
+def _verify_basic_auth(username: str, password: str) -> bool:
+    """验证Basic Auth凭据是否与runtime_config中的配置匹配"""
+    global runtime_cfg
+    if not runtime_cfg:
+        return False
+    return runtime_cfg.username == username and runtime_cfg.password == password
+
+async def websocket_auth_handler(websocket: WebSocket) -> bool:
+    """WebSocket认证处理器"""
+    # 首先检查cookie认证
+    session_token = websocket.cookies.get("session_token")
+    if session_token and len(session_token) > 0 and session_holder.get(session_token):
+        logging.info(f"ws-session: {session_token}")
+        await websocket.accept()
+        log.info(f"WebSocket client connected via session: {websocket.client}")
+        return True
+    
+    # 检查Authorization头部的Basic Auth
+    auth_header = websocket.headers.get("Authorization")
+    if auth_header:
+        credentials = _parse_basic_auth(auth_header)
+        if credentials:
+            username, password = credentials
+            if _verify_basic_auth(username, password):
+                logging.info(f"ws-basic-auth: {username}")
+                await websocket.accept()
+                log.info(f"WebSocket client connected via Basic Auth: {websocket.client}")
+                return True
             else:
-                logging.warning("WebSocket received invalid Authorization header format")
-        
-        # 认证失败，关闭连接
-        logging.warning(f"WebSocket connection rejected - no valid authentication: {websocket.client}")
-        await websocket.close(code=1008, reason="Authentication required")
-        return
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-        log.info(f"WebSocket client disconnected: {websocket.client}")
-
-    async def broadcast(self, data: dict):
-        # Use json.dumps to ensure proper serialization for WebSocket
-        message = json.dumps(data)
-        disconnected_clients = []
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-            except Exception as e:  # Handles various connection errors
-                log.warning(f"Could not send to WebSocket client {connection.client}: {e}. Marking for disconnect.")
-                disconnected_clients.append(connection)
-        # Clean up disconnected clients
-        for client in disconnected_clients:
-            if client in self.active_connections:
-                self.active_connections.remove(client)  # No need to call disconnect() again
-
-
-manager = ConnectionManager()
+                logging.warning(f"WebSocket Basic Auth failed for user: {username}")
+        else:
+            logging.warning("WebSocket received invalid Authorization header format")
+    
+    # 认证失败，关闭连接
+    logging.warning(f"WebSocket connection rejected - no valid authentication: {websocket.client}")
+    await websocket.close(code=1008, reason="Authentication required")
+    return False
 
 
 # --- MQTT Handling ---
@@ -216,7 +188,7 @@ async def broadcast_mqtt_status():
     if main_event_loop and main_event_loop.is_running():
         # log.info(f"Broadcasting MQTT status: {mqtt_connection_statuses}") # Reduced verbosity
         asyncio.run_coroutine_threadsafe(
-            manager.broadcast({"type": "mqtt_status_update", "data": {"statuses": mqtt_connection_statuses}}),
+            websocket_holder.broadcast({"type": "mqtt_status_update", "data": {"statuses": mqtt_connection_statuses}}),
             main_event_loop
         )
     else:
@@ -288,253 +260,6 @@ def on_disconnect(client, userdata, rc):
         asyncio.run_coroutine_threadsafe(broadcast_mqtt_status(), main_event_loop)
     else:
         log.warning("on_disconnect: Main event loop not available for broadcasting MQTT status.")
-
-
-## 解析从 chirpstack 中收到的数据
-def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional[TrackerReport]:
-    """
-    Parses ChirpStack MQTT payload for beacon data.
-    ChirpStack typically sends uplink data in a different format than SenseCAP.
-    Topic format example: application/[appID]/device/[devEUI]/event/up
-    Payload example: {"applicationID":"1","applicationName":"indoor-positioning",
-                     "deviceName":"tracker-001","devEUI":"2CF7F1C0530004AD",
-                     "rxInfo":[...],"txInfo":{...},"object":{"beacons":[{"mac":"C3:00:00:3E:7D:DA","rssi":-53}]}}
-    """
-    topic_parts = topic.split('/')
-    if len(topic_parts) < 6 or topic_parts[0] != 'application' or topic_parts[2] != 'device':
-        log.warning(f"Received message on unexpected ChirpStack topic structure: {topic}")
-        return
-    device_eui = topic_parts[3].upper()
-    try:
-        data = json.loads(payload_bytes.decode('utf-8'))
-        log.debug(f"Raw ChirpStack MQTT data for {device_eui}: {data}")
-
-        # Extract beacon data from object field
-        object_data = data.get("object", {})
-        messages = object_data.get("messages", [])
-
-        if not messages or len(messages) == 0:
-            log.warning(f"device: {device_eui}, empty packet. so break. ")
-            return None
-
-        payload_timestamp = 0
-        beacon_values = []
-        gps_value = {}
-        sos_value = 0
-        battery = -1
-        for entry in messages[0]:
-            if entry.get('timestamp', 0):
-                payload_timestamp = int(entry.get('timestamp', 0))
-            measurement_id = entry.get('measurementId', 0)
-            measurement_value = entry.get('measurementValue', 0)
-            if measurement_value:
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id,
-                                    value=entry.get('measurementValue', 0))
-
-            match measurement_id:
-                case '3000':
-                    battery = entry.get('measurementValue', -1)
-                case '4197':
-                    gps_value['alt'] = entry.get('measurementValue', 0)
-                case '4198':
-                    gps_value['lon'] = entry.get('measurementValue', 0)
-                case '5002':
-                    beacon_values = entry.get('measurementValue', 0)
-                case '4200':
-                    event_list = entry.get('measurementValue', 0)
-                    for event in event_list:
-                        if event.get("id", 0) == 7:
-                            sos_value = 1
-
-        if len(gps_value) > 0:
-            return TrackerReport(
-                trackerId=device_eui,
-                timestamp=payload_timestamp,
-                sos=sos_value,
-                locType="gps",
-                loc=gps_value,
-                sourceType="chirpstack",
-                battery=battery
-            )
-
-        if not beacon_values or len(beacon_values) == 0:
-            log.info(f'Detected tracker SOS from ChirpStack: {device_eui}, value: {sos_value}')
-            return TrackerReport(
-                trackerId=device_eui,
-                timestamp=payload_timestamp,
-                sos=sos_value,
-                battery=battery
-            )
-
-        if not isinstance(beacon_values, list):
-            log.warning(f"Invalid 'beacons' data in ChirpStack payload for {device_eui}. Expected list.")
-            return TrackerReport(
-                trackerId=device_eui,
-                timestamp=payload_timestamp,
-                detectedBeacons=[],
-                loc={},
-                battery=battery
-            )
-
-        detected_beacons_list = []
-        for beacon_data in beacon_values:
-            if not isinstance(beacon_data, dict):
-                continue
-
-            mac_address = beacon_data.get("mac") or beacon_data.get("macAddress")
-            rssi_val = beacon_data.get("rssi")
-
-            if mac_address and rssi_val is not None:
-                try:
-                    mac_addr_upper = str(mac_address).upper()
-                    rssi_int = int(rssi_val)
-                    detected = DetectedBeacon(
-                        macAddress=mac_addr_upper,
-                        rssi=rssi_int
-                    )
-                    detected_beacons_list.append(detected)
-                except (ValueError, TypeError) as conv_err:
-                    log.warning(f"Could not convert ChirpStack beacon data for {device_eui}: {beacon_data} - {conv_err}")
-
-        return TrackerReport(
-            trackerId=device_eui,
-            timestamp=payload_timestamp,
-            detectedBeacons=detected_beacons_list,
-            locType="bluetooth",
-            loc={},
-            sos=sos_value,
-            sourceType="chirpstack",
-            battery=battery
-        )
-
-    except json.JSONDecodeError:
-        log.error(f"Failed to decode JSON payload from ChirpStack for {device_eui}: {payload_bytes.decode('utf-8', errors='ignore')}")
-        return None
-    except Exception as e:
-        log.error(f"Error processing ChirpStack MQTT payload for tracker '{device_eui}': {e}", exc_info=True)
-        return None
-
-
-## 解析从 sensecap openstream 中收到的数据
-def parse_sensecap_payload(topic: str, payload_bytes: bytes) -> Optional[TrackerReport]:
-    """
-    Parses the SenseCAP-like payload (JSON string) for beacon data.
-    Assumes topic provides DeviceEUI, and payload contains timestamp and beacon list.
-    Payload example: {"value":[{"mac":"C3:00:00:3E:7D:DA","rssi":"-53"}, ...],"timestamp":1746522494000}
-    """
-    device_eui = ''
-    measurement_id = ''
-    try:
-        # SenseCAP topic format: /device_sensor_data/{ApplicationID}/+/+/+/+/+
-        topic_parts = topic.split('/')
-        if not topic.startswith('/device_sensor_data/') or len(topic_parts) < 7:
-            log.warning(f"Received message on unexpected SenseCAP topic structure: {topic}")
-            return
-        device_eui = topic_parts[3].upper()
-        measurement_id = topic_parts[6]
-        data = json.loads(payload_bytes.decode('utf-8'))
-        # log.debug(f"Raw SenseCAP MQTT data for {device_eui}: {data}") # DEBUG
-
-        payload_timestamp = data.get("timestamp")
-        if payload_timestamp is None:
-            log.warning(f"Missing 'timestamp' in SenseCAP payload for {device_eui}. Using current time.")
-            payload_timestamp = int(time.time() * 1000)
-        else:
-            try:
-                payload_timestamp = int(payload_timestamp)
-            except ValueError:
-                log.warning(f"Invalid 'timestamp' format in SenseCAP payload for {device_eui}. Using current time.")
-                payload_timestamp = int(time.time() * 1000)
-
-        UplinkCollector.set(dev_eui=device_eui, measurement_id='timestamp', value=payload_timestamp)
-        beacon_values = None
-        match measurement_id:
-            case '4197':
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
-            case '4198':
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
-                time.sleep(1)
-                altitude = UplinkCollector.get(dev_eui=device_eui, measurement_id='4197')
-                longitude = data.get("value")
-                if altitude and longitude:
-                    loc = {
-                        "alt": altitude,
-                        "lon": longitude
-                    }
-                    loc_type = 'gps'
-                    UplinkCollector.set(dev_eui=device_eui, measurement_id='loc', value=loc)
-                    UplinkCollector.set(dev_eui=device_eui, measurement_id='loc_type', value=loc_type)
-                    return TrackerReport(
-                        trackerId=device_eui,
-                        timestamp=payload_timestamp,
-                        detectedBeacons=beacon_values,
-                        loc=loc,
-                        loc_type=loc_type
-                    )
-                log.error(f"illegal gps data for device{device_eui} altitude: {altitude}, longitude: {longitude}")
-            case '4200':
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
-                log.info(f'detected tracker in sos model: {device_eui}')
-                return TrackerReport(
-                    trackerId=device_eui,
-                    timestamp=payload_timestamp,
-                    sos=data.get("value")
-                )
-            case '5002':
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
-                beacon_values = data.get("value")
-            case '3000':
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value", -1))
-                return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, battery=int(data.get("value", -1)))
-
-        if not beacon_values:
-            return
-
-        if not isinstance(beacon_values, list):
-            log.warning(f"Missing or invalid 'value' list in SenseCAP payload for {device_eui}. No beacons to parse.")
-            return TrackerReport(trackerId=device_eui, timestamp=payload_timestamp, detectedBeacons=[], loc={})
-
-        detected_beacons_list = []
-        for beacon_data in beacon_values:
-            if not isinstance(beacon_data, dict):
-                # log.debug(f"Skipping non-dict item in 'value' list for {device_eui}: {beacon_data}") # DEBUG
-                continue
-
-            mac_address = beacon_data.get("mac")
-            rssi_str = beacon_data.get("rssi")
-
-            if mac_address and rssi_str is not None:
-                try:
-                    mac_addr_upper = str(mac_address).upper()
-                    rssi_val = int(rssi_str)
-                    detected = DetectedBeacon(
-                        macAddress=mac_addr_upper,
-                        rssi=rssi_val
-                    )
-                    detected_beacons_list.append(detected)
-                except (ValueError, TypeError) as conv_err:
-                    log.warning(f"Could not convert beacon data for {device_eui}: {beacon_data} - {conv_err}")
-            else:
-                # log.debug(f"Skipping beacon entry for {device_eui} due to missing mac or rssi: {beacon_data}") # DEBUG
-                pass  # Keep it quiet
-
-        if not detected_beacons_list:
-            # log.info(f"No valid beacons found in SenseCAP payload for tracker {device_eui} after parsing 'value' list.") # Can be noisy
-            pass
-        return TrackerReport(
-            trackerId=device_eui,
-            timestamp=payload_timestamp,
-            detectedBeacons=detected_beacons_list,
-            locType='bluetooth',
-            loc={}
-        )
-
-    except json.JSONDecodeError:
-        log.error(f"Failed to decode JSON payload for {device_eui}: {payload_bytes.decode('utf-8', errors='ignore')}")
-        return None
-    except Exception as e:
-        log.error(f"Error processing SenseCAP MQTT payload for tracker '{device_eui}': {e}", exc_info=True)
-        return None
 
 
 ## 创建 mqtt client 连接到 broker
@@ -723,447 +448,64 @@ def setup_mqtt(force_reconnect: bool = False):
 
 # This is the new on_message callback
 def on_message(client, userdata, msg):
-    """Callback for when a PUBLISH message is received from the server."""
     global main_event_loop, rt_cfg  # Access the main event loop
-    # Get the data source type from userdata
     source_type = userdata.get('source_type', 'unknown') if userdata else 'unknown'
-    
-    # log.info(f"MQTT Message Received from {source_type}: Topic: {msg.topic}") # Can be very noisy
-    
-    # Parse message based on source type
-    device_eui = ''
-    report = None
-    if source_type == 'sensecap':
-        report = parse_sensecap_payload(msg.topic, msg.payload)
-    elif source_type == 'chirpstack':
-        # ChirpStack topic format: application/{applicationID}/device/+/event/up
-        report = parse_chirpstack_payload(msg.topic, msg.payload)
-    else:
-        log.warning(f"Unknown source type: {source_type}, topic: {msg.topic}")
-        return
-
-    if report:
-        device_eui = report.trackerId
-        if not rt_cfg.allow_all_tracker and device_eui not in allow_tracker_list:
-            log.debug(f"the device: {device_eui} not in allow_list, ignore this message.")
-            return
-        if main_event_loop and main_event_loop.is_running():
-            try:
-                future = asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
-                future.add_done_callback(
-                    lambda f: log.error(f"Error in process_tracker_report for device {report.trackerId} from {source_type}, error:\n  {f.exception()}, \nreport:\n   {report}")
-                    if f.exception() else None
-                )
-            except Exception as e:
-                log.error(f"Failed to schedule process_tracker_report for device {report.trackerId} from {source_type}: {e}", exc_info=True)
-        else:
+    if main_event_loop and main_event_loop.is_running():
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                uplink_consumer.do(msg.topic, msg.payload, source_type), main_event_loop
+            )
+            future.add_done_callback(
+                lambda f: log.error(
+                    f"Error in topic {msg.topic} from {source_type}, error:\n  {f.exception()}, \nmessage:\n  {msg.payload}")
+                if f.exception() else None
+            )
+        except Exception as e:
             log.error(
-                "Main asyncio event loop not available or not running. Cannot schedule tracker report processing.")
+                f"Failed in topic {msg.topic} from {source_type}from {source_type}: {e}",
+                exc_info=True)
+
+    # global main_event_loop, rt_cfg  # Access the main event loop
+    # source_type = userdata.get('source_type', 'unknown') if userdata else 'unknown'
+    # report = message_formatter.do(msg.topic, msg.payload, source_type)
+    # if report:
+    #
+    #     device_eui = report.trackerId
+    #     if not rt_cfg.allow_all_tracker and device_eui not in allow_tracker_list:
+    #         log.debug(f"the device: {device_eui} not in allow_list, ignore this message.")
+    #         return
+    #     if main_event_loop and main_event_loop.is_running():
+    #         try:
+    #             future = asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+    #             future.add_done_callback(
+    #                 lambda f: log.error(f"Error in process_tracker_report for device {report.trackerId} from {source_type}, error:\n  {f.exception()}, \nreport:\n   {report}")
+    #                 if f.exception() else None
+    #             )
+    #         except Exception as e:
+    #             log.error(f"Failed to schedule process_tracker_report for device {report.trackerId} from {source_type}: {e}", exc_info=True)
+    #     else:
+    #         log.error(
+    #             "Main asyncio event loop not available or not running. Cannot schedule tracker report processing.")
     # else:
     #     log.warning(f"Failed to parse payload or no report generated from {source_type} topic {msg.topic}")
+
 
 
 ## 计算定位结果
 async def process_tracker_report(report: TrackerReport):
     """Processes a parsed tracker report to calculate position and update state."""
     # Use new global config variables
-    global web_ui_cfg, runtime_cfg, kalman_filters, dashboard_cfg
+    global runtime_cfg, dashboard_cfg
 
-    device = device_holder.get_tracker_state(report.trackerId)
-    if device is None:
-        try:
-            log.info(f"the new tracker is detected({report.trackerId})...")
-            device_result = device_dao.create_device(dev_eui=report.trackerId)
-            device_holder.set_tracker_state(report.trackerId, TrackerState(
-                trackerId=report.trackerId,
-                last_update_time=report.receive_time * 1000,
-                online="online"
-            ))
-            if device_result is not None:
-                log.info(f"the new tracker is been saved({report.trackerId})...")
-        except Exception as err:
-            log.info(f"the new tracker({report.trackerId}) saving failure, e: \n{err}")
-
-    device_holder.update_tracker_online_status(report.trackerId, "online")
-    device_holder.update_tracker_last_update_time(report.trackerId, report.receive_time * 1000)
-
-    if int(report.battery) != -1:
-        device_holder.update_tracker_battery(report.trackerId, int(report.battery))
-    if not web_ui_cfg or not web_ui_cfg.beacons:
-        log.warning("Web UI configuration (beacons) not loaded, cannot process tracker report.")
-        return
     if not runtime_cfg:
         log.warning("Server runtime configuration not loaded, cannot process tracker report for Kalman params.")
         return
 
-    if report.locType == "gps":
-        tracker_data_payload = {
-            "trackerId": report.trackerId,
-            "timestamp": report.timestamp,
-            "position": report.loc,
-            "locType": report.locType,
-            "sos": report.sos
-        }
-        tracker_id = report.trackerId
-
-        # 暂时屏蔽gps定位消息
-        # await notify_tracker_state({
-        #     "type": "tracker_update",
-        #     "data": {tracker_id: tracker_data_payload}
-        # })
-        return
-
-    if report.sos != 2 and device_holder.get_tracker_state(report.trackerId):
-        log.info(f'broadcast tracker sos event: {report.trackerId}')
-        await notify_tracker_state({
-            "type": "tracker_sos",
-            "data": {report.trackerId: {
-                "timestamp": report.timestamp,
-                "sos": report.sos
-            }}
-        })
-
-        previous_sos = device_holder.get_tracker_sos(report.trackerId)
-
-        if not previous_sos:
-            previous_sos = 0
-
-        time.sleep(1)
-        now_loc_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
-
-        # 检查设备SOS状态是否发生变化
-        current_sos = report.sos
-
-        # 如果状态发生变化，创建告警记录
-        if previous_sos != current_sos and current_sos != 2:  # 排除未知状态
-            # 更新设备SOS状态映射
-            device_holder.update_tracker_sos(report.trackerId, current_sos)
-
-            # 确定使用的定位信息和类型
-            alarm_loc = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc', default_value=None)
-            pos_type = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='loc_type')
-            if not alarm_loc:
-                alarm_loc = {}
-            if not pos_type:
-                pos_type = 'unknown'
-
-            # 创建告警记录
-            try:
-                # 将timestamp从毫秒转换为datetime对象
-                from datetime import datetime
-                alarm_time = datetime.fromtimestamp(report.timestamp / 1000.0)
-
-                # 获取设备当前所在的地图
-                current_tracker_state = device_holder.get_tracker_state(report.trackerId)
-                map_name = current_tracker_state.map if current_tracker_state and current_tracker_state.map else None
-
-                alarm_record_dao.create_record(
-                    dev_eui=report.trackerId,
-                    loc=alarm_loc,
-                    pos_type=pos_type,
-                    alarm_time=alarm_time,
-                    sos=current_sos,
-                    map_name=map_name
-                )
-
-                log.info(f"设备 {report.trackerId} SOS状态变化: {previous_sos} -> {current_sos}，已创建告警记录")
-            except Exception as e:
-                log.error(f"创建告警记录失败: {e}")
-        else:
-            # 如果状态没有变化，仍需更新映射以跟踪当前状态
-            device_holder.update_tracker_sos(report.trackerId, current_sos)
-            log.info(
-                f"设备 {report.trackerId} SOS无状态变化: previous_sos: {previous_sos}, current_sos: {current_sos}，不会创建告警记录")
-
-    # 非蓝牙定位, 不需要进入后面的部分
-    if len(report.detectedBeacons) == 0:
-        return
-
-    log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
-    tracker_id = report.trackerId
-    current_time_ms = int(time.time() * 1000)
-    last_state = device_holder.get_tracker_state(tracker_id)
-    last_known_pos = (
-        last_state.x, last_state.y) if last_state and last_state.x is not None and last_state.y is not None else None
-    dt = (current_time_ms - last_state.last_update_time) / 1000.0 if last_state else 0.1
-
-    # Prepare position history from last state
-    current_position_history = list(last_state.position_history) if last_state and last_state.position_history else []
-
-    # log.info(f"Processing report for {tracker_id} with {len(report.detectedBeacons)} beacons.") # Can be noisy
-
-    # 选择地图
-    best_map = "unknown map"
-    best_beacons = []
-    max_beacon_count = 0
-
-    beacons_by_map = {}
-    for detected in report.detectedBeacons:
-        mac_formatted = detected.macAddress.replace(":", "")
-        beacon_info = beacon_holder.get_beacon(mac_formatted)
-        if beacon_info is None:
-            continue
-        if beacons_by_map.get(beacon_info.map, None) is None:
-            beacons_by_map[beacon_info.map] = []
-        beacons_by_map[beacon_info.map].append(detected)
-
-    for map_name, map_beacons in beacons_by_map.items():
-        if len(map_beacons) > max_beacon_count:
-            max_beacon_count = len(map_beacons)
-            best_map = map_name
-            best_beacons = map_beacons
-
-    if len(best_beacons) == 0:
-        log.info(f"device(id: {tracker_id}) can not find effective beacon..")
-        return
-    log.info(f"device(id: {tracker_id}): choose map '{best_map}' length of beacons: {len(best_beacons)} ")
-
-
-
-    calculated_position = positioning.calculate_position(
-        detected_beacons=best_beacons,
-        miniprogram_config=web_ui_cfg,
-        device_id=tracker_id,
-        map_name=best_map
-        # signal_propagation_factor is inside web_ui_cfg.settings
-    )
-
-    filtered_position: Optional[Tuple[float, float]] = None
-    kf = kalman_filters.get(tracker_id)
-
-    if calculated_position and calculated_position[2] == 'approximate':
-        if not runtime_cfg.allow_area_location:
-            log.info(f"未启用区域定位, 丢弃消息: eui=>{report.trackerId}")
-            return
-
-        scanned_beacon = best_beacons[int(calculated_position[1])]
-        beacon_config = beacon_holder.get_beacon(scanned_beacon.macAddress)
-
-        enriched_b_data = {
-            'txPower': beacon_config.txPower,
-            'rssi': scanned_beacon.rssi,
-            'name': beacon_config.displayName,
-            'configured_x': beacon_config.x,
-            'configured_y': beacon_config.y,
-            'macAddress': beacon_config.macAddress
-        }
-
-        new_state = TrackerState(
-            trackerId=tracker_id,
-            last_update_time=current_time_ms,
-            last_known_measurement_time=report.timestamp,
-            last_detected_beacons=[DetectedBeacon(
-                macAddress=beacon_config.macAddress,
-                rssi=scanned_beacon.rssi,
-                configured_x=beacon_config.x,
-                configured_y=beacon_config.y,
-                name=beacon_config.displayName
-            )],
-            map=best_map,
-            sos=report.sos,
-            type=calculated_position[2],
-            radius=calculated_position[0]
-        )
-
-        device_holder.set_tracker_state(tracker_id, new_state)
-
-        tracker_data_payload = {
-            "trackerId": tracker_id,
-            "timestamp": current_time_ms,
-            "radius": calculated_position[0],
-            "last_detected_beacons": [enriched_b_data],  # Use the enriched list
-            "map": best_map,
-            "sos": report.sos
-        }
-
-        await notify_tracker_state({
-            "type": "tracker_location_approximate",
-            "data": {tracker_id: tracker_data_payload}
-        })
-        return
-    elif calculated_position:
-        # log.info(f"Calculated position for {tracker_id}: {calculated_position}") # Can be noisy
-        if kf:
-            kf.predict(dt)
-            kf.update(calculated_position)
-        else:
-            kf = KalmanFilter2D(
-                initial_pos=calculated_position,
-                process_variance=runtime_cfg.kalman.processVariance,
-                measurement_variance=runtime_cfg.kalman.measurementVariance
-            )
-            kalman_filters[tracker_id] = kf
-            # log.info(f"Initialized Kalman filter for {tracker_id} with PV:{runtime_cfg.kalman.processVariance}, MV:{runtime_cfg.kalman.measurementVariance}") # Can be noisy
-
-        filtered_position = kf.get_position()
-        # log.info(f"Filtered position for {tracker_id}: {filtered_position}") # Can be noisy
-
-        # Add new position to history
-        if filtered_position:
-            current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
-
-    elif kf:  # No new calculation, but KF might have predicted
-        kf.predict(dt)
-        filtered_position = kf.get_position()
-        # log.info(f"Position prediction (no new measurement) for {tracker_id}: {filtered_position}") # Can be noisy
-        # Optionally, decide if predicted-only positions should go into history.
-        # For now, let's assume only measurement-updated or KF-initialized positions go to history via the block above.
-        # If you want to add predicted positions too, uncomment and adjust:
-        # if filtered_position:
-        #     current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
-
-    # Prune history to last 30 minutes (30 * 60 * 1000 ms)
-    history_time_window_ms = 30 * 60 * 1000
-    cutoff_time_ms = current_time_ms - history_time_window_ms
-    current_position_history = [p for p in current_position_history if p[2] >= cutoff_time_ms]
-
-    log.info(f"device({tracker_id}) 最终定位: ${current_position_history}")  # Can be noisy
-
-    sos = UplinkCollector.get(dev_eui=report.trackerId, measurement_id='4200', default_value=0)
-    new_state = TrackerState(
-        trackerId=tracker_id,
-        x=filtered_position[0] if filtered_position else (last_state.x if last_state else None),
-        y=filtered_position[1] if filtered_position else (last_state.y if last_state else None),
-        last_update_time=current_time_ms,
-        last_known_measurement_time=report.timestamp,
-        last_detected_beacons=report.detectedBeacons,
-        position_history=current_position_history,
-        map=best_map,
-        sos=sos
-    )
-
-    device_holder.set_tracker_state(tracker_id, new_state)
-
-    # Prepare data for WebSocket broadcast
-    position_payload = None
-    if new_state.x is not None and new_state.y is not None:
-        position_payload = {"x": new_state.x, "y": new_state.y}
-        # Add accuracy if available and needed by frontend, e.g.:
-        # if kf and hasattr(kf, 'get_accuracy_somehow'): 
-        #    position_payload['accuracy'] = kf.get_accuracy_somehow()
-
-    # Construct the data payload for the specific tracker_id
-
-    UplinkCollector.set(dev_eui=tracker_id, measurement_id='loc', value=position_payload)
-    UplinkCollector.set(dev_eui=tracker_id, measurement_id='loc_type', value='bluetooth')
-    enriched_detected_beacons = []
-    if new_state.last_detected_beacons and web_ui_cfg and web_ui_cfg.beacons:
-        configured_beacons_map = {b.macAddress: b for b in web_ui_cfg.beacons if
-                                  b.macAddress}  # Create a map for quick lookup by MAC
-        for detected_b in new_state.last_detected_beacons:
-            enriched_b_data = detected_b.model_dump()  # Start with macAddress, rssi, etc. from DetectedBeacon
-            configured_b = configured_beacons_map.get(detected_b.macAddress)
-            if configured_b:
-                enriched_b_data['txPower'] = configured_b.txPower
-                enriched_b_data['name'] = configured_b.displayName
-                enriched_b_data['configured_x'] = configured_b.x
-                enriched_b_data['configured_y'] = configured_b.y
-            else:
-                # If no matching configured beacon by MAC, fill with None or defaults for consistency if needed
-                enriched_b_data['txPower'] = None
-                enriched_b_data['name'] = 'Unknown Beacon'
-                enriched_b_data['configured_x'] = None
-                enriched_b_data['configured_y'] = None
-            enriched_detected_beacons.append(enriched_b_data)
-    else:
-        # Fallback if no web_ui_cfg.beacons or no detected_beacons, send basic detected beacon info
-        enriched_detected_beacons = [b.model_dump() for b in
-                                     new_state.last_detected_beacons] if new_state.last_detected_beacons else []
-
-    tracker_data_payload = {
-        "trackerId": new_state.trackerId,
-        "timestamp": new_state.last_update_time,
-        "position": position_payload,
-        "last_detected_beacons": enriched_detected_beacons,  # Use the enriched list
-        "position_history": new_state.position_history,
-        "map": best_map,
-        "sos": report.sos
-    }
-
-    await notify_tracker_state({
-        "type": "tracker_update",
-        "data": {tracker_id: tracker_data_payload}
-    })
-
-
-
-async def notify_tracker_state(message: dict[str:dict]):
-    global rt_cfg
-    await manager.broadcast(message)
-    if rt_cfg.webhook.enable:
-        if rt_cfg.webhook.host and len(rt_cfg.webhook.host) > 0:
-            send_post_request(rt_cfg.webhook.host, message, rt_cfg.webhook.headers)
-
-
-def send_post_request(url: str, body: dict, headers: dict):
-    try:
-        response = requests.post(url, json=body, headers=headers)
-
-        if response.status_code < 400:
-            log.info(f"webhook performing successfully, host: {url}")
-        else:
-            log.error(f"webhook failed to execute, host: {url}\ncode:{response.status_code}\n{response.text}")
-    except requests.RequestException as e:
-        log.error(f"webhook failed to execute, host: {url}\nerror:{e}")
-
-
-# --- Configuration Loading for Web UI ---
-def load_web_ui_config() -> Optional[WebUIConfig]:
-    global web_ui_cfg, beacon_map
-    if not os.path.exists(WEB_CONFIG_FILE_PATH):
-        log.info(f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH}. Initializing with defaults.")
-        # Initialize with default if file doesn't exist
-        default_settings = WebUISettings()  # Use direct model name
-        web_ui_cfg = WebUIConfig(map=None, beacons=[], settings=default_settings)
-        save_web_ui_config(web_ui_cfg)  # Save the initial default config
-        return web_ui_cfg
-    try:
-        with open(WEB_CONFIG_FILE_PATH, 'r') as f:
-            data = json.load(f)
-            web_ui_cfg = WebUIConfig(**data)
-            log.info(f"Web UI configuration loaded successfully from {WEB_CONFIG_FILE_PATH}.")
-            # if web_ui_cfg and len(web_ui_cfg.beacons):
-            #     for beacon in web_ui_cfg.beacons:
-            #         if not beacon.map:
-            #             beacon = web_ui_cfg.map.name
-            #         beacon_map[beacon.macAddress] = beacon
-            return web_ui_cfg
-    except FileNotFoundError:
-        log.warning(
-            f"Web UI configuration file not found at {WEB_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
-        return None  # Should not happen if check above is correct
-    except json.JSONDecodeError as e:
-        log.error(f"Error decoding JSON from Web UI config file {WEB_CONFIG_FILE_PATH}: {e}")
-        return None
-    except Exception as e:
-        log.error(f"Failed to load Web UI configuration from {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
-        return None
-
-
-def load_dashboard_config() -> Optional[DashboardConfig]:
-    global dashboard_cfg, beacon_map
-    if not os.path.exists(DASHBOARD_CONFIG_FILE_PATH):
-        log.info(f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH}. Initializing with defaults.")
-        dashboard_cfg = DashboardConfig(maps=[])
-        # save_web_ui_config(dashboard_cfg) # Save the initial default config
-        return dashboard_cfg
-    try:
-        with open(DASHBOARD_CONFIG_FILE_PATH, 'r') as f:
-            data = json.load(f)
-            dashboard_cfg = DashboardConfig(**data)
-            log.info(f"Dashboard configuration loaded successfully from {DASHBOARD_CONFIG_FILE_PATH}.")
-            beacon_holder.update_by_dashboard_config(dashboard_cfg)
-            return dashboard_cfg
-    except FileNotFoundError:
-        log.warning(
-            f"Dashboard configuration file not found at {DASHBOARD_CONFIG_FILE_PATH} during load attempt. This should have been handled by prior check.")
-        return None  # Should not happen if check above is correct
-    except json.JSONDecodeError as e:
-        log.error(f"Error decoding JSON from Dashboard config file {DASHBOARD_CONFIG_FILE_PATH}: {e}")
-        return None
-    except Exception as e:
-        log.error(f"Failed to load Dashboard configuration from {DASHBOARD_CONFIG_FILE_PATH}: {e}", exc_info=True)
-        return None
+    message_listener.pre_listener(report)
+    latest_state = position_resolver.do(report)
+    log.info(f"tracker(id: {report.trackerId}) location resolving done, state: \n {latest_state}")
+    message_listener.post_listener(latest_state)
+    event_consumer.message_handle(latest_state)
 
 
 def save_web_ui_config(config_data: WebUIConfig) -> bool:
@@ -1177,22 +519,11 @@ def save_web_ui_config(config_data: WebUIConfig) -> bool:
         return False
 
 
-def save_dashboard_config_to_file(config_data: DashboardConfig) -> bool:
-    try:
-        with open(DASHBOARD_CONFIG_FILE_PATH, 'w') as f:
-            json.dump(config_data.model_dump(mode='json'), f, indent=4)
-        log.info(f"Dashboard configuration saved successfully to {DASHBOARD_CONFIG_FILE_PATH}.")
-        return True
-    except Exception as e:
-        log.error(f"Failed to save Dashboard configuration to {DASHBOARD_CONFIG_FILE_PATH}: {e}", exc_info=True)
-        return False
-
-
 # --- FastAPI Event Handlers ---
 @app.on_event("startup")
 async def startup_event():
     """Runs on application startup. Loads both configurations and sets up MQTT."""
-    global miniprogram_cfg, runtime_cfg, main_event_loop, web_ui_cfg
+    global miniprogram_cfg, runtime_cfg, main_event_loop, dashboard_cfg
 
     # Capture the running event loop for thread-safe calls from MQTT callback
     main_event_loop = asyncio.get_running_loop()
@@ -1202,8 +533,7 @@ async def startup_event():
     # Load server runtime configuration first as it might be needed by other components
     runtime_cfg = config_manager.load_server_runtime_config()
     config_manager.load_miniprogram_config()
-    load_dashboard_config()
-    load_web_ui_config()
+    dashboard_cfg = config_manager.get_dashboard_config()
     if not runtime_cfg:
         log.error(
             "Critical: Server runtime configuration could not be loaded. MQTT and other services might not start.")
@@ -1218,15 +548,6 @@ async def startup_event():
             "Miniprogram configuration (map_beacon_config.json) not found or failed to load. Positioning may be affected.")
     else:
         # log.info("Miniprogram configuration (map_beacon_config.json) loaded.") # Reduced verbosity
-        pass
-
-    # Load Web UI configuration
-    web_ui_cfg = load_web_ui_config()  # This will create a default if not found
-    if not web_ui_cfg:
-        log.warning(
-            "Web UI configuration (web_config.json) not found or failed to load. Web UI may not function as expected initially.")
-    else:
-        # log.info("Web UI configuration (web_config.json) loaded/initialized.") # Reduced verbosity
         pass
 
     devices = device_dao.get_active_devices()[0]
@@ -1273,7 +594,7 @@ async def startup_event():
 
 async def graceful_shutdown():
     """Performs graceful shutdown operations."""
-    global mqtt_clients, manager, shutdown_flag
+    global mqtt_clients, shutdown_flag
     
     log.info("Initiating graceful shutdown...")
     shutdown_flag = True
@@ -1282,17 +603,11 @@ async def graceful_shutdown():
     disconnect_all_mqtt_clients(broadcast=False)
     
     # Close all WebSocket connections
-    for connection in manager.active_connections[:]:
-        try:
-            await connection.send_text(json.dumps({
-                "type": "server_shutdown", 
-                "message": "Server is shutting down gracefully"
-            }))
-            await connection.close()
-        except Exception as e:
-            log.warning(f"Error closing WebSocket connection: {e}")
+    await websocket_holder.close_all_connections(
+        code=1000, 
+        reason="Server is shutting down gracefully"
+    )
     
-    manager.active_connections.clear()
     log.info("Graceful shutdown operations completed.")
 
 
@@ -1367,7 +682,7 @@ async def upload_miniprogram_config(config_content: MiniprogramConfig, response:
             miniprogram_cfg = config_manager.get_miniprogram_config()  # Reload and update global cache
             log.info("Miniprogram configuration uploaded and reloaded successfully.")
             # Broadcast update to WebSocket clients
-            await manager.broadcast(
+            await websocket_holder.broadcast(
                 {"type": "config_update", "data": miniprogram_cfg.model_dump() if miniprogram_cfg else {}})
             return {"message": "Miniprogram configuration uploaded successfully."}
         else:
@@ -1390,11 +705,12 @@ async def get_api_miniprogram_config():
         raise HTTPException(status_code=503, detail="Miniprogram configuration not loaded.")
 
 
-@app.post("/api/test/push_sos")
+@app.post("/api/debug/tracker_report")
 async def push_sos(report: TrackerReport):
     report.timestamp = int(time.time()) * 1000
     if main_event_loop and main_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+        asyncio.run_coroutine_threadsafe(uplink_consumer.do_for_tracker_report(report), main_event_loop)
 
 
 # @app.get("/api/test")
@@ -1476,6 +792,8 @@ async def get_trackers(request: TrackerStateQueryRequest = None):
             match = (request.online_status == choose_state.online)
         if request is not None and request.is_favorite is not None:
             match = (request.is_favorite == choose_state.is_favorite)
+        if request is not None and request.dev_eui_list and len(request.dev_eui_list) > 0:
+            match = (choose_state.trackerId in request.dev_eui_list)
         if match:
             result[device.dev_eui] = choose_state
     return result
@@ -1914,7 +1232,9 @@ async def api_mqtt_disconnect(dep=Depends(check_authority)):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """Handles WebSocket connections."""
-    await manager.connect(websocket)
+    success = await websocket_holder.connect(websocket, websocket_auth_handler)
+    if not success:
+        return
     try:
         while True:
             data = await websocket.receive_text()
@@ -1927,70 +1247,35 @@ async def websocket_endpoint(websocket: WebSocket):
                     log.info("Start scan command received.")
                     # TODO: Implement actual Bluetooth scanning logic here
                     # For now, send a confirmation that scan started.
-                    await manager.broadcast({"type": "info", "message": "Scanning started."})
+                    await websocket_holder.broadcast({"type": "info", "message": "Scanning started."})
                 elif command == "stopScan":
                     log.info("Stop scan command received.")
                     # TODO: Implement logic to stop Bluetooth scanning here
                     # For now, send a confirmation that scan stopped.
-                    await manager.broadcast({"type": "info", "message": "Scanning stopped."})
+                    await websocket_holder.broadcast({"type": "info", "message": "Scanning stopped."})
                 elif message.get("action") == "request_initial_data":  # Example action, kept for now
                     # Send initial data if needed
-                    await manager.broadcast({"type": "initial_data", "payload": "some_initial_state"})
+                    await websocket_holder.broadcast({"type": "initial_data", "payload": "some_initial_state"})
                 else:
                     log.warning(f"Unknown command/action received: {message}")
-                    await manager.broadcast({"type": "error", "message": "Unknown command"})
+                    await websocket_holder.broadcast({"type": "error", "message": "Unknown command"})
 
             except json.JSONDecodeError:
                 log.error(f"Error decoding JSON from WebSocket: {data}")
-                await manager.broadcast({"type": "error", "message": "Error decoding JSON"})
+                await websocket_holder.broadcast({"type": "error", "message": "Error decoding JSON"})
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        websocket_holder.disconnect(websocket)
     except Exception as e:
         log.error(f"WebSocket error for client {websocket.client}: {e}", exc_info=True)
-        manager.disconnect(websocket)  # Ensure disconnect on error
-
-
-# --- Web UI Configuration Endpoints ---
-@app.post("/api/configuration/web", status_code=200)
-async def upload_web_ui_config(config_content: WebUIConfig, response: Response, dep=Depends(check_authority)):
-    global web_ui_cfg
-    try:
-        if save_web_ui_config(config_content):
-            web_ui_cfg = config_content  # Update in-memory cache
-            # log.info("Web UI configuration successfully received and saved.") # Reduced verbosity
-            return {"message": "Web UI configuration saved successfully."}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to save Web UI configuration to file.")
-    except Exception as e:
-        log.error(f"Error processing uploaded Web UI configuration: {e}", exc_info=True)
-        # It's good practice to re-raise HTTPException or return a proper error response
-        raise HTTPException(status_code=500,
-                            detail=f"Internal server error while saving Web UI configuration: {str(e)}")
-
-
-@app.get("/api/configuration/web", response_model=Optional[WebUIConfig])
-async def get_web_ui_config():
-    global web_ui_cfg
-    # Ensure it's loaded on first request if not already by startup (though startup should handle it)
-    if web_ui_cfg is None:
-        # log.info("Web UI config not in memory, attempting to load from file for GET request.") # Reduced verbosity
-        load_web_ui_config()  # Attempt to load it if somehow missed by startup or cleared
-
-    if web_ui_cfg:
-        return web_ui_cfg
-    else:
-        log.warning("GET /api/configuration/web: No Web UI configuration available after load attempt.")
-        return WebUIConfig(map=None, beacons=[], settings=WebUISettings())  # Use direct model name
+        websocket_holder.disconnect(websocket)  # Ensure disconnect on error
 
 
 @app.get("/api/configuration/dashboard", response_model=Optional[DashboardConfig])
 async def get_dashboard_config():
     global dashboard_cfg
-    # Ensure it's loaded on first request if not already by startup (though startup should handle it)
     if dashboard_cfg is None:
-        # log.info("Web UI config not in memory, attempting to load from file for GET request.") # Reduced verbosity
-        load_dashboard_config()  # Attempt to load it if somehow missed by startup or cleared
+        dashboard_cfg = config_manager.get_dashboard_config()
 
     if dashboard_cfg:
         return dashboard_cfg
@@ -2004,9 +1289,8 @@ async def save_dashboard_config(config_content: DashboardConfig, response: Respo
     """Saves the dashboard configuration to file and updates in-memory cache."""
     global dashboard_cfg
     try:
-        if save_dashboard_config_to_file(config_content):
-            dashboard_cfg = config_content  # Update in-memory cache
-            # Update beacon holder with new dashboard config
+        if config_manager.save_dashboard_config_to_file(config_content):
+            dashboard_cfg = config_content
             beacon_holder.update_by_dashboard_config(dashboard_cfg)
             log.info("Dashboard configuration successfully received and saved.")
             return {"message": "Dashboard configuration saved successfully."}
@@ -2710,7 +1994,7 @@ if __name__ == "__main__":
     if rt_cfg and len(rt_cfg.tracker_list) > 0:
         allow_tracker_list = rt_cfg.tracker_list
     log.info(f"Starting Uvicorn server on host 0.0.0.0 port {server_port}")
-    load_dashboard_config()
-    load_web_ui_config()
+
+    dashboard_cfg = config_manager.get_dashboard_config()
     # Uvicorn should be run from project root: uvicorn server.main:app --reload
     uvicorn.run(app, host="0.0.0.0", port=server_port)

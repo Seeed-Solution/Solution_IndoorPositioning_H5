@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize import least_squares
 import logging # Added for logging
 
-from .models import DetectedBeacon, MiniprogramConfig
+from .models import DetectedBeacon, SingleMapConfig
 from server.components.beacon_holder import beacon_holder
 
 log = logging.getLogger(__name__) # Added logger instance
@@ -88,7 +88,7 @@ def multilateration_least_squares(beacons_with_dist: List[Tuple[float, float, fl
 ## 多点定位要求距离至少三个的蓝牙
 def calculate_position(
     detected_beacons: List[DetectedBeacon],
-    miniprogram_config: MiniprogramConfig, # Changed from ConfigData to MiniprogramConfig
+    miniprogram_config: SingleMapConfig,
     last_known_position: Optional[Tuple[float, float]] = None,
     device_id: str = "",
     map_name: str = "unknown map"
@@ -138,6 +138,7 @@ def calculate_position(
                 continue
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
+            detected.dis = distance
             if distance > 0.1 and distance < 100:
                 beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance, index))
                 log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
@@ -154,7 +155,8 @@ def calculate_position(
 
     log.info(f"device(id: {device_id}): choose map '{map_name}' length of beacons: {len(beacons_with_coords_dist)} ")
     if len(beacons_with_coords_dist) == 0:
-        log.info(f"device(id: {device_id}): length of beacons: {len(beacons_with_coords_dist)} less than 1 in map '{map_name}'"
+        log.info(f"device(id: {device_id}): length of beacons: {len(beacons_with_coords_dist)} "
+                 f"less than 1 in map '{map_name}'"
                  f", can not positioning")
         return None
     elif len(beacons_with_coords_dist) == 1:
