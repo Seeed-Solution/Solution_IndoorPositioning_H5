@@ -246,7 +246,33 @@
       "unfavorite": "Unfavorite",
       "editDevice": "Edit Device",
       "alertSettings": "Alert Settings"
-    }
+    },
+    "selectedMap": "Selected map: {mapName}",
+    "loadingTrackerData": "Loading tracker data for selected map...",
+    "mapSwitchedSuccessfully": "Map switched successfully: {mapName}",
+    "beacon": "beacon",
+    "beacons": "beacons",
+    "entity": "entity",
+    "entities": "entities",
+    "refreshDataFailed": "Failed to refresh tracker data: {error}",
+    "noMapsFoundInDashboard": "No maps found in dashboard configuration.",
+    "noMapsCheckingFallback": "No maps found in dashboard. Checking fallback sources...",
+    "noMapsConfigureFirst": "No maps found. Please configure maps in the dashboard first.",
+    "loadMapsFailed": "Failed to load maps: {error}",
+    "deviceUpdateSuccessRefreshing": "Device {deviceName} updated successfully, refreshing data...",
+    "deviceUpdateSuccess": "Device {deviceName} updated successfully",
+    "deviceUpdateSuccessButRefreshFailed": "Device updated successfully, but refresh data failed: {error}",
+    "openAddDeviceInterface": "Open add device interface",
+    "favoriteSuccessRefreshing": "{action} device successfully, refreshing data...",
+    "favoriteSuccess": "{action} device successfully",
+    "favoriteSuccessButRefreshFailed": "Favorite status updated successfully, but refresh data failed: {error}",
+    "loadingAlarmHistory": "Loading device alarm history: {deviceName}",
+    "refreshingDeviceData": "Refreshing device data...",
+    "deviceDataRefreshSuccess": "Device data refresh successful",
+    "dataRefreshFailed": "Data refresh failed: {error}",
+    "showingAlarmOnMap": "Showing alarm position on map: {mapName}",
+    "alarmNoPosition": "This alarm has no position information",
+    "loadingAlarmDetails": "Loading alarm details: {alarmName}"
   },
   "positioning": {
     "trilateration": "Trilateration",
@@ -380,7 +406,14 @@
     "add": "Add",
     "close": "Close",
     "back": "Back",
-    "logout": "Logout"
+    "logout": "Logout",
+    "unknown": "Unknown",
+    "actions": "Actions",
+    "total": "Total",
+    "items": "items",
+    "perPage": "Per page",
+    "dash": "-",
+    "noData": "No data"
   },
   "errors": {
     "networkError": "Network connection error, please check your connection",
@@ -390,5 +423,32 @@
     "notFound": "The requested resource was not found",
     "requestTimeout": "Request timeout, please try again",
     "unknownError": "Unknown error, please contact administrator"
+  },
+  "alarm": {
+    "alarmInformationList": "Alarm Information List",
+    "currentPosition": "Current Position",
+    "alarms": "Alarms",
+    "loadingAlarms": "Loading alarms...",
+    "noAlarmsFound": "No alarms found",
+    "alarmName": "Alarm Name",
+    "alarmTime": "Alarm Time",
+    "alarmPosition": "Alarm Position",
+    "positionType": "Position Type",
+    "precise": "Precise",
+    "area": "Area",
+    "viewMap": "View Map",
+    "unknownAlarm": "Unknown Alarm",
+    "type": {
+      "offline": "Network Offline Alert",
+      "checkin": "Long-term Stationary Alert",
+      "sos": "SOS Emergency",
+      "position": "Position Detection",
+      "unknown": "Unknown Alarm"
+    },
+    "resolve": {
+      "auto": "Auto Recovery",
+      "manual": "Manual Recovery"
+    },
+    "resolved": "Resolved"
   }
 }

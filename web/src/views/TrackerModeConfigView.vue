@@ -153,12 +153,15 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import MapPreview from '@/components/MapPreview.vue';
 import TrackerList from '@/components/TrackerList.vue';
 import AlarmHistoryModal from '@/components/AlarmHistoryModal.vue';
 import { loadConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { loadWebConfiguration, loadDashboardConfiguration, loadServerConfiguration, loadTrackers, loadLatestTrackerData } from '@/services/configApiService.js';
 import { getWsBaseUrl, buildWsUrl } from '@/config/api.js';
+
+const { t } = useI18n();
 
 const statusMessage = ref('');
 const statusMessageType = ref('info');
@@ -267,7 +270,7 @@ const trackerStats = computed(() => {
     // Count trackers by map (包含unknown地图)
     const trackersByMap = {};
     allTrackers.value.forEach(tracker => {
-        const mapName = tracker.map || 'unknown'; // 没有map字段时默认为unknown
+        const mapName = tracker.map || t('common.unknown'); // 没有map字段时默认为unknown
         trackersByMap[mapName] = (trackersByMap[mapName] || 0) + 1;
     });
     
@@ -298,7 +301,7 @@ const trackerStats = computed(() => {
 // 根据group_id获取分组名称的辅助函数
 const getGroupNameById = (groupId) => {
     if (groupId === 0 || groupId === null || groupId === undefined) {
-        return 'Default';
+        return t('tracker.defaultGroup');
     }
     // 从API数据中查找对应的分组名称
     // 注意：这需要有分组数据的支持，目前暂时返回默认格式
@@ -323,7 +326,7 @@ const trackerListData = computed(() => {
                 // 设备硬件信息
                 battery: tracker.battery, // 电池电量
                 // Last Position相关字段
-                map: tracker.map || 'unknown', // 所在地图
+                map: tracker.map || t('common.unknown'), // 所在地图
                 type: tracker.type, // 定位类型：'calculation' 或 'approximate'
                 x: tracker.x, // X坐标
                 y: tracker.y, // Y坐标
@@ -350,16 +353,16 @@ const toggleMapDropdown = () => {
 const selectMap = async (mapConfig) => {
     selectedMapConfig.value = mapConfig;
     showMapDropdown.value = false;
-    showStatus(`Selected map: ${mapConfig.map.name || 'Unnamed Map'}`, 'success');
+    showStatus(t('tracker.selectedMap', { mapName: mapConfig.map.name || t('tracker.unnamedMap') }), 'success');
     
     // 切换地图时重新获取tracker数据以获取最新状态
-    showStatus('Loading tracker data for selected map...', 'info');
+    showStatus(t('tracker.loadingTrackerData'), 'info');
     await refreshTrackerData();
     
     // 触发统计数据更新
     statsRefreshTrigger.value++;
     
-    showStatus(`Map switched successfully: ${mapConfig.map.name || 'Unnamed Map'}`, 'success');
+    showStatus(t('tracker.mapSwitchedSuccessfully', { mapName: mapConfig.map.name || t('tracker.unnamedMap') }), 'success');
 };
 
 const onTrailsToggled = (showTrailsValue) => {
@@ -375,13 +378,13 @@ const getMapInfoText = (mapConfig) => {
     
     const parts = [];
     if (beaconsCount > 0) {
-        parts.push(`${beaconsCount} ${beaconsCount === 1 ? 'beacon' : 'beacons'}`);
+        parts.push(`${beaconsCount} ${beaconsCount === 1 ? t('tracker.beacon') : t('tracker.beacons')}`);
     }
     if (entitiesCount > 0) {
-        parts.push(`${entitiesCount} ${entitiesCount === 1 ? 'entity' : 'entities'}`);
+        parts.push(`${entitiesCount} ${entitiesCount === 1 ? t('tracker.entity') : t('tracker.entities')}`);
     }
     
-    return parts.length > 0 ? parts.join(', ') : 'No data';
+    return parts.length > 0 ? parts.join(', ') : t('common.noData');
 };
 
 // Close dropdown when clicking outside
@@ -525,7 +528,7 @@ const convertTrackerDataFormat = (backendData) => {
   Object.entries(backendData).forEach(([trackerId, trackerInfo]) => {
     convertedTrackers[trackerId] = {
       trackerId: trackerInfo.trackerId,
-      map: trackerInfo.map || 'unknown',
+      map: trackerInfo.map || t('common.unknown'),
       position: (trackerInfo.x !== null && trackerInfo.y !== null) ? {
         x: trackerInfo.x,
         y: trackerInfo.y,
@@ -538,7 +541,7 @@ const convertTrackerDataFormat = (backendData) => {
       position_history: trackerInfo.position_history || [],
       radius: trackerInfo.radius || 0.0,
       battery: trackerInfo.battery,
-      online: trackerInfo.online || 'unknown',
+      online: trackerInfo.online || t('common.unknown'),
       device_name: trackerInfo.device_name,
       group_id: trackerInfo.group_id,
       is_favorite: trackerInfo.is_favorite || false,
@@ -586,7 +589,7 @@ const refreshTrackerData = async () => {
     return convertedData;
   } catch (error) {
     console.error('[TrackerModeConfig] Error refreshing tracker data:', error);
-    showStatus(`Failed to refresh tracker data: ${error.message}`, 'error');
+    showStatus(t('tracker.refreshDataFailed', { error: error.message }), 'error');
     throw error;
   }
 };
@@ -625,7 +628,7 @@ const loadAvailableMaps = async () => {
           selectedMapConfig.value = dashboardConfig.maps[0];
         }
       } else {
-        showStatus('No maps found in dashboard configuration.', 'warning');
+        showStatus(t('tracker.noMapsFoundInDashboard'), 'warning');
       }
     } else if (dashboardConfig && dashboardConfig.map) {
       // Fallback: single map in dashboard config
@@ -633,7 +636,7 @@ const loadAvailableMaps = async () => {
       selectedMapConfig.value = dashboardConfig;
     } else {
       // No maps found, try fallback sources
-      showStatus('No maps found in dashboard. Checking fallback sources...', 'warning');
+      showStatus(t('tracker.noMapsCheckingFallback'), 'warning');
       
       const fallbackMaps = [];
       
@@ -664,12 +667,12 @@ const loadAvailableMaps = async () => {
           selectedMapConfig.value = fallbackMaps[0];
         }
       } else {
-        showStatus('No maps found. Please configure maps in the dashboard first.', 'warning');
+        showStatus(t('tracker.noMapsConfigureFirst'), 'warning');
       }
     }
   } catch (error) {
     console.error('Error loading available maps:', error);
-    showStatus(`Failed to load maps: ${error.message}`, 'error');
+    showStatus(t('tracker.loadMapsFailed', { error: error.message }), 'error');
     availableMaps.value = [];
   }
 };
@@ -704,7 +707,7 @@ const handleEditTracker = async (tracker) => {
   console.log('[TrackerModeConfig] Edit tracker completed:', tracker);
   
   // 编辑完成后刷新数据以获取最新状态
-  showStatus(`设备 ${tracker.device_name || tracker.trackerId} 更新成功，正在刷新数据...`, 'info');
+  showStatus(t('tracker.deviceUpdateSuccessRefreshing', { deviceName: tracker.device_name || tracker.trackerId }), 'info');
   
   try {
     // 刷新tracker数据
@@ -713,10 +716,10 @@ const handleEditTracker = async (tracker) => {
     // 触发统计数据更新
     statsRefreshTrigger.value++;
     
-    showStatus(`设备 ${tracker.device_name || tracker.trackerId} 更新成功`, 'success');
+    showStatus(t('tracker.deviceUpdateSuccess', { deviceName: tracker.device_name || tracker.trackerId }), 'success');
   } catch (error) {
     console.error('[TrackerModeConfig] Error refreshing data after edit:', error);
-    showStatus(`设备更新成功，但刷新数据失败: ${error.message}`, 'warning');
+    showStatus(t('tracker.deviceUpdateSuccessButRefreshFailed', { error: error.message }), 'warning');
   }
 };
 
@@ -724,7 +727,7 @@ const handleAddTracker = () => {
   console.log('[TrackerModeConfig] Add new tracker');
   
   // 实现添加设备的逻辑
-  showStatus('打开添加设备界面', 'info');
+  showStatus(t('tracker.openAddDeviceInterface'), 'info');
   
   // TODO: 这里需要实现具体的添加设备逻辑
   // 可能需要：
@@ -739,8 +742,8 @@ const handleToggleStar = async (tracker) => {
   
   try {
     // star状态已在TrackerList组件中通过API更新，这里只需要刷新数据
-    const action = tracker.starred ? '收藏' : '取消收藏';
-    showStatus(`${action}设备成功，正在刷新数据...`, 'info');
+    const action = tracker.starred ? t('tracker.favorite') : t('tracker.unfavorite');
+    showStatus(t('tracker.favoriteSuccessRefreshing', { action }), 'info');
     
     // 刷新tracker数据以获取最新状态
     await refreshTrackerData();
@@ -748,10 +751,10 @@ const handleToggleStar = async (tracker) => {
     // 触发统计数据更新
     statsRefreshTrigger.value++;
     
-    showStatus(`${action}设备成功`, 'success');
+    showStatus(t('tracker.favoriteSuccess', { action }), 'success');
   } catch (error) {
     console.error('[TrackerModeConfig] Error refreshing data after toggle star:', error);
-    showStatus(`收藏状态更新成功，但刷新数据失败: ${error.message}`, 'warning');
+    showStatus(t('tracker.favoriteSuccessButRefreshFailed', { error: error.message }), 'warning');
   }
 };
 
@@ -762,14 +765,14 @@ const handleShowAlert = (tracker) => {
   selectedTrackerForAlarm.value = tracker;
   showAlarmHistoryModal.value = true;
   
-  showStatus(`正在加载设备告警历史: ${tracker.device_name || tracker.trackerId}`, 'info');
+  showStatus(t('tracker.loadingAlarmHistory', { deviceName: tracker.device_name || tracker.trackerId }), 'info');
 };
 
 const handleRefreshData = async () => {
   console.log('[TrackerModeConfig] Refresh data requested from TrackerList');
   
   try {
-    showStatus('正在刷新设备数据...', 'info');
+    showStatus(t('tracker.refreshingDeviceData'), 'info');
     
     // 刷新tracker数据
     await refreshTrackerData();
@@ -777,10 +780,10 @@ const handleRefreshData = async () => {
     // 触发统计数据更新
     statsRefreshTrigger.value++;
     
-    showStatus('设备数据刷新成功', 'success');
+    showStatus(t('tracker.deviceDataRefreshSuccess'), 'success');
   } catch (error) {
     console.error('[TrackerModeConfig] Error refreshing data:', error);
-    showStatus(`数据刷新失败: ${error.message}`, 'error');
+    showStatus(t('tracker.dataRefreshFailed', { error: error.message }), 'error');
   }
 };
 
@@ -801,14 +804,14 @@ const handleViewAlarmOnMap = (alarm) => {
   // 4. 关闭告警历史弹窗
   
   if (alarm.position && alarm.position.map) {
-    showStatus(`正在地图上显示告警位置: ${alarm.position.map}`, 'info');
+    showStatus(t('tracker.showingAlarmOnMap', { mapName: alarm.position.map }), 'info');
     
     // 关闭告警历史弹窗
     handleCloseAlarmModal();
     
     // TODO: 切换到对应地图并高亮告警位置
   } else {
-    showStatus('该告警没有位置信息', 'warning');
+    showStatus(t('tracker.alarmNoPosition'), 'warning');
   }
 };
 
@@ -821,7 +824,7 @@ const handleViewAlarmDetails = (alarm) => {
   // 2. 显示告警的完整信息（触发条件、处理过程、相关设备状态等）
   // 3. 提供告警处理操作（手动恢复、标记为已处理等）
   
-  showStatus(`正在加载告警详情: ${alarm.name}`, 'info');
+  showStatus(t('tracker.loadingAlarmDetails', { alarmName: alarm.name }), 'info');
 };
 
 // 定时器引用

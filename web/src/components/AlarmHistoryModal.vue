@@ -4,7 +4,7 @@
       <div class="modal-header">
         <div class="modal-title">
           <i class="fas fa-exclamation-triangle"></i>
-          Alarm Information List
+          {{ $t('alarm.alarmInformationList') }}
         </div>
         <button class="close-button" @click="closeModal">
           <i class="fas fa-times"></i>
@@ -20,34 +20,34 @@
           </div>
           <div v-if="selectedTracker.position" class="current-position">
             <i class="fas fa-map-marker-alt"></i>
-            Current Position: {{ selectedTracker.map || 'unknown' }}
+            {{ $t('alarm.currentPosition') }}: {{ selectedTracker.map || $t('common.unknown') }}
             <span v-if="selectedTracker.position.x !== null && selectedTracker.position.y !== null">
               ({{ selectedTracker.position.x.toFixed(2) }}, {{ selectedTracker.position.y.toFixed(2) }})
             </span>
           </div>
-          <div class="alarm-count">{{ alarms.length }} Alarms</div>
+          <div class="alarm-count">{{ alarms.length }} {{ $t('alarm.alarms') }}</div>
         </div>
         
         <!-- Alarm List -->
         <div class="alarm-list-container">
           <div v-if="loading" class="loading-state">
             <i class="fas fa-spinner fa-spin"></i>
-            Loading alarms...
+            {{ $t('alarm.loadingAlarms') }}
           </div>
           
           <div v-else-if="alarms.length === 0" class="empty-state">
             <i class="fas fa-info-circle"></i>
-            No alarms found
+            {{ $t('alarm.noAlarmsFound') }}
           </div>
           
           <div v-else class="alarm-table">
             <div class="table-header">
               <div class="header-row">
-                <div class="header-cell alarm-name">Alarm Name</div>
-                <div class="header-cell alarm-time">Alarm Time</div>
-                <div class="header-cell alarm-position">Alarm Position</div>
-                <div class="header-cell position-type">Position Type</div>
-                <div class="header-cell actions">Actions</div>
+                <div class="header-cell alarm-name">{{ $t('alarm.alarmName') }}</div>
+                <div class="header-cell alarm-time">{{ $t('alarm.alarmTime') }}</div>
+                <div class="header-cell alarm-position">{{ $t('alarm.alarmPosition') }}</div>
+                <div class="header-cell position-type">{{ $t('alarm.positionType') }}</div>
+                <div class="header-cell actions">{{ $t('common.actions') }}</div>
               </div>
             </div>
             
@@ -70,7 +70,7 @@
                   <div v-if="alarm.position && (alarm.position.x !== null || alarm.position.y !== null || alarm.position.radius !== null)" class="position-info">
                     <div class="position-map">
                       <i class="fas fa-map-marker-alt"></i>
-                      {{ alarm.position.map || 'unknown' }}
+                      {{ alarm.position.map || $t('common.unknown') }}
                     </div>
                     <div class="position-coords">
                       <span v-if="alarm.position.x !== null && alarm.position.y !== null">
@@ -79,27 +79,27 @@
                       <span v-else>-</span>
                     </div>
                   </div>
-                  <span v-else class="no-position">Unknown</span>
+                  <span v-else class="no-position">{{ $t('common.unknown') }}</span>
                 </div>
                 
                 <div class="table-cell position-type">
                   <div v-if="alarm.position && (alarm.position.x !== null || alarm.position.y !== null || alarm.position.radius !== null)">
                     <span v-if="alarm.position.positionType === 'precise'" class="position-type-badge precise">
                       <i class="fas fa-crosshairs"></i>
-                      Precise
+                      {{ $t('alarm.precise') }}
                     </span>
                     <span v-else-if="alarm.position.positionType === 'area'" class="position-type-badge area">
                       <i class="fas fa-dot-circle"></i>
-                      Area
+                      {{ $t('alarm.area') }}
                     </span>
                     <span v-else class="position-type-badge unknown">
                       <i class="fas fa-question"></i>
-                      Unknown
+                      {{ $t('common.unknown') }}
                     </span>
                   </div>
                   <span v-else class="position-type-badge unknown">
                     <i class="fas fa-question"></i>
-                    Unknown
+                    {{ $t('common.unknown') }}
                   </span>
                 </div>
                 
@@ -110,9 +110,9 @@
                     @click="viewOnMap(alarm)" 
                     title="View on Map"
                   >
-                    View Map
+                    {{ $t('alarm.viewMap') }}
                   </button>
-                  <span v-else class="no-action">-</span>
+                  <span v-else class="no-action">{{ $t('common.dash') }}</span>
                 </div>
               </div>
             </div>
@@ -122,7 +122,7 @@
         <!-- Pagination -->
         <div v-if="(totalPages || 0) > 1" class="pagination">
           <div class="pagination-info">
-            Total {{ totalAlarms || 0 }} items
+            {{ $t('common.total') }} {{ totalAlarms || 0 }} {{ $t('common.items') }}
           </div>
           <div class="pagination-controls">
             <button 
@@ -154,7 +154,7 @@
             </button>
           </div>
           <div class="per-page-selector">
-            <span>Per page:</span>
+            <span>{{ $t('common.perPage') }}:</span>
             <select v-model="itemsPerPage" @change="handleItemsPerPageChange">
               <option value="25">25</option>
               <option value="50">50</option>
@@ -166,7 +166,7 @@
       
       <div class="modal-footer">
         <button class="close-footer-button" @click="closeModal">
-          Close
+          {{ $t('common.close') }}
         </button>
       </div>
     </div>
@@ -175,6 +175,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { loadAlarmHistory } from '@/services/configApiService.js';
 
 const props = defineProps({
@@ -189,6 +190,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'view-on-map', 'view-details']);
+
+const { t } = useI18n();
 
 // Data
 const loading = ref(false);
@@ -269,11 +272,11 @@ const convertAlarmData = (backendRecord) => {
   
   return {
     id: backendRecord.id.toString(),
-    name: backendRecord.event_name || '未知告警',
+    name: backendRecord.event_name || t('alarm.unknownAlarm'),
     type: getAlarmTypeFromEventType(backendRecord.event_type),
     timestamp: new Date(backendRecord.alarm_time).getTime(),
     position: hasValidLocation ? {
-      map: backendRecord.map_name || 'unknown',
+      map: backendRecord.map_name || t('common.unknown'),
       x: backendRecord.loc.x,
       y: backendRecord.loc.y,
       radius: backendRecord.loc.radius,
@@ -387,13 +390,13 @@ const getAlarmTypeIcon = (type) => {
 
 const getAlarmTypeText = (type) => {
   const texts = {
-    'offline': '区域网络告警',
-    'checkin': '长时间静止告警', 
-    'sos': 'SOS紧急求助',
-    'position': '位置检测',
-    'unknown': '未知告警'
+    'offline': t('alarm.type.offline'),
+    'checkin': t('alarm.type.checkin'), 
+    'sos': t('alarm.type.sos'),
+    'position': t('alarm.type.position'),
+    'unknown': t('alarm.type.unknown')
   };
-  return texts[type] || '未知告警';
+  return texts[type] || t('alarm.type.unknown');
 };
 
 const getResolveTypeClass = (resolveType) => {
@@ -414,10 +417,10 @@ const getResolveTypeIcon = (resolveType) => {
 
 const getResolveTypeText = (resolveType) => {
   const texts = {
-    'auto': '自动恢复',
-    'manual': '手动恢复'
+    'auto': t('alarm.resolve.auto'),
+    'manual': t('alarm.resolve.manual')
   };
-  return texts[resolveType] || '已恢复';
+  return texts[resolveType] || t('alarm.resolved');
 };
 
 const changePage = async (page) => {

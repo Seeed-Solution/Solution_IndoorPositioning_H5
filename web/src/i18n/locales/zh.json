@@ -246,7 +246,35 @@
       "unfavorite": "取消收藏",
       "editDevice": "编辑设备",
       "alertSettings": "警报设置"
-    }
+    },
+    "selectedMap": "已选择地图: {mapName}",
+    "loadingTrackerData": "正在加载地图设备数据...",
+    "mapSwitchedSuccessfully": "地图切换成功: {mapName}",
+    "beacon": "信标",
+    "beacons": "信标",
+    "entity": "实体",
+    "entities": "实体",
+    "refreshDataFailed": "刷新设备数据失败: {error}",
+    "noMapsFoundInDashboard": "仪表板配置中未找到地图。",
+    "noMapsCheckingFallback": "仪表板中未找到地图。正在检查备用源...",
+    "noMapsConfigureFirst": "未找到地图。请先在仪表板中配置地图。",
+    "loadMapsFailed": "加载地图失败: {error}",
+    "deviceUpdateSuccessRefreshing": "设备 {deviceName} 更新成功，正在刷新数据...",
+    "deviceUpdateSuccess": "设备 {deviceName} 更新成功",
+    "deviceUpdateSuccessButRefreshFailed": "设备更新成功，但刷新数据失败: {error}",
+    "openAddDeviceInterface": "打开添加设备界面",
+    "favorite": "收藏",
+    "unfavorite": "取消收藏",
+    "favoriteSuccessRefreshing": "{action}设备成功，正在刷新数据...",
+    "favoriteSuccess": "{action}设备成功",
+    "favoriteSuccessButRefreshFailed": "收藏状态更新成功，但刷新数据失败: {error}",
+    "loadingAlarmHistory": "正在加载设备告警历史: {deviceName}",
+    "refreshingDeviceData": "正在刷新设备数据...",
+    "deviceDataRefreshSuccess": "设备数据刷新成功",
+    "dataRefreshFailed": "数据刷新失败: {error}",
+    "showingAlarmOnMap": "正在地图上显示告警位置: {mapName}",
+    "alarmNoPosition": "该告警没有位置信息",
+    "loadingAlarmDetails": "正在加载告警详情: {alarmName}"
   },
   "positioning": {
     "trilateration": "三边测量",
@@ -380,7 +408,14 @@
     "add": "添加",
     "close": "关闭",
     "back": "返回",
-    "logout": "登出"
+    "logout": "登出",
+    "unknown": "未知",
+    "actions": "操作",
+    "total": "总共",
+    "items": "项",
+    "perPage": "每页",
+    "dash": "-",
+    "noData": "无数据"
   },
   "errors": {
     "networkError": "网络连接错误，请检查网络连接",
@@ -390,5 +425,32 @@
     "notFound": "请求的资源未找到",
     "requestTimeout": "请求超时，请重试",
     "unknownError": "未知错误，请联系管理员"
+  },
+  "alarm": {
+    "alarmInformationList": "告警信息列表",
+    "currentPosition": "当前位置",
+    "alarms": "告警",
+    "loadingAlarms": "正在加载告警...",
+    "noAlarmsFound": "未找到告警",
+    "alarmName": "告警名称",
+    "alarmTime": "告警时间",
+    "alarmPosition": "告警位置",
+    "positionType": "位置类型",
+    "precise": "精确",
+    "area": "区域",
+    "viewMap": "查看地图",
+    "unknownAlarm": "未知告警",
+    "type": {
+      "offline": "区域网络告警",
+      "checkin": "长时间静止告警",
+      "sos": "SOS紧急求助",
+      "position": "位置检测",
+      "unknown": "未知告警"
+    },
+    "resolve": {
+      "auto": "自动恢复",
+      "manual": "手动恢复"
+    },
+    "resolved": "已恢复"
   }
 }
