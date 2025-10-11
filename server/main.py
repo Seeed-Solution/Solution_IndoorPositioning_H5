@@ -23,16 +23,12 @@ from server.dao.device_alarm_record_dao import alarm_record_dao
 from server.dao.group_dao import group_dao
 from server.dao.device_dao import device_dao
 from server.components.event_manager import event_manager
-from server.components.uplink_collector import UplinkCollector
-import requests
+
 from server.components.session_holder import session_holder
 
 from server.handler import uplink_consumer as uplink_consumer
-
-from server.handler import message_format_hanlder as message_formatter
-from server.handler import message_listen_handler as message_listener
-from server.handler import position_resolve_handler as position_resolver
-from server.handler import event_consumer as event_consumer
+from server.handler import offline_handler as device_offline_checker
+from server.handler import event_trigger as event_trigger
 
 # Import project modules
 # from . import config_manager
@@ -491,21 +487,21 @@ def on_message(client, userdata, msg):
 
 
 
-## 计算定位结果
-async def process_tracker_report(report: TrackerReport):
-    """Processes a parsed tracker report to calculate position and update state."""
-    # Use new global config variables
-    global runtime_cfg, dashboard_cfg
-
-    if not runtime_cfg:
-        log.warning("Server runtime configuration not loaded, cannot process tracker report for Kalman params.")
-        return
-
-    message_listener.pre_listener(report)
-    latest_state = position_resolver.do(report)
-    log.info(f"tracker(id: {report.trackerId}) location resolving done, state: \n {latest_state}")
-    message_listener.post_listener(latest_state)
-    event_consumer.message_handle(latest_state)
+# ## 计算定位结果
+# async def process_tracker_report(report: TrackerReport):
+#     """Processes a parsed tracker report to calculate position and update state."""
+#     # Use new global config variables
+#     global runtime_cfg, dashboard_cfg
+#
+#     if not runtime_cfg:
+#         log.warning("Server runtime configuration not loaded, cannot process tracker report for Kalman params.")
+#         return
+#
+#     message_listener.pre_listener(report)
+#     latest_state = position_resolver.do(report)
+#     log.info(f"tracker(id: {report.trackerId}) location resolving done, state: \n {latest_state}")
+#     await message_listener.post_listener(latest_state)
+#     await event_consumer.message_handle(latest_state)
 
 
 def save_web_ui_config(config_data: WebUIConfig) -> bool:
@@ -550,7 +546,7 @@ async def startup_event():
         # log.info("Miniprogram configuration (map_beacon_config.json) loaded.") # Reduced verbosity
         pass
 
-    devices = device_dao.get_active_devices()[0]
+    devices = device_dao.get_all_device()
 
     if devices and len(devices) > 0:
         for device in devices:
@@ -589,6 +585,8 @@ async def startup_event():
     # except Exception as e:
     #     log.warning(f"Failed to cleanup expired sessions on startup: {e}")
 
+    asyncio.create_task(device_offline_checker.do())
+    asyncio.create_task(event_trigger.position_detection_task())
     log.info("Server startup complete.")
 
 
@@ -705,11 +703,12 @@ async def get_api_miniprogram_config():
         raise HTTPException(status_code=503, detail="Miniprogram configuration not loaded.")
 
 
+## 接收任意dev_eui 仅用于debug
 @app.post("/api/debug/tracker_report")
 async def push_sos(report: TrackerReport):
     report.timestamp = int(time.time()) * 1000
     if main_event_loop and main_event_loop.is_running():
-        asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
+        # asyncio.run_coroutine_threadsafe(process_tracker_report(report), main_event_loop)
         asyncio.run_coroutine_threadsafe(uplink_consumer.do_for_tracker_report(report), main_event_loop)
 
 

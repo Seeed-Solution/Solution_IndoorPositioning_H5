@@ -107,7 +107,7 @@ class DeviceEventHolder:
 
     def delete_device_event_timestamp(self, dev_eui: str, event_id):
         with self._lock:
-            del self._event_holder[f"{dev_eui}:{event_id}"]
+            self._event_holder.pop(f"{dev_eui}:{event_id}", 0)
 
 
 # 全局设备状态管理器实例

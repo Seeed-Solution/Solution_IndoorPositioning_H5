@@ -3,9 +3,11 @@ def testNone():
     return None
 
 def main():
-    result = testNone()
-    if result:
-        print("None is true")
+    str_list = "aaa:bbb:ccc".split(':')
+    print("========")
+    for word in str_list:
+        print(f"word:{word}")
+    print("========")
 
 if __name__ == '__main__':
     main()

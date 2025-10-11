@@ -139,7 +139,7 @@ def calculate_position(
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             detected.dis = distance
-            if distance > 0.1 and distance < 100:
+            if distance > 0.001 and distance < 1000:
                 beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance, index))
                 log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:

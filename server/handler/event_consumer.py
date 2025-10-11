@@ -59,8 +59,11 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                 ## sos 状态与当前设备状态不一致, 则触发
                 previous_sos = device_holder.get_tracker_sos(state.trackerId)
                 device_holder.update_tracker_sos(state.trackerId, state.sos)
-                if previous_sos != event_constant.SOS_STATUS_UNKNOWN and previous_sos != state.sos and state.sos != event_constant.SOS_STATUS_UNKNOWN:
-                # if previous_sos != state.sos and state.sos != event_constant.SOS_STATUS_UNKNOWN:
+                if previous_sos != state.sos and state.sos != event_constant.SOS_STATUS_UNKNOWN:
+                    device_holder.update_tracker_sos(tracker_id=state.trackerId, sos=state.sos)
+                    await websocket_holder.broadcast(message_constant.get_sos_message(state))
+                    if previous_sos == event_constant.SOS_STATUS_UNKNOWN:
+                        return
                     log.info(f'the tracker: {state.trackerId} sos event: {state.sos} from {previous_sos}')
                     loc = {}
                     if state.x and state.y:
@@ -77,10 +80,9 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         event_type=event_constant.ALARM_TYPE_SOS,
                         event_id=alarm_setting.id,
                         event_name=alarm_setting.event_name,
-                        map_name=state.map
+                        map_name=state.map,
+                        status=state.sos
                     )
-                    device_holder.update_tracker_sos(tracker_id=state.trackerId, sos=state.sos)
-                    await websocket_holder.broadcast(message_constant.get_sos_message(state))
             # case event_constant.ALARM_TYPE_OFFLINE:
             case event_constant.ALARM_TYPE_CHECKIN:
                 if not alarm_setting.ble_range or len(alarm_setting.ble_range) == 0:
@@ -94,18 +96,12 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) skip '
                         f'because of none ble-range')
                     return
-                if state.used_beacons or len(state.used_beacons):
+                if not state.used_beacons or len(state.used_beacons) == 0:
                     log.info(
                         f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) '
                         f'skip because of none none used_beacons')
                     return
 
-                triggered_time = device_event_holder.get_device_event_timestamp(state.trackerId, alarm_setting.id)
-                if triggered_time:
-                    log.info(
-                        f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) '
-                        f'skip because of has been triggered in {triggered_time}')
-                    return
                 closed_beacons = find_closest_beacon(target_beacons, state.used_beacons, alarm_setting.dis_range)
                 closest_beacon = closed_beacons[0]
                 closest_dis = closed_beacons[1]
@@ -116,6 +112,14 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) '
                         f'skip because no applicable beacon')
                     return
+
+                triggered_time = device_event_holder.get_device_event_timestamp(state.trackerId, alarm_setting.id)
+                if triggered_time:
+                    log.info(
+                        f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) '
+                        f'skip because of has been triggered in {triggered_time}')
+                    return
+
                 loc = {}
                 if state.x and state.y:
                     loc["x"] = state.x
@@ -153,7 +157,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         f'the tracker: {state.trackerId} '
                         f'position-detection-event(id:{alarm_setting.id}) skip because of none ble-range')
                     return
-                if not state.used_beacons or len(state.used_beacons):
+                if not state.used_beacons or len(state.used_beacons) == 0:
                     log.info(
                         f'the tracker: {state.trackerId} position-detection-event'
                         f'(id:{alarm_setting.id}) skip because of none none detectedBeacons')
@@ -162,14 +166,13 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                 leaving = True
                 for target in target_beacons:
                     for beacon in state.used_beacons:
-                        beacon_mac = beacon.replace(":", "").upper()
+                        beacon_mac = beacon.macAddress.replace(":", "").upper()
                         if beacon_mac == target.replace(":", "").upper():
                             leaving = False
                             break
 
                 if not leaving:
-                    # event_checker.delete_leaving_check(alarm_setting.id, state.trackerId)
-                    device_event_holder.delete_device_event_timestamp(
+                    await event_trigger.remove_device_leaving_waiting_event(
                         dev_eui=state.trackerId,
                         event_id=alarm_setting.id
                     )
@@ -184,7 +187,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         f'the tracker: {state.trackerId} position detection(id:{alarm_setting.id}) '
                         f'skip because of has been triggered in {triggered_time}')
                     return
-                event_trigger.device_leaving_event_checker(state, alarm_setting, now)
+                await event_trigger.device_leaving_event_checker(state, alarm_setting, now)
                 log.info(f'the tracker: {state.trackerId} position-detection event: {alarm_setting.id} '
                          f'with time_: {alarm_setting.time_range} min')
     except Exception as err:

@@ -475,7 +475,7 @@ class DetectedBeacon(BaseModel):
 class TrackerReport(BaseModel):
     trackerId: str # Corresponds to device devEui from MQTT topic
     timestamp: int # Unix ms timestamp from message payload
-    receive_time: Optional[int] = int(datetime.now().timestamp())
+    receive_time: Optional[int] = int(datetime.now().timestamp()) # unit: second
     detectedBeacons: List[DetectedBeacon] = []
     sos: int = 2 # 0: 恢复, 1: 触发, 2: 未知
     locType: str = 'bluetooth'
@@ -872,7 +872,7 @@ class TrackerState(BaseModel):
             trackerId=deviceRecord.dev_eui,
             battery=deviceRecord.battery_level,
             online="unknown",
-            sos=event_constant.SOS_STATUS_UNKNOWN
+            sos=event_constant.SOS_STATUS_RECOVER
         )
         if deviceRecord.last_data_update_time:
             tracker_state.last_update_time = int(deviceRecord.last_data_update_time.timestamp()) * 1000

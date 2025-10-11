@@ -188,7 +188,8 @@ def do(report: TrackerReport) -> TrackerState:
                     rssi=scanned_beacon.rssi,
                     configured_x=beacon_config.x,
                     configured_y=beacon_config.y,
-                    name=beacon_config.displayName
+                    name=beacon_config.displayName,
+                    dis=calculated_position[0]
                 )],
                 map=best_map,
                 sos=report.sos,

@@ -34,15 +34,14 @@ async def do(topic: str, payload_bytes: bytes, source_type: str = "chirpstack"):
         log.error(f"uplink consumer: the message from device({device_eui}) error: \n${err}")
 
 
-## 接收任意dev_eui 仅用于debug
 async def do_for_tracker_report(report: TrackerReport):
     device_eui = report.trackerId
     try:
         message_listener.pre_listener(report)
         latest_state = position_resolver.do(report)
         log.info(f"tracker(id: {report.trackerId}) location resolving done, state: \n {latest_state}")
-        await message_listener.post_listener(latest_state)
         await event_consumer.message_handle(latest_state)
+        await message_listener.post_listener(latest_state)
     except Exception as err:
         log.error(f"uplink consumer: the message from device({device_eui}) error: \n${err}")
 

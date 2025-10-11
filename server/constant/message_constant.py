@@ -26,6 +26,14 @@ SOURCE_FROM_SENSECAP = "sensecap"
 SOURCE_FROM_CHIRPSTACK = "chirpstack"
 
 
+def get_online_message(state: TrackerState, timestamp: int) -> dict:
+    return {
+            "type": MESSAGE_TYPE_TRACKER_OFFLINE,
+            "data": {state.trackerId: {
+                "timestamp": timestamp * 1000
+            }}
+        }
+
 def get_sos_message(state: TrackerState) -> dict:
     return {
             "type": MESSAGE_TYPE_TRACKER_SOS,
