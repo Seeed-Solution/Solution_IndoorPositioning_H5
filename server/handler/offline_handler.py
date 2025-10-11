@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 
-DEFAULT_ONLINE_CHECK_INTERVAL_MS = 3 * 60 * 1000
+DEFAULT_ONLINE_CHECK_INTERVAL_MS = 15 * 60 * 1000
 
 
 async def offline_event_action(state: TrackerState, alarm_setting: EventTriggerRecord, timestamp: int):

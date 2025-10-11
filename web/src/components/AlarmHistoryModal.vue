@@ -89,12 +89,18 @@
                       Precise
                     </span>
                     <span v-else-if="alarm.position.positionType === 'area'" class="position-type-badge area">
-                      <i class="fas fa-circle"></i>
+                      <i class="fas fa-dot-circle"></i>
                       Area
                     </span>
-                    <span v-else class="position-type-badge unknown">-</span>
+                    <span v-else class="position-type-badge unknown">
+                      <i class="fas fa-question"></i>
+                      Unknown
+                    </span>
                   </div>
-                  <span v-else class="position-type-badge unknown">Unknown</span>
+                  <span v-else class="position-type-badge unknown">
+                    <i class="fas fa-question"></i>
+                    Unknown
+                  </span>
                 </div>
                 
                 <div class="table-cell actions">
@@ -604,29 +610,33 @@ watch([() => props.selectedTracker, () => props.isVisible], ([newTracker, isVisi
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   width: 100%;
-  display: table;
-  table-layout: fixed;
+  display: block;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .table-header {
-  display: table-header-group;
+  display: block;
   background: var(--background-color);
   border-bottom: 2px solid var(--border-color);
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-color);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .header-row {
-  display: table-row;
+  display: flex;
 }
 
 .header-cell {
-  display: table-cell;
   padding: 0.75rem 0.5rem;
   border-right: 1px solid var(--border-color);
-  vertical-align: middle;
   text-align: left;
+  display: flex;
+  align-items: center;
 }
 
 .header-cell:nth-child(1) { width: 23%; } /* Alarm Name */
@@ -640,11 +650,11 @@ watch([() => props.selectedTracker, () => props.isVisible], ([newTracker, isVisi
 }
 
 .table-body {
-  display: table-row-group;
+  display: block;
 }
 
 .table-row {
-  display: table-row;
+  display: flex;
   border-bottom: 1px solid var(--border-color);
   transition: background-color 0.2s ease;
 }
@@ -654,12 +664,12 @@ watch([() => props.selectedTracker, () => props.isVisible], ([newTracker, isVisi
 }
 
 .table-cell {
-  display: table-cell;
   padding: 0.75rem 0.5rem;
   border-right: 1px solid var(--border-color);
-  vertical-align: middle;
   font-size: 0.9rem;
   text-align: left;
+  display: flex;
+  align-items: center;
 }
 
 .table-cell:nth-child(1) { width: 23%; } /* Alarm Name */
@@ -824,15 +834,15 @@ watch([() => props.selectedTracker, () => props.isVisible], ([newTracker, isVisi
 }
 
 .position-type-badge.area {
-  background: rgba(66, 133, 244, 0.1);
-  color: var(--info-color);
-  border: 1px solid rgba(66, 133, 244, 0.3);
+  background: rgba(255, 152, 0, 0.1);
+  color: #FF9800;
+  border: 1px solid rgba(255, 152, 0, 0.3);
 }
 
 .position-type-badge.unknown {
-  background: rgba(95, 99, 104, 0.1);
-  color: var(--secondary-color);
-  border: 1px solid rgba(95, 99, 104, 0.3);
+  background: rgba(158, 158, 158, 0.1);
+  color: #757575;
+  border: 1px solid rgba(158, 158, 158, 0.3);
 }
 
 .no-position {
