@@ -248,4 +248,27 @@ export const updateDevice = async (trackerId, deviceData) => {
   }
 };
 
+// 获取设备告警历史
+export const loadAlarmHistory = async (deviceEui, page = 1, pageSize = 20) => {
+  try {
+    const params = new URLSearchParams({
+      device_eui: deviceEui,
+      page: page.toString(),
+      page_size: pageSize.toString()
+    });
+    
+    const response = await httpClient.get(`${API_ENDPOINTS.LIST_ALARM}?${params}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error loading alarm history:', error);
+    if (error.response) {
+      throw new Error(`Server error (${error.response.status}): ${error.response.data.detail || error.message}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to load alarm history.');
+    } else {
+      throw new Error(`Failed to load alarm history: ${error.message}`);
+    }
+  }
+};
+
 // You might add other API calls related to configuration here later. 

@@ -26,7 +26,9 @@ def calculate_distance(rssi: int, tx_power: int, n: float = 2.5) -> float:
 # --- NEW: Least Squares Multilateration ---
 ## beacons_with_dist: 蓝牙定位列表, 包括蓝牙的 x/y 坐标, 到设备的距离
 ## initial_guess 上次的定位
-def multilateration_least_squares(beacons_with_dist: List[Tuple[float, float, float, object]], initial_guess: Optional[Tuple[float, float]] = None) -> Optional[Tuple[float, float]]:
+def multilateration_least_squares(
+        beacons_with_dist: List[Tuple[float, float, float, object]],
+        initial_guess: Optional[Tuple[float, float]] = None) -> Optional[Tuple[float, float]]:
     """
     Calculates position using least squares optimization based on distances
     to known beacon coordinates.
@@ -139,7 +141,7 @@ def calculate_position(
 
             distance = calculate_distance(detected.rssi, beacon_info.txPower, n)
             detected.dis = distance
-            if distance > 0.001 and distance < 1000:
+            if 0.001 < distance < 1000:
                 beacons_with_coords_dist.append((beacon_info.x, beacon_info.y, distance, index))
                 log.info(f"device(id: {device_id}): Using beacon: {beacon_info.macAddress}, RSSI: {detected.rssi}, Tx: {beacon_info.txPower}, Dist: {distance:.2f}m")
             else:
@@ -169,7 +171,10 @@ def calculate_position(
     log.info(f"device(id: {device_id}) Using map '{map_name}' with {beacons_with_coords_dist}")
     # log.info(f"device(id: {device_id}) 完成蓝牙测距, best_beacons:{best_beacons}")
     estimated_position = multilateration_least_squares(beacons_with_coords_dist, initial_guess=last_known_position)
-    return estimated_position
+    if estimated_position:
+        return estimated_position + ("calculation", )
+    else:
+        return beacons_with_coords_dist[0][2], beacons_with_coords_dist[0][3], "approximate"
 
 # --- Kalman Filter Implementation ---
 class KalmanFilter2D:

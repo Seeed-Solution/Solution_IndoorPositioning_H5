@@ -111,10 +111,10 @@ async def device_leaving_event_checker(state: TrackerState, event_setting: Event
 
     target_time = timestamp + event_setting.time_range * MINUTE_IN_MS
     if now < target_time:
-        # event_checker.push_leaving_check(event_id=event_setting.id, message=state)
+        event_checker.push_leaving_check(event_id=event_setting.id, message=state)
         log.info(f"leaving_event is waiting, id:{event_setting.id}, "
                  f"timestamp:${timestamp}, plan_time: {target_time}, "
-                 f"waiting: ${(target_time - now) / 1000} second")
+                 f"waiting: ${int(target_time - now) / 1000} second")
         return
     await leaving_event_action(event_setting, state)
     log.info(f"leaving_event has been triggered, id:{event_setting.id}, "
@@ -122,7 +122,7 @@ async def device_leaving_event_checker(state: TrackerState, event_setting: Event
 
 
 async def global_leaving_event_check(now: int):
-    flag_list = event_checker.get_all_key()
+    flag_list = list(event_checker.get_all_key())
     if not flag_list or len(flag_list) == 0:
         return
 

@@ -118,6 +118,15 @@
     <!-- Status Messages -->
     <p v-if="statusMessage" class="status-message" :class="statusMessageType">{{ statusMessage }}</p>
     
+    <!-- Alarm History Modal -->
+    <AlarmHistoryModal 
+      :isVisible="showAlarmHistoryModal"
+      :selectedTracker="selectedTrackerForAlarm"
+      @close="handleCloseAlarmModal"
+      @view-on-map="handleViewAlarmOnMap"
+      @view-details="handleViewAlarmDetails"
+    />
+    
     <!-- No Map Selected State - TEMPORARILY DISABLED -->
     <!-- 
     <div v-if="!selectedMapConfig && wsStatus === 'connected'" class="empty-state-card">
@@ -146,6 +155,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import MapPreview from '@/components/MapPreview.vue';
 import TrackerList from '@/components/TrackerList.vue';
+import AlarmHistoryModal from '@/components/AlarmHistoryModal.vue';
 import { loadConfigFromLocalStorage } from '@/services/localStorageService.js';
 import { loadWebConfiguration, loadDashboardConfiguration, loadServerConfiguration, loadTrackers, loadLatestTrackerData } from '@/services/configApiService.js';
 import { getWsBaseUrl, buildWsUrl } from '@/config/api.js';
@@ -154,6 +164,10 @@ const statusMessage = ref('');
 const statusMessageType = ref('info');
 // 用于触发统计数据刷新的响应式变量
 const statsRefreshTrigger = ref(0);
+
+// Alarm History Modal state
+const showAlarmHistoryModal = ref(false);
+const selectedTrackerForAlarm = ref(null);
 
 // Available maps and selection
 const availableMaps = ref([]);
@@ -744,15 +758,11 @@ const handleToggleStar = async (tracker) => {
 const handleShowAlert = (tracker) => {
   console.log('[TrackerModeConfig] Show alert for tracker:', tracker);
   
-  // 实现显示设备警报设置的逻辑
-  showStatus(`打开设备警报设置: ${tracker.name || tracker.trackerId}`, 'info');
+  // 打开告警历史弹窗
+  selectedTrackerForAlarm.value = tracker;
+  showAlarmHistoryModal.value = true;
   
-  // TODO: 这里需要实现具体的警报设置逻辑
-  // 可能需要：
-  // 1. 打开警报设置模态框
-  // 2. 显示当前的警报配置（低电量警报、离线警报、区域警报等）
-  // 3. 提供界面让用户配置警报参数
-  // 4. 调用后端API保存警报设置
+  showStatus(`正在加载设备告警历史: ${tracker.device_name || tracker.trackerId}`, 'info');
 };
 
 const handleRefreshData = async () => {
@@ -772,6 +782,46 @@ const handleRefreshData = async () => {
     console.error('[TrackerModeConfig] Error refreshing data:', error);
     showStatus(`数据刷新失败: ${error.message}`, 'error');
   }
+};
+
+// Alarm History Modal事件处理方法
+const handleCloseAlarmModal = () => {
+  showAlarmHistoryModal.value = false;
+  selectedTrackerForAlarm.value = null;
+};
+
+const handleViewAlarmOnMap = (alarm) => {
+  console.log('[TrackerModeConfig] View alarm on map:', alarm);
+  
+  // TODO: 实现在地图上显示告警位置的逻辑
+  // 可能需要：
+  // 1. 检查告警是否有位置信息
+  // 2. 切换到对应的地图
+  // 3. 高亮显示告警位置
+  // 4. 关闭告警历史弹窗
+  
+  if (alarm.position && alarm.position.map) {
+    showStatus(`正在地图上显示告警位置: ${alarm.position.map}`, 'info');
+    
+    // 关闭告警历史弹窗
+    handleCloseAlarmModal();
+    
+    // TODO: 切换到对应地图并高亮告警位置
+  } else {
+    showStatus('该告警没有位置信息', 'warning');
+  }
+};
+
+const handleViewAlarmDetails = (alarm) => {
+  console.log('[TrackerModeConfig] View alarm details:', alarm);
+  
+  // TODO: 实现显示告警详情的逻辑
+  // 可能需要：
+  // 1. 打开告警详情弹窗
+  // 2. 显示告警的完整信息（触发条件、处理过程、相关设备状态等）
+  // 3. 提供告警处理操作（手动恢复、标记为已处理等）
+  
+  showStatus(`正在加载告警详情: ${alarm.name}`, 'info');
 };
 
 // 定时器引用
