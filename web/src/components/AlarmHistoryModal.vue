@@ -20,7 +20,7 @@
           </div>
           <div v-if="selectedTracker.position" class="current-position">
             <i class="fas fa-map-marker-alt"></i>
-            Current Position: {{ selectedTracker.position.map || 'unknown' }} 
+            Current Position: {{ selectedTracker.map || 'unknown' }}
             <span v-if="selectedTracker.position.x !== null && selectedTracker.position.y !== null">
               ({{ selectedTracker.position.x.toFixed(2) }}, {{ selectedTracker.position.y.toFixed(2) }})
             </span>
