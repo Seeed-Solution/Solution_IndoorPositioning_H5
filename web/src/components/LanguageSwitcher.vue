@@ -39,22 +39,26 @@ const changeLanguage = (event) => {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: transparent;
+  background: transparent;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 0.4rem 0.6rem;
+  padding: 0.4rem 0.8rem;
   gap: 0.5rem;
   transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
 }
 
 .language-dropdown:hover {
   border-color: var(--primary-color);
-  background-color: rgba(0, 86, 179, 0.05);
+  color: var(--primary-color);
+  background-color: rgba(76, 175, 80, 0.05);
 }
 
 .language-icon {
-  font-size: 0.8rem;
-  color: var(--secondary-color);
+  font-size: 0.9rem;
+  color: inherit;
   pointer-events: none;
 }
 
@@ -62,11 +66,12 @@ const changeLanguage = (event) => {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-color);
+  color: inherit;
   font-size: 0.9rem;
   cursor: pointer;
   min-width: 70px;
   font-family: inherit;
+  font-weight: 500;
 }
 
 .language-select:focus {

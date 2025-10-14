@@ -403,11 +403,11 @@ const connectWebSocket = () => {
     console.log('[TrackerModeConfig] Connecting to WebSocket:', wsUrl);
     ws.value = new WebSocket(wsUrl);
     wsStatus.value = 'connecting';
-    showStatus('Connecting to server...', 'info');
+    showStatus(t('tracker.connectingToServer'), 'info');
 
     ws.value.onopen = () => { 
         wsStatus.value = 'connected'; 
-        showStatus('Connected to server', 'success');
+        showStatus(t('tracker.connectedToServer'), 'success');
         loadAvailableMaps();
         refreshTrackerData(); // 使用新的数据刷新函数
         fetchFullServerConfig();    
@@ -503,12 +503,12 @@ const connectWebSocket = () => {
     
     ws.value.onerror = (error) => { 
         wsStatus.value = 'error'; 
-        showStatus('WebSocket connection error', 'error');
+        showStatus(t('tracker.websocketConnectionError'), 'error');
     };
     
     ws.value.onclose = () => { 
         wsStatus.value = 'disconnected'; 
-        showStatus('Disconnected from server. Reconnecting...', 'error');
+        showStatus(t('tracker.disconnectedReconnecting'), 'error');
         setTimeout(connectWebSocket, 3000);
     };
 };
@@ -689,7 +689,7 @@ const fetchFullServerConfig = async () => {
       if (config.mqtt && typeof config.mqtt.live_mqtt_status !== 'undefined') {
         liveMqttStatusForServerSettings.value = config.mqtt.live_mqtt_status;
       } else if (config.mqtt && config.mqtt.enabled) {
-        liveMqttStatusForServerSettings.value = 'unknown';
+        liveMqttStatusForServerSettings.value = t('common.unknown');
       }
     }
   } catch (error) {

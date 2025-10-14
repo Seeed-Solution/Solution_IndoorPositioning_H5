@@ -4,7 +4,7 @@
     <!-- 页面内容 -->
     <div class="page-content">
       <!-- 页面标题 -->
-      <h1 class="page-title">Map Dashboard</h1>
+      <h1 class="page-title">{{ $t('mapOverview.title') }}</h1>
 
       <!-- 状态消息 -->
       <div v-if="statusMessage" class="status-message" :class="statusMessage.toLowerCase().includes('error') ? 'error' : statusMessage.toLowerCase().includes('success') ? 'success' : 'info'">
@@ -16,7 +16,7 @@
         <!-- WebSocket 连接状态 -->
         <div class="connection-status">
           <i :class="wsStatusIcon" class="status-icon"></i>
-          <span class="status-label">WebSocket:</span>
+          <span class="status-label">{{ $t('mapOverview.webSocketLabel') }}:</span>
           <span :class="['status-value', wsStatus === 'connected' ? 'connected' : 'disconnected']">
             {{ wsStatusText }}
           </span>
@@ -27,17 +27,17 @@
           <div class="stat-item">
             <i class="fas fa-map stat-icon"></i>
             <span class="stat-number">{{ totalMaps }}</span>
-            <span class="stat-label">Maps</span>
+            <span class="stat-label">{{ $t('mapOverview.maps') }}</span>
           </div>
           <div class="stat-item">
             <i class="fas fa-broadcast-tower stat-icon"></i>
             <span class="stat-number">{{ totalBeacons }}</span>
-            <span class="stat-label">Beacons</span>
+            <span class="stat-label">{{ $t('mapOverview.beacons') }}</span>
           </div>
           <div class="stat-item">
             <i class="fas fa-map-marker-alt stat-icon"></i>
             <span class="stat-number">{{ totalTrackers }}</span>
-            <span class="stat-label">Trackers</span>
+            <span class="stat-label">{{ $t('mapOverview.trackers') }}</span>
           </div>
         </div>
       </div>
@@ -47,11 +47,11 @@
         <div class="section-header">
           <div class="section-title">
             <i class="fas fa-map section-icon"></i>
-            <span>Map Overview</span>
+            <span>{{ $t('mapOverview.mapOverviewTitle') }}</span>
           </div>
           <button class="fullscreen-btn" @click="toggleFullscreen">
             <i class="fas fa-expand"></i>
-            Fullscreen
+            {{ $t('mapOverview.fullscreen') }}
           </button>
         </div>
 
@@ -64,7 +64,7 @@
               <div class="map-viewer-header">
                 <div class="map-viewer-title">
                   <i class="fas fa-eye map-viewer-icon"></i>
-                  <span class="map-viewer-label">Map Viewer</span>
+                  <span class="map-viewer-label">{{ $t('mapOverview.mapViewer') }}</span>
                 </div>
                 <div class="map-dropdown">
                   <select v-model="selectedMapIndex" class="map-select" @change="onMapChange">
@@ -87,7 +87,7 @@
               </div>
               <div v-else class="no-map-selected">
                 <i class="fas fa-map-marked-alt no-map-icon"></i>
-                <p>Please select a map to view</p>
+                <p>{{ $t('mapOverview.selectMapToView') }}</p>
               </div>
             </div>
           </div>
@@ -100,7 +100,7 @@
     <div v-if="isFullscreen" class="fullscreen-overlay">
       <div class="fullscreen-container">
         <!-- 右上角关闭按钮 -->
-        <button @click="exitFullscreen" class="btn-close-floating" title="退出全屏">
+        <button @click="exitFullscreen" class="btn-close-floating" :title="$t('mapOverview.exitFullscreen')">
           <i class="fas fa-times"></i>
         </button>
 
@@ -110,7 +110,7 @@
           <div class="fullscreen-map-list">
             <div class="map-list-header">
               <i class="fas fa-map map-list-icon"></i>
-              <span class="map-list-title">Map</span>
+              <span class="map-list-title">{{ $t('mapOverview.map') }}</span>
             </div>
             <div class="map-list-items">
               <div 
@@ -123,8 +123,8 @@
                 <div class="map-item-header">
                   <span class="map-item-name">{{ map.map?.name || `Map ${index + 1}` }}</span>
                   <div class="map-item-stats">
-                    <span class="beacon-count">{{ map.beacons?.length || 0 }} Beacons</span>
-                    <span class="tracker-count">{{ Object.keys(getTrackersForMap(map)).length }} Online Trackers</span>
+                    <span class="beacon-count">{{ map.beacons?.length || 0 }} {{ $t('mapOverview.beacons') }}</span>
+                    <span class="tracker-count">{{ Object.keys(getTrackersForMap(map)).length }} {{ $t('mapOverview.onlineTrackers') }}</span>
                   </div>
                 </div>
               </div>
@@ -134,7 +134,7 @@
           <!-- 中间地图显示 -->
           <div class="fullscreen-map-area">
             <div class="fullscreen-map-header">
-              <h2 class="current-map-title">{{ selectedMap?.map?.name || 'No Map Selected' }}</h2>
+              <h2 class="current-map-title">{{ selectedMap?.map?.name || $t('mapOverview.noMapSelected') }}</h2>
               <div class="map-header-stats">
                 <span class="header-stat">
                   <i class="fas fa-broadcast-tower"></i>
@@ -155,7 +155,7 @@
               />
               <div v-else class="no-map-placeholder">
                 <i class="fas fa-map-marked-alt"></i>
-                <p>请选择一个地图查看</p>
+                <p>{{ $t('mapOverview.selectMapToView') }}</p>
               </div>
             </div>
           </div>
@@ -169,6 +169,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { 
   loadDashboardConfiguration,
   loadTrackers
@@ -178,6 +179,7 @@ import { buildWsUrl } from '@/config/api.js'
 import MapPreview from '@/components/MapPreview.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 
 // Config storage key
 const CONFIG_STORAGE_KEY = 'mapDashboardConfig'
@@ -215,11 +217,11 @@ const filteredTrackers = computed(() => {
 
 const wsStatusText = computed(() => {
   switch (wsStatus.value) {
-    case 'connected': return 'Connected'
-    case 'connecting': return 'Connecting...'
-    case 'disconnected': return 'Disconnected'
-    case 'error': return 'Connection Error'
-    default: return 'Unknown'
+    case 'connected': return t('mapOverview.connectionStatus.connected')
+    case 'connecting': return t('mapOverview.connectionStatus.connecting')
+    case 'disconnected': return t('mapOverview.connectionStatus.disconnected')
+    case 'error': return t('mapOverview.connectionStatus.error')
+    default: return t('mapOverview.connectionStatus.unknown')
   }
 })
 
@@ -241,7 +243,7 @@ const showStatus = (msg, type = 'info') => {
 
 const initializeMasterConfig = async () => {
   isLoading.value = true
-  showStatus('Loading master configuration...', 'info')
+  showStatus(t('mapOverview.status.loadingMasterConfig'), 'info')
   
   try {
     const config = await loadDashboardConfiguration()
@@ -254,15 +256,15 @@ const initializeMasterConfig = async () => {
       totalBeacons.value = config.maps.reduce((total, mapConfig) => 
         total + (mapConfig.beacons?.length || 0), 0)
       
-      showStatus('Master configuration loaded from server.', 'success')
+      showStatus(t('mapOverview.status.masterConfigLoadedFromServer'), 'success')
       console.log('[MapOverview] Loaded maps:', config.maps)
     } else {
-      showStatus('No master configuration found on server. Checking local storage...', 'info')
+      showStatus(t('mapOverview.status.noMasterConfigOnServer'), 'info')
       loadMasterConfigFromStorage()
     }
   } catch (error) {
     console.error('[MapOverview] Error loading master configuration from server:', error)
-    showStatus(`Failed to load master config from server: ${error.message || 'Unknown error'}. Trying local storage.`, 'error')
+    showStatus(t('mapOverview.status.masterConfigLoadFailed', { error: error.message || t('common.unknownError') }), 'error')
     loadMasterConfigFromStorage()
   } finally {
     isLoading.value = false
@@ -280,13 +282,13 @@ const loadMasterConfigFromStorage = () => {
     totalBeacons.value = loaded.maps.reduce((total, mapConfig) => 
       total + (mapConfig.beacons?.length || 0), 0)
     
-    showStatus('Master configuration loaded from local storage.')
+    showStatus(t('mapOverview.status.masterConfigLoadedFromStorage'))
     console.log('[MapOverview] Loaded maps from storage:', loaded.maps)
   } else {
     availableMaps.value = []
     totalMaps.value = 0
     totalBeacons.value = 0
-    showStatus('No configuration found.', 'warn')
+    showStatus(t('mapOverview.status.noConfigFound'), 'warn')
   }
 }
 

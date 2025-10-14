@@ -1,13 +1,13 @@
 <template>
   <div class="alarm-settings-section card">
     <div class="card-header">
-      <h2><i class="fas fa-bell"></i> Alarm Settings</h2>
+      <h2><i class="fas fa-bell"></i> {{ $t('alarmSettings.title') }}</h2>
       <div class="header-actions">
         <button 
           @click="openCreateAlarmModal"
           class="create-alarm-btn"
         >
-          <i class="fas fa-plus"></i> Create Alarm
+          <i class="fas fa-plus"></i> {{ $t('alarmSettings.createAlarm') }}
         </button>
       </div>
     </div>
@@ -15,7 +15,7 @@
       <!-- 加载状态 -->
       <div v-if="isLoadingAlarms" class="loading-state">
         <i class="fas fa-spinner fa-spin"></i>
-        <p>Loading alarms...</p>
+        <p>{{ $t('alarmSettings.loading') }}</p>
       </div>
       
       <!-- 加载错误 -->
@@ -23,24 +23,24 @@
         <i class="fas fa-exclamation-triangle"></i>
         <p>{{ alarmLoadError }}</p>
         <button @click="loadAlarmList" class="retry-btn">
-          <i class="fas fa-redo"></i> Retry
+          <i class="fas fa-redo"></i> {{ $t('alarmSettings.retry') }}
         </button>
       </div>
       
       <!-- 空告警列表 -->
       <div v-else-if="alarmList.length === 0" class="empty-alarm-list">
         <i class="fas fa-bell-slash empty-icon"></i>
-        <p>No alarms configured</p>
-        <p class="hint">Click "Create Alarm" to add your first alarm</p>
+        <p>{{ $t('alarmSettings.noAlarms') }}</p>
+        <p class="hint">{{ $t('alarmSettings.noAlarmsHint') }}</p>
       </div>
       <div v-else class="alarm-table-container">
         <table class="alarm-table">
           <thead>
             <tr>
-              <th>Alarm Name</th>
-              <th>Alarm Type</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>{{ $t('alarmSettings.table.alarmName') }}</th>
+              <th>{{ $t('alarmSettings.table.alarmType') }}</th>
+              <th>{{ $t('alarmSettings.table.status') }}</th>
+              <th>{{ $t('alarmSettings.table.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -63,7 +63,7 @@
                     <span class="status-slider"></span>
                   </label>
                   <span class="status-text" :class="{ enabled: alarm.enabled, disabled: !alarm.enabled }">
-                    {{ alarm.enabled ? 'Enabled' : 'Disabled' }}
+                    {{ alarm.enabled ? $t('alarmSettings.enabled') : $t('alarmSettings.disabled') }}
                   </span>
                 </div>
               </td>
@@ -72,14 +72,14 @@
                   <button 
                     @click="editAlarm(alarm)"
                     class="action-btn edit-btn"
-                    :title="'Edit'"
+                    :title="$t('alarmSettings.edit')"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
                   <button 
                     @click="deleteAlarm(alarm.id, index)"
                     class="action-btn delete-btn"
-                    :title="'Delete'"
+                    :title="$t('alarmSettings.delete')"
                   >
                     <i class="fas fa-trash"></i>
                   </button>
@@ -92,7 +92,7 @@
         <!-- 分页和统计 -->
         <div class="alarm-table-footer">
           <div class="alarm-stats">
-            Total {{ totalAlarms }} alarms
+            {{ $t('alarmSettings.pagination.total') }} {{ totalAlarms }} {{ $t('alarmSettings.pagination.alarms') }}
           </div>
           <div class="alarm-pagination" v-if="totalPages > 1">
             <button 
@@ -123,7 +123,7 @@
         <div class="modal-header">
           <h3>
             <i class="fas fa-bell"></i>
-            {{ isEditingAlarm ? 'Edit Alarm' : 'Create Alarm' }}
+            {{ isEditingAlarm ? $t('alarmSettings.editAlarm') : $t('alarmSettings.createAlarm') }}
           </h3>
           <button @click="closeAlarmModal" class="close-btn">
             <i class="fas fa-times"></i>
@@ -132,21 +132,21 @@
         <div class="modal-body">
           <form @submit.prevent="saveAlarm">
             <div class="form-group">
-              <label for="alarmName">Alarm Name <span class="required">*</span></label>
+              <label for="alarmName">{{ $t('alarmSettings.form.alarmName') }} <span class="required">{{ $t('alarmSettings.form.required') }}</span></label>
               <input 
                 type="text" 
                 id="alarmName"
                 v-model="alarmForm.name" 
                 class="form-input"
                 :class="{ 'error': alarmErrors.name }"
-                :placeholder="'Enter alarm name'"
+                :placeholder="$t('alarmSettings.form.alarmNamePlaceholder')"
                 required
               />
               <span v-if="alarmErrors.name" class="error-message">{{ alarmErrors.name }}</span>
             </div>
             
             <div class="form-group">
-              <label for="alarmType">Alarm Type <span class="required">*</span></label>
+              <label for="alarmType">{{ $t('alarmSettings.form.alarmType') }} <span class="required">{{ $t('alarmSettings.form.required') }}</span></label>
               <select 
                 id="alarmType"
                 v-model="alarmForm.type" 
@@ -154,17 +154,17 @@
                 :class="{ 'error': alarmErrors.type }"
                 required
               >
-                <option value="" disabled>Select alarm type</option>
-                <option value="sos">SOS Alarm</option>
-                <option value="offline">Offline Alarm</option>
-                <option value="checkin">Check-in Event</option>
-                <option value="position">Position Detection</option>
+                <option value="" disabled>{{ $t('alarmSettings.form.selectAlarmType') }}</option>
+                <option value="sos">{{ $t('alarmSettings.types.sos') }}</option>
+                <option value="offline">{{ $t('alarmSettings.types.offline') }}</option>
+                <option value="checkin">{{ $t('alarmSettings.types.checkin') }}</option>
+                <option value="position">{{ $t('alarmSettings.types.position') }}</option>
               </select>
               <span v-if="alarmErrors.type" class="error-message">{{ alarmErrors.type }}</span>
             </div>
             
             <div class="form-group">
-              <label for="deviceScope">Device Scope <span class="required">*</span></label>
+              <label for="deviceScope">{{ $t('alarmSettings.form.deviceScope') }} <span class="required">{{ $t('alarmSettings.form.required') }}</span></label>
               <div class="device-scope-dropdown" ref="deviceScopeDropdown">
                 <div class="dropdown-trigger" @click="toggleDeviceDropdown">
                   <span class="selected-text">{{ getSelectedDevicesText() }}</span>
@@ -174,7 +174,7 @@
                   <!-- 加载状态 -->
                   <div v-if="isLoadingDevices" class="loading-devices">
                     <i class="fas fa-spinner fa-spin"></i>
-                    <span>Loading devices...</span>
+                    <span>{{ $t('alarmSettings.deviceScope.loadingDevices') }}</span>
                   </div>
                   
                   <!-- 加载错误 -->
@@ -182,7 +182,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                     <span>{{ deviceLoadError }}</span>
                     <button @click="reloadDevices" class="retry-btn">
-                      <i class="fas fa-redo"></i> Retry
+                      <i class="fas fa-redo"></i> {{ $t('alarmSettings.retry') }}
                     </button>
                   </div>
                   
@@ -197,7 +197,7 @@
                           @change="selectAllDevices"
                         />
                         <span class="checkmark"></span>
-                        All Devices
+                        {{ $t('alarmSettings.deviceScope.allDevices') }}
                       </label>
                     </div>
                     <div v-if="allDevicesExpanded" class="group-content">
@@ -233,7 +233,7 @@
                   <!-- 无设备数据 -->
                   <div v-else class="no-devices">
                     <i class="fas fa-exclamation-circle"></i>
-                    <span>No devices available</span>
+                    <span>{{ $t('alarmSettings.deviceScope.noDevices') }}</span>
                   </div>
                 </div>
               </div>
@@ -242,7 +242,7 @@
             
             <!-- Bluetooth Beacons 选择 (仅在 checkin 和 position 类型时显示) -->
             <div v-if="alarmForm.type === 'checkin' || alarmForm.type === 'position'" class="form-group">
-              <label for="beaconScope">Bluetooth Beacons <span class="required">*</span></label>
+              <label for="beaconScope">{{ $t('alarmSettings.form.bluetoothBeacons') }} <span class="required">{{ $t('alarmSettings.form.required') }}</span></label>
               <div class="beacon-scope-dropdown" ref="beaconScopeDropdown">
                 <div class="dropdown-trigger" @click="toggleBeaconDropdown">
                   <span class="selected-text">{{ getSelectedBeaconsText() }}</span>
@@ -252,7 +252,7 @@
                   <!-- 加载状态 -->
                   <div v-if="isLoadingBeacons" class="loading-beacons">
                     <i class="fas fa-spinner fa-spin"></i>
-                    <span>Loading beacons...</span>
+                    <span>{{ $t('alarmSettings.beaconScope.loadingBeacons') }}</span>
                   </div>
                   
                   <!-- 加载错误 -->
@@ -260,7 +260,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                     <span>{{ beaconLoadError }}</span>
                     <button @click="reloadBeacons" class="retry-btn">
-                      <i class="fas fa-redo"></i> Retry
+                      <i class="fas fa-redo"></i> {{ $t('alarmSettings.retry') }}
                     </button>
                   </div>
                   
@@ -300,7 +300,7 @@
                   <!-- 无 beacon 数据 -->
                   <div v-else class="no-beacons">
                     <i class="fas fa-exclamation-circle"></i>
-                    <span>No beacons available</span>
+                    <span>{{ $t('alarmSettings.beaconScope.noBeacons') }}</span>
                   </div>
                 </div>
               </div>
@@ -309,7 +309,7 @@
             
             <!-- Check-in Event 额外配置项 -->
             <div v-if="alarmForm.type === 'checkin'" class="form-group">
-              <label>Check-in Rule</label>
+              <label>{{ $t('alarmSettings.form.checkinRule') }}</label>
               <div class="checkin-rule-options">
                 <!-- 暂时屏蔽，后期根据需要启用 -->
                 <!-- 
@@ -351,8 +351,8 @@
                   />
                   <span class="radio-mark"></span>
                   <div class="checkin-content">
-                    <div class="checkin-title">Check-in at any beacon</div>
-                    <div class="checkin-description">Trigger when device checks in at any of the configured beacons</div>
+                    <div class="checkin-title">{{ $t('alarmSettings.checkinOptions.anyBeacon') }}</div>
+                    <div class="checkin-description">{{ $t('alarmSettings.checkinOptions.anyBeaconDesc') }}</div>
                   </div>
                 </label>
               </div>
@@ -360,7 +360,7 @@
 
             <!-- Check-in Range Configuration -->
             <div v-if="alarmForm.type === 'checkin'" class="form-group">
-              <label for="checkinRange">Check-in Range</label>
+              <label for="checkinRange">{{ $t('alarmSettings.form.checkinRange') }}</label>
               <div class="range-input-group">
                 <input 
                   type="number" 
@@ -373,17 +373,17 @@
                   max="100"
                   step="0.1"
                 />
-                <span class="range-unit">m</span>
+                <span class="range-unit">{{ $t('alarmSettings.units.meters') }}</span>
               </div>
               <div class="range-help-text">
-                Device must be within this distance from beacon to trigger check-in (0.5-50 meters)
+                {{ $t('alarmSettings.helpText.checkinRange') }}
               </div>
               <span v-if="alarmErrors.checkinRange" class="error-message">{{ alarmErrors.checkinRange }}</span>
             </div>
             
             <!-- Position Detection 额外配置项 -->
             <div v-if="alarmForm.type === 'position'" class="form-group">
-              <label>Trigger Duration</label>
+              <label>{{ $t('alarmSettings.form.triggerDuration') }}</label>
               <div class="trigger-duration-options">
                 <label class="trigger-option">
                   <input 
@@ -394,8 +394,8 @@
                   />
                   <span class="radio-mark"></span>
                   <div class="trigger-content">
-                    <div class="trigger-title">Immediate trigger</div>
-                    <div class="trigger-description">Trigger alarm immediately when device leaves beacon range</div>
+                    <div class="trigger-title">{{ $t('alarmSettings.triggerOptions.immediate') }}</div>
+                    <div class="trigger-description">{{ $t('alarmSettings.triggerOptions.immediateDesc') }}</div>
                   </div>
                 </label>
                 
@@ -408,8 +408,8 @@
                   />
                   <span class="radio-mark"></span>
                   <div class="trigger-content">
-                    <div class="trigger-title">Duration-based trigger</div>
-                    <div class="trigger-description">Trigger alarm when device stays away from beacon for specified duration</div>
+                    <div class="trigger-title">{{ $t('alarmSettings.triggerOptions.duration') }}</div>
+                    <div class="trigger-description">{{ $t('alarmSettings.triggerOptions.durationDesc') }}</div>
                   </div>
                 </label>
               </div>
@@ -417,7 +417,7 @@
 
             <!-- Duration Configuration (只在选择了 duration-based trigger 时显示) -->
             <div v-if="alarmForm.type === 'position' && alarmForm.triggerType === 'duration'" class="form-group">
-              <label for="durationConfig">Duration Configuration</label>
+              <label for="durationConfig">{{ $t('alarmSettings.form.durationConfig') }}</label>
               <div class="duration-input-group">
                 <input 
                   type="number" 
@@ -429,16 +429,16 @@
                   min="1"
                   max="1440"
                 />
-                <span class="duration-unit">Minutes</span>
+                <span class="duration-unit">{{ $t('alarmSettings.units.minutes') }}</span>
               </div>
               <div class="duration-help-text">
-                How long must stay away from beacon for this duration before triggering alarm
+                {{ $t('alarmSettings.helpText.durationConfig') }}
               </div>
               <span v-if="alarmErrors.triggerDuration" class="error-message">{{ alarmErrors.triggerDuration }}</span>
             </div>
             
             <div class="form-group">
-              <label>Enable Alarm</label>
+              <label>{{ $t('alarmSettings.form.enableAlarm') }}</label>
               <div class="alarm-status">
                 <label class="status-toggle">
                   <input 
@@ -449,7 +449,7 @@
                   <span class="status-slider"></span>
                 </label>
                 <span class="status-text" :class="{ enabled: alarmForm.enabled, disabled: !alarmForm.enabled }">
-                  {{ alarmForm.enabled ? 'Enabled' : 'Disabled' }}
+                  {{ alarmForm.enabled ? $t('alarmSettings.enabled') : $t('alarmSettings.disabled') }}
                 </span>
               </div>
             </div>
@@ -466,14 +466,14 @@
             :disabled="alarmSaving"
           >
             <i class="fas fa-save"></i> 
-            {{ alarmSaving ? 'Saving...' : 'Save' }}
+            {{ alarmSaving ? $t('alarmSettings.saving') : $t('alarmSettings.save') }}
           </button>
           <button 
             @click="closeAlarmModal"
             class="cancel-btn"
             :disabled="alarmSaving"
           >
-            <i class="fas fa-times"></i> Cancel
+            <i class="fas fa-times"></i> {{ $t('alarmSettings.cancel') }}
           </button>
         </div>
       </div>
@@ -485,16 +485,16 @@
         <div class="modal-header">
           <h3>
             <i class="fas fa-exclamation-triangle"></i>
-            Confirm Deletion
+            {{ $t('alarmSettings.deleteConfirm.title') }}
           </h3>
         </div>
         <div class="modal-body">
           <p class="delete-message">
-            Are you sure you want to delete the alarm 
+            {{ $t('alarmSettings.deleteConfirm.message') }} 
             <strong>"{{ deleteTargetAlarm?.name }}"</strong>?
           </p>
           <p class="delete-warning">
-            This action cannot be undone.
+            {{ $t('alarmSettings.deleteConfirm.warning') }}
           </p>
         </div>
         <div class="modal-footer">
@@ -503,13 +503,13 @@
             class="delete-confirm-btn"
           >
             <i class="fas fa-trash"></i> 
-            Delete
+            {{ $t('alarmSettings.deleteConfirm.confirm') }}
           </button>
           <button 
             @click="cancelDelete"
             class="delete-cancel-btn"
           >
-            <i class="fas fa-times"></i> Cancel
+            <i class="fas fa-times"></i> {{ $t('alarmSettings.deleteConfirm.cancel') }}
           </button>
         </div>
       </div>
@@ -521,7 +521,7 @@
         <div class="modal-header">
           <h3>
             <i class="fas fa-exclamation-circle"></i>
-            操作失败
+            {{ $t('alarmSettings.errorModal.title') }}
           </h3>
         </div>
         <div class="modal-body">
@@ -533,7 +533,7 @@
             class="error-confirm-btn"
           >
             <i class="fas fa-check"></i> 
-            确定
+            {{ $t('alarmSettings.errorModal.confirm') }}
           </button>
         </div>
       </div>
@@ -543,8 +543,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { fetchApi } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
+
+const { t: $t } = useI18n();
 
 // Props
 const props = defineProps({
@@ -788,8 +791,8 @@ const loadAlarmList = async (page = null) => {
     
   } catch (error) {
     console.error('Failed to load alarm list:', error);
-    alarmLoadError.value = `Failed to load alarms: ${error.message}`;
-    emit('update-status', `Failed to load alarms: ${error.message}`);
+    alarmLoadError.value = `${$t('alarmSettings.messages.loadFailed')}: ${error.message}`;
+    emit('update-status', `${$t('alarmSettings.messages.loadFailed')}: ${error.message}`);
     // 发生错误时重置分页信息
     totalAlarms.value = 0;
     totalPagesFromAPI.value = 0;
@@ -812,12 +815,12 @@ const getAlarmTypeClass = (type) => {
 
 const getAlarmTypeLabel = (type) => {
   const labelMap = {
-    'sos': 'SOS Alarm',
-    'offline': 'Offline Alarm',
-    'checkin': 'Check-in Event',
-    'position': 'Position Detection'
+    'sos': 'alarmSettings.types.sos',
+    'offline': 'alarmSettings.types.offline',
+    'checkin': 'alarmSettings.types.checkin',
+    'position': 'alarmSettings.types.position'
   };
-  return labelMap[type] || type;
+  return labelMap[type] ? $t(labelMap[type]) : type;
 };
 
 // Device Scope 相关方法
@@ -872,11 +875,11 @@ const getSelectedDevicesText = () => {
   const totalCount = allDeviceIds.value.length;
   
   if (selectedCount === 0) {
-    return 'Select devices...';
+    return $t('alarmSettings.deviceScope.selectDevices');
   } else if (selectedCount === totalCount) {
-    return 'All Devices';
+    return $t('alarmSettings.deviceScope.allDevices');
   } else {
-    return `${selectedCount} device(s) selected`;
+    return `${selectedCount} ${$t('alarmSettings.deviceScope.deviceSelected')}`;
   }
 };
 
@@ -954,8 +957,8 @@ const loadDevicesAndGroups = async () => {
     
   } catch (error) {
     console.error('Failed to load devices and groups:', error);
-    deviceLoadError.value = `Failed to load devices: ${error.message}`;
-    emit('update-status', `Failed to load devices: ${error.message}`);
+    deviceLoadError.value = `${$t('alarmSettings.messages.loadFailed')}: ${error.message}`;
+    emit('update-status', `${$t('alarmSettings.messages.loadFailed')}: ${error.message}`);
   } finally {
     isLoadingDevices.value = false;
   }
@@ -989,8 +992,8 @@ const loadBeacons = async () => {
     
   } catch (error) {
     console.error('Failed to load beacons:', error);
-    beaconLoadError.value = `Failed to load beacons: ${error.message}`;
-    emit('update-status', `Failed to load beacons: ${error.message}`);
+    beaconLoadError.value = `${$t('alarmSettings.messages.loadFailed')}: ${error.message}`;
+    emit('update-status', `${$t('alarmSettings.messages.loadFailed')}: ${error.message}`);
   } finally {
     isLoadingBeacons.value = false;
   }
@@ -1089,11 +1092,11 @@ const getSelectedBeaconsText = () => {
   const selectedCount = alarmForm.value.selectedBeacons.length;
   
   if (selectedCount === 0) {
-    return 'Select beacons...';
+    return $t('alarmSettings.beaconScope.selectBeacons');
   } else if (selectedCount === 1) {
-    return '1 beacon selected';
+    return `1 ${$t('alarmSettings.beaconScope.beaconSelected')}`;
   } else {
-    return `${selectedCount} beacons selected`;
+    return `${selectedCount} ${$t('alarmSettings.beaconScope.beaconsSelected')}`;
   }
 };
 
@@ -1221,10 +1224,10 @@ const validateAlarmForm = () => {
 
   // 验证名称
   if (!alarmForm.value.name || !alarmForm.value.name.trim()) {
-    alarmErrors.value.name = 'Alarm name is required';
+    alarmErrors.value.name = $t('alarmSettings.validation.nameRequired');
     isValid = false;
   } else if (alarmForm.value.name.trim().length > 50) {
-    alarmErrors.value.name = 'Alarm name is too long';
+    alarmErrors.value.name = $t('alarmSettings.validation.nameTooLong');
     isValid = false;
   } else {
     // 检查名称是否重复（编辑时排除自己）
@@ -1233,27 +1236,27 @@ const validateAlarmForm = () => {
       alarm.id !== editingAlarmId.value
     );
     if (isDuplicate) {
-      alarmErrors.value.name = 'Alarm name already exists';
+      alarmErrors.value.name = $t('alarmSettings.validation.nameExists');
       isValid = false;
     }
   }
 
   // 验证类型
   if (!alarmForm.value.type) {
-    alarmErrors.value.type = 'Alarm type is required';
+    alarmErrors.value.type = $t('alarmSettings.validation.typeRequired');
     isValid = false;
   }
 
   // 验证设备范围
   if (!alarmForm.value.selectedDevices || alarmForm.value.selectedDevices.length === 0) {
-    alarmErrors.value.deviceScope = 'At least one device must be selected';
+    alarmErrors.value.deviceScope = $t('alarmSettings.validation.deviceRequired');
     isValid = false;
   }
 
   // 验证 beacon 范围 (仅对 checkin 和 position 类型)
   if (alarmForm.value.type === 'checkin' || alarmForm.value.type === 'position') {
     if (!alarmForm.value.selectedBeacons || alarmForm.value.selectedBeacons.length === 0) {
-      alarmErrors.value.beaconScope = 'At least one beacon must be selected for this alarm type';
+      alarmErrors.value.beaconScope = $t('alarmSettings.validation.beaconRequired');
       isValid = false;
     }
   }
@@ -1261,10 +1264,10 @@ const validateAlarmForm = () => {
   // 验证签到范围 (仅对 checkin 类型)
   if (alarmForm.value.type === 'checkin') {
     if (!alarmForm.value.checkinRange || alarmForm.value.checkinRange < 0.5) {
-      alarmErrors.value.checkinRange = 'Check-in range must be at least 0.5 meters';
+      alarmErrors.value.checkinRange = $t('alarmSettings.validation.rangeMin');
       isValid = false;
     } else if (alarmForm.value.checkinRange > 100) {
-      alarmErrors.value.checkinRange = 'Check-in range cannot exceed 100 meters';
+      alarmErrors.value.checkinRange = $t('alarmSettings.validation.rangeMax');
       isValid = false;
     }
   }
@@ -1272,10 +1275,10 @@ const validateAlarmForm = () => {
   // 验证触发持续时间 (仅对 position 类型且选择了 duration 模式)
   if (alarmForm.value.type === 'position' && alarmForm.value.triggerType === 'duration') {
     if (!alarmForm.value.triggerDuration || alarmForm.value.triggerDuration < 1) {
-      alarmErrors.value.triggerDuration = 'Duration must be at least 1 minute';
+      alarmErrors.value.triggerDuration = $t('alarmSettings.validation.durationMin');
       isValid = false;
     } else if (alarmForm.value.triggerDuration > 1440) {
-      alarmErrors.value.triggerDuration = 'Duration cannot exceed 1440 minutes (24 hours)';
+      alarmErrors.value.triggerDuration = $t('alarmSettings.validation.durationMax');
       isValid = false;
     }
   }
@@ -1309,7 +1312,7 @@ const saveAlarm = async () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      emit('update-status', 'Alarm updated successfully');
+      emit('update-status', $t('alarmSettings.messages.alarmUpdated'));
     } else {
       // 创建新报警 - POST /api/events
       const response = await fetchApi(API_ENDPOINTS.EVENTS, {
@@ -1325,10 +1328,10 @@ const saveAlarm = async () => {
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
-      emit('update-status', 'Alarm created successfully');
+      emit('update-status', $t('alarmSettings.messages.alarmCreated'));
     }
 
-    emit('update-status', isEditingAlarm.value ? 'Alarm updated successfully' : 'Alarm created successfully');
+    emit('update-status', isEditingAlarm.value ? $t('alarmSettings.messages.alarmUpdated') : $t('alarmSettings.messages.alarmCreated'));
 
   } catch (error) {
     console.error('保存报警失败:', error);
@@ -1373,7 +1376,7 @@ const toggleAlarmStatus = async (alarm) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const message = alarm.enabled ? 'Alarm enabled' : 'Alarm disabled';
+    const message = alarm.enabled ? $t('alarmSettings.messages.alarmEnabled') : $t('alarmSettings.messages.alarmDisabled');
     emit('update-status', message);
     
   } catch (error) {
@@ -1387,7 +1390,7 @@ const toggleAlarmStatus = async (alarm) => {
     
     // 显示错误弹窗
     showError(error, statusCode);
-    emit('update-status', `Failed to toggle alarm status`);
+    emit('update-status', $t('alarmSettings.messages.toggleFailed'));
   } finally {
     // 无论成功还是失败都重新加载列表数据
     await loadAlarmList();
@@ -1423,7 +1426,7 @@ const confirmDelete = async () => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    emit('update-status', 'Alarm deleted successfully');
+    emit('update-status', $t('alarmSettings.messages.alarmDeleted'));
     
   } catch (error) {
     console.error('删除报警失败:', error);
@@ -1434,7 +1437,7 @@ const confirmDelete = async () => {
     
     // 显示错误弹窗
     showError(error, statusCode);
-    emit('update-status', `Failed to delete alarm`);
+    emit('update-status', $t('alarmSettings.messages.deleteFailed'));
   } finally {
     // 关闭确认弹窗
     showDeleteConfirm.value = false;
@@ -1456,22 +1459,22 @@ const deleteAlarm = showDeleteConfirmModal;
 
 // 错误处理方法
 const showError = (error, statusCode = null) => {
-  let message = '请联系管理员或者稍后重试';
+  let message = $t('alarmSettings.messages.contactAdmin');
   
   // 根据状态码显示特定错误信息
   if (statusCode) {
     switch (statusCode) {
       case 403:
-        message = '没有权限执行此操作';
+        message = $t('alarmSettings.messages.noPermission');
         break;
       case 404:
-        message = '对应资源不存在';
+        message = $t('alarmSettings.messages.resourceNotFound');
         break;
       case 409:
-        message = '名称重复，请使用其他名称';
+        message = $t('alarmSettings.messages.duplicateName');
         break;
       default:
-        message = '请联系管理员或者稍后重试';
+        message = $t('alarmSettings.messages.contactAdmin');
     }
   }
   

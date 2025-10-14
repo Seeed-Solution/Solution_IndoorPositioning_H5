@@ -53,7 +53,7 @@
         :class="{ active: activeMainTab === 'alarm' }"
         class="config-tab-button"
       >
-        <i class="fas fa-bell"></i> Alarm Settings
+        <i class="fas fa-bell"></i> {{ $t('alarmSettings.title') }}
       </button>
     </div>
 
@@ -951,7 +951,7 @@
           <h3>{{ t('server.password.changed') }}</h3>
           <p>{{ t('server.password.successMessage') }}</p>
           <button @click="closePasswordSuccessModal" class="btn-primary success-btn">
-            <i class="fas fa-check"></i> {{ t('common.confirm') || '确定' }}
+            <i class="fas fa-check"></i> {{ $t('common.confirm') }}
           </button>
         </div>
       </div>
@@ -962,14 +962,14 @@
   <div v-if="showCredentialsModal" class="modal-overlay" @click="closeCredentialsModal">
     <div class="credentials-modal" @click.stop>
       <div class="modal-header">
-        <h3>Set {{ currentServiceType }} Credentials</h3>
+        <h3>{{ $t('server.credentials.setTitle', { service: getServiceTypeName(currentServiceType) }) }}</h3>
         <button @click="closeCredentialsModal" class="close-btn">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label>Username:</label>
+          <label>{{ $t('server.credentials.username') }}:</label>
           <input 
             type="text" 
             v-model="credentialsForm.username" 
@@ -978,7 +978,7 @@
           />
         </div>
         <div class="form-group">
-          <label>Password:</label>
+          <label>{{ $t('server.credentials.password') }}:</label>
           <input 
             type="password" 
             v-model="credentialsForm.password" 
@@ -993,10 +993,10 @@
       <div class="modal-footer">
         <button @click="saveCredentials" class="save-btn" :disabled="credentialsSaving">
           <i class="fas fa-save"></i> 
-          {{ credentialsSaving ? 'Saving...' : 'Save Credentials' }}
+          {{ credentialsSaving ? $t('server.credentials.saving') : $t('server.credentials.save') }}
         </button>
         <button @click="closeCredentialsModal" class="cancel-btn" :disabled="credentialsSaving">
-          <i class="fas fa-times"></i> Cancel
+          <i class="fas fa-times"></i> {{ $t('common.cancel') }}
         </button>
       </div>
     </div>
@@ -1262,13 +1262,13 @@ const loadDashboardConfigurationData = async () => {
 // 导出仪表板配置
 const exportDashboardConfiguration = async () => {
   try {
-    configStatusMessage.value = '正在导出配置...';
+    configStatusMessage.value = $t('config.actions.exporting');
     
     // 从后端获取最新的配置数据
     const dashboardData = await loadDashboardConfiguration();
     
     if (!dashboardData) {
-      configStatusMessage.value = '没有配置数据可导出';
+      configStatusMessage.value = $t('config.actions.noDataToExport');
       setTimeout(() => { configStatusMessage.value = '' }, 3000);
       return;
     }
@@ -1299,12 +1299,12 @@ const exportDashboardConfiguration = async () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    configStatusMessage.value = `配置已导出为 ${filename}`;
+    configStatusMessage.value = $t('config.actions.exportSuccess', { filename });
     console.log('[ConfigurationSuiteView] Dashboard configuration exported:', filename);
     
   } catch (error) {
     console.error('[ConfigurationSuiteView] Failed to export dashboard configuration:', error);
-    configStatusMessage.value = `导出失败: ${error.message}`;
+    configStatusMessage.value = `${$t('config.actions.exportFailed')}: ${error.message}`;
   } finally {
     setTimeout(() => { configStatusMessage.value = '' }, 5000);
   }
@@ -1391,19 +1391,19 @@ const validateMapConfig = (mapConfig) => {
   
   // 验证地图基本信息
   if (!mapConfig.map) {
-    errors.push('地图对象不能为空');
+    errors.push($t('config.validation.mapObjectRequired'));
   } else {
     if (!mapConfig.map.name || mapConfig.map.name.trim() === '') {
-      errors.push('地图名称不能为空');
+      errors.push($t('config.validation.mapNameRequired'));
     }
     if (typeof mapConfig.map.width !== 'number' || mapConfig.map.width <= 0) {
-      errors.push('地图宽度必须是大于0的数字');
+      errors.push($t('config.validation.mapWidthInvalid'));
     }
     if (typeof mapConfig.map.height !== 'number' || mapConfig.map.height <= 0) {
-      errors.push('地图高度必须是大于0的数字');
+      errors.push($t('config.validation.mapHeightInvalid'));
     }
     if (!Array.isArray(mapConfig.map.entities)) {
-      errors.push('地图实体必须是数组');
+      errors.push($t('config.validation.mapEntitiesInvalid'));
     }
   }
   

@@ -2,21 +2,21 @@
   <div v-if="show" class="modal-overlay" @click="handleBackdropClick">
     <div class="edit-tracker-modal" @click.stop>
       <div class="modal-header">
-        <h3 class="modal-title">Edit Device Information</h3>
-        <button class="btn-close" @click="closeModal" title="Close">
+        <h3 class="modal-title">{{ $t('tracker.editTrackerModal.title') }}</h3>
+        <button class="btn-close" @click="closeModal" :title="$t('tracker.editTrackerModal.close')">
           <i class="fas fa-times"></i>
         </button>
       </div>
       
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label">Device Name</label>
+          <label class="form-label">{{ $t('tracker.editTrackerModal.deviceName') }}</label>
           <input 
             v-model="formData.deviceName"
             type="text" 
             class="form-input"
             :class="{ 'error': errors.deviceName }"
-            placeholder="Enter device name"
+            :placeholder="$t('tracker.editTrackerModal.deviceNamePlaceholder')"
             maxlength="20"
             @input="clearError('deviceName')"
           />
@@ -26,18 +26,18 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Device EUI</label>
+          <label class="form-label">{{ $t('tracker.editTrackerModal.deviceEui') }}</label>
           <input 
             :value="formData.deviceEui"
             type="text" 
             class="form-input readonly"
             readonly
-            placeholder="Device EUI"
+            :placeholder="$t('tracker.editTrackerModal.deviceEuiPlaceholder')"
           />
         </div>
 
         <div class="form-group">
-          <label class="form-label">Device Group</label>
+          <label class="form-label">{{ $t('tracker.editTrackerModal.deviceGroup') }}</label>
           <div class="select-wrapper">
             <select 
               v-model="formData.deviceGroup"
@@ -45,7 +45,7 @@
               :class="{ 'error': errors.deviceGroup }"
               @change="clearError('deviceGroup')"
             >
-              <option value="">Select a group</option>
+              <option value="">{{ $t('tracker.editTrackerModal.selectGroup') }}</option>
               <option v-for="group in availableGroups" :key="group.id" :value="group.id">
                 {{ group.group_name }}
               </option>
@@ -59,7 +59,7 @@
 
         <div class="form-group star-group">
           <div class="star-label-container">
-            <label class="form-label">Star</label>
+            <label class="form-label">{{ $t('tracker.editTrackerModal.star') }}</label>
             <div class="star-toggle-container">
               <input 
                 v-model="formData.starred"
@@ -88,7 +88,7 @@
           @click="closeModal"
           :disabled="isLoading"
         >
-          Cancel
+          {{ $t('tracker.editTrackerModal.cancel') }}
         </button>
         <button 
           class="btn btn-save"
@@ -96,9 +96,9 @@
           :disabled="isLoading || !isFormValid"
         >
           <span v-if="isLoading">
-            <i class="fas fa-spinner fa-spin"></i> Saving...
+            <i class="fas fa-spinner fa-spin"></i> {{ $t('tracker.editTrackerModal.saving') }}
           </span>
-          <span v-else>Save</span>
+          <span v-else>{{ $t('tracker.editTrackerModal.save') }}</span>
         </button>
       </div>
     </div>
@@ -107,6 +107,9 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   show: {
@@ -208,16 +211,16 @@ const validateForm = () => {
 
   // 验证设备名称
   if (!formData.value.deviceName.trim()) {
-    errors.value.deviceName = 'Device name is required'
+    errors.value.deviceName = t('tracker.editTrackerModal.deviceNameRequired')
     isValid = false
   } else if (formData.value.deviceName.trim().length > 20) {
-    errors.value.deviceName = 'Device name cannot exceed 20 characters'
+    errors.value.deviceName = t('tracker.editTrackerModal.deviceNameTooLong')
     isValid = false
   }
 
   // 验证设备分组
   if (formData.value.deviceGroup === '') {
-    errors.value.deviceGroup = 'Please select a device group'
+    errors.value.deviceGroup = t('tracker.editTrackerModal.selectDeviceGroup')
     isValid = false
   }
 
@@ -259,7 +262,7 @@ const saveTracker = async () => {
     
   } catch (error) {
     console.error('[EditTrackerModal] Error saving tracker:', error)
-    generalError.value = error.message || 'Failed to save device information. Please try again.'
+    generalError.value = error.message || t('tracker.editTrackerModal.saveFailed')
   } finally {
     isLoading.value = false
   }

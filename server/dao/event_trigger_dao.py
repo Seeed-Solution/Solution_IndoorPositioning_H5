@@ -37,6 +37,8 @@ class EventTriggerDao(BaseDao[EventTriggerRecord]):
 
     def __init__(self):
         super().__init__(EventTriggerTable, EventTriggerRecord)
+        # 初始化默认数据
+        self._init_default_data()
 
     def create_event_trigger(self, event_name: str, event_type: int, 
                            device_range: List[str] = None, ble_range: List[str] = None,
@@ -284,6 +286,52 @@ class EventTriggerDao(BaseDao[EventTriggerRecord]):
             
             table_objs = query.all()
             return [self._to_model(obj) for obj in table_objs]
+
+    def _is_table_empty(self) -> bool:
+        """检查表是否为空（只考虑未被软删除的数据）"""
+        with self.get_session() as session:
+            count = session.query(self.table_class).count()
+            return count == 0
+
+    def _init_default_data(self):
+        """初始化默认数据，只在表为空时执行"""
+        if self._is_table_empty():
+            import json
+            from datetime import datetime
+            
+            # 创建两条初始数据
+            default_data = [
+                {
+                    "event_name": "SOS Alarm",
+                    "event_type": 1,
+                    "device_range": json.dumps(["all"], ensure_ascii=False),
+                    "ble_range": json.dumps([], ensure_ascii=False),
+                    "time_range": 0,
+                    "ble_rule": 0,
+                    "dis_range": 0.0,
+                    "enable_status": True,
+                    "create_time": datetime.now(),
+                    "delete_time": None
+                },
+                {
+                    "event_name": "Offline Alarm",
+                    "event_type": 2,
+                    "device_range": json.dumps(["all"], ensure_ascii=False),
+                    "ble_range": json.dumps([], ensure_ascii=False),
+                    "time_range": 0,
+                    "ble_rule": 0,
+                    "dis_range": 0.0,
+                    "enable_status": True,
+                    "create_time": datetime.now(),
+                    "delete_time": None
+                }
+            ]
+            
+            # 批量插入初始数据
+            with self.get_session() as session:
+                for data in default_data:
+                    instance = self.table_class(**data)
+                    session.add(instance)
 
 
 # 创建全局实例

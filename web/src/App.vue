@@ -104,6 +104,21 @@ const handleLogout = async () => {
   /* font-weight: 700; */ /* Active link is already 600, ensure it stands out or keep same */
 }
 
+/* 统一的导航右侧控件样式 */
+.nav-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--secondary-color);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
 .logout-button {
   display: flex;
   align-items: center;

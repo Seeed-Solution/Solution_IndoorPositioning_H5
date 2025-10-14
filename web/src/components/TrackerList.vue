@@ -2,7 +2,7 @@
   <div class="tracker-list-card card">
     <div class="card-content">
       <div class="tracker-list-header">
-        <h3 class="tracker-list-title">Tracker Lists</h3>
+        <h3 class="tracker-list-title">{{ $t('tracker.trackerList.title') }}</h3>
         <div class="tracker-filter-controls">
           <div class="group-filter-dropdown">
             <button 
@@ -30,13 +30,13 @@
             </div>
           </div>
           <div class="group-actions-dropdown">
-            <button class="btn-icon" @click="toggleGroupMenu" :title="$t('trackerList.groupManagement')">
+            <button class="btn-icon" @click="toggleGroupMenu" :title="$t('tracker.trackerList.groupManagement')">
               <i class="fas fa-edit"></i>
             </button>
             <div v-if="showGroupMenu" class="group-menu">
               <div class="group-menu-item" @click="createGroup">
                 <i class="fas fa-plus-circle"></i>
-                <span>Create Group</span>
+                <span>{{ $t('tracker.trackerList.createGroup') }}</span>
               </div>
               <div 
                 class="group-menu-item" 
@@ -44,12 +44,12 @@
                 @click="moveGroup"
               >
                 <i class="fas fa-arrows-alt"></i>
-                <span>Move Group</span>
+                <span>{{ $t('tracker.trackerList.moveGroup') }}</span>
                 <span v-if="selectedDevices.size > 0" class="selected-count">({{ selectedDevices.size }})</span>
               </div>
               <div class="group-menu-item" @click="groupManagement">
                 <i class="fas fa-cogs"></i>
-                <span>Group Management</span>
+                <span>{{ $t('tracker.trackerList.groupManagement') }}</span>
               </div>
             </div>
           </div>
@@ -72,11 +72,11 @@
       <div v-if="selectedDevices.size > 0" class="selection-status-bar">
         <div class="selection-info">
           <i class="fas fa-check-square"></i>
-          <span>{{ selectedDevices.size }} device{{ selectedDevices.size !== 1 ? 's' : '' }} selected</span>
+          <span>{{ $t('tracker.trackerList.selectedDevices', getPluralizationParams(selectedDevices.size)) }}</span>
         </div>
-        <button class="btn-clear-selection" @click="clearSelection" title="Clear selection">
+        <button class="btn-clear-selection" @click="clearSelection" :title="$t('tracker.trackerList.clearSelection')">
           <i class="fas fa-times"></i>
-          Clear Selection
+          {{ $t('tracker.trackerList.clearSelection') }}
         </button>
       </div>
 
@@ -92,12 +92,12 @@
                   class="select-checkbox"
                 />
               </th>
-              <th>Device Info</th>
-              <th>Group</th>
-              <th>Status</th>
-              <th>Last Position</th>
-              <th>Signal/Battery</th>
-              <th>Actions</th>
+              <th>{{ $t('tracker.trackerList.deviceInfo') }}</th>
+              <th>{{ $t('tracker.trackerList.group') }}</th>
+              <th>{{ $t('tracker.trackerList.status') }}</th>
+              <th>{{ $t('tracker.trackerList.lastPosition') }}</th>
+              <th>{{ $t('tracker.trackerList.signalBattery') }}</th>
+              <th>{{ $t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -116,7 +116,8 @@
               </td>
               <td class="group-cell">
                 <span :class="['group-badge', getGroupColor(tracker.group)]">
-                  {{ tracker.group || 'Default' }}
+<!--                  {{ tracker.group || $t('tracker.defaultGroup') }}-->
+                  {{ tracker.group || "Default" }}
                 </span>
               </td>
               <td class="status-cell">
@@ -133,15 +134,15 @@
                   <div class="position-coords">
                     <!-- type=calculation 且有坐标时显示地图名和坐标 -->
                     <span v-if="tracker.type === 'calculation' && tracker.x !== null && tracker.y !== null">
-                      {{ tracker.map || 'Unknown' }} ({{ tracker.x.toFixed(1) }}, {{ tracker.y.toFixed(1) }})
+                      {{ tracker.map || $t('common.unknown') }} ({{ tracker.x.toFixed(1) }}, {{ tracker.y.toFixed(1) }})
                     </span>
                     <!-- type=approximate 时显示地图名和距离（从radius获取） -->
                     <span v-else-if="tracker.type === 'approximate' && tracker.radius">
-                      {{ tracker.map || 'Unknown' }} ({{ tracker.radius.toFixed(2) }}m)
+                      {{ tracker.map || $t('common.unknown') }} ({{ tracker.radius.toFixed(2) }}m)
                     </span>
                     <!-- 其他情况显示地图名 -->
                     <span v-else>
-                      {{ tracker.map || 'Unknown' }}
+                      {{ tracker.map || $t('common.unknown') }}
                     </span>
                   </div>
                   <!-- 时间和定位类型 -->
@@ -149,10 +150,10 @@
                     {{ formatLastKnownTime(tracker.last_known_measurement_time) }}
                     <span class="position-type">
                       <span v-if="tracker.type === 'calculation' && tracker.x !== null && tracker.y !== null" class="precise-label">
-                        Precise
+                        {{ $t('tracker.trackerList.precise') }}
                       </span>
                       <span v-else-if="tracker.type === 'approximate'" class="area-label">
-                        Area
+                        {{ $t('tracker.trackerList.area') }}
                       </span>
                     </span>
                   </div>
@@ -160,9 +161,9 @@
               </td>
               <td class="signal-battery">
                 <div class="signal-info">
-                  <span class="signal-strength">Signal: {{ getSignalStrength(tracker) }}</span>
+                  <span class="signal-strength">{{ $t('tracker.trackerList.signal') }}: {{ getSignalStrength(tracker) }}</span>
                   <div class="battery-info">
-                    <span class="battery-text">Battery: {{ getBatteryLevel(tracker) }}</span>
+                    <span class="battery-text">{{ $t('tracker.trackerList.battery') }}: {{ getBatteryLevel(tracker) }}</span>
                   </div>
                 </div>
               </td>
@@ -171,21 +172,21 @@
                   <button 
                     :class="['btn-action', 'btn-star', { starred: tracker.starred }]"
                     @click="toggleStar(tracker)"
-                    :title="tracker.starred ? $t('trackerList.unfavorite') : $t('trackerList.favorite')"
+                    :title="tracker.starred ? $t('tracker.trackerList.unfavorite') : $t('tracker.trackerList.favorite')"
                   >
                     <i :class="[tracker.starred ? 'fas fa-star' : 'far fa-star']"></i>
                   </button>
                   <button 
                     class="btn-action btn-edit"
                     @click="editTracker(tracker)"
-                    :title="$t('trackerList.editDevice')"
+                    :title="$t('tracker.trackerList.editDevice')"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
                   <button 
                     class="btn-action btn-alert"
                     @click="showTrackerAlert(tracker)"
-                    :title="$t('trackerList.alertSettings')"
+                    :title="$t('tracker.trackerList.alertSettings')"
                   >
                     <i class="fas fa-exclamation-triangle"></i>
                   </button>
@@ -197,13 +198,13 @@
 
         <div v-if="filteredTrackers.length === 0" class="no-trackers">
           <i class="fas fa-map-marker-alt fa-2x"></i>
-          <p>暂无设备数据</p>
+          <p>{{ $t('tracker.trackerList.noTrackers') }}</p>
         </div>
       </div>
 
       <div class="tracker-pagination">
         <div class="pagination-info">
-          Total {{ totalTrackers }} device{{ totalTrackers !== 1 ? 's' : '' }}
+          {{ $t('tracker.trackerList.totalDevices', getPluralizationParams(totalTrackers)) }}
         </div>
         <div class="pagination-controls">
           <button 
@@ -232,7 +233,7 @@
               {{ option }}
             </option>
           </select>
-          <span class="per-page-label">/ page</span>
+          <span class="per-page-label">{{ $t('common.perPage') }}</span>
         </div>
       </div>
     </div>
@@ -241,7 +242,7 @@
     <div v-if="showCreateGroupModal" class="modal-overlay" @click="closeCreateGroupModal">
       <div class="create-group-modal" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">Create New Group</h3>
+          <h3 class="modal-title">{{ $t('tracker.trackerList.createNewGroup') }}</h3>
           <button class="btn-close" @click="closeCreateGroupModal">
             <i class="fas fa-times"></i>
           </button>
@@ -250,7 +251,7 @@
         <div class="modal-body">
           <div class="form-group">
             <label class="form-label">
-              <span class="required-star">*</span> Group Name
+              <span class="required-star">*</span> {{ $t('tracker.trackerList.groupName') }}
             </label>
             <div class="input-wrapper">
               <input 
@@ -258,7 +259,7 @@
                 type="text" 
                 class="form-input"
                 :class="{ 'error': createGroupError || !isGroupNameValid.valid }"
-                :placeholder="$t('trackerList.enterGroupName', { max: maxGroupNameLength })"
+                :placeholder="$t('tracker.trackerList.enterGroupName', { max: maxGroupNameLength })"
                 :maxlength="maxGroupNameLength"
                 :disabled="isCreatingGroup"
                 @keyup.enter="handleCreateGroup"
@@ -281,10 +282,10 @@
           </div>
           
           <div class="note-section">
-            <div class="note-label">Note</div>
+            <div class="note-label">{{ $t('tracker.trackerList.note') }}</div>
             <div class="note-content">
               <i class="fas fa-info-circle note-icon"></i>
-              Devices without a group will be automatically assigned to the "Default" group
+              {{ $t('tracker.trackerList.defaultGroupNote') }}
             </div>
           </div>
         </div>
@@ -295,7 +296,7 @@
             @click="closeCreateGroupModal"
             :disabled="isCreatingGroup"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button 
             class="btn btn-create"
@@ -303,9 +304,9 @@
             @click="handleCreateGroup"
           >
             <span v-if="isCreatingGroup">
-              <i class="fas fa-spinner fa-spin"></i> Creating...
+              <i class="fas fa-spinner fa-spin"></i> {{ $t('tracker.trackerList.creating') }}
             </span>
-            <span v-else>Create</span>
+            <span v-else>{{ $t('tracker.trackerList.create') }}</span>
           </button>
         </div>
       </div>
@@ -317,10 +318,10 @@
         <div class="modal-header">
           <div class="modal-title-section">
             <h3 class="modal-title">
-              <i class="fas fa-cogs"></i> {{ $t('trackerList.groupManagementTitle') }}
+              <i class="fas fa-cogs"></i> {{ $t('tracker.trackerList.groupManagementTitle') }}
             </h3>
             <p class="modal-subtitle">
-              {{ $t('trackerList.groupManagementDescription') }}
+              {{ $t('tracker.trackerList.groupManagementDescription') }}
             </p>
           </div>
           <button class="btn-close" @click="closeGroupManagementModal">
@@ -330,13 +331,13 @@
         
         <div class="modal-body">
           <div class="management-header">
-            <h4>{{ $t('trackerList.existingGroups') }}</h4>
+            <h4>{{ $t('tracker.trackerList.existingGroups') }}</h4>
             <button 
               class="btn btn-create-new" 
               @click="openCreateGroupFromManagement"
               :disabled="isManagementLoading"
             >
-              <i class="fas fa-plus"></i> {{ $t('trackerList.createNewGroupFromManagement') }}
+              <i class="fas fa-plus"></i> {{ $t('tracker.trackerList.createNewGroupFromManagement') }}
             </button>
           </div>
           
@@ -344,9 +345,9 @@
             <table class="groups-table">
               <thead>
                 <tr>
-                  <th>{{ $t('trackerList.groupName') }}</th>
-                  <th>{{ $t('trackerList.deviceCount', { count: '', plural: 's' }) }}</th>
-                  <th>Actions</th>
+                  <th>{{ $t('tracker.trackerList.groupName') }}</th>
+                  <th>{{ $t('tracker.trackerList.deviceCount', getPluralizationParams(0)) }}</th>
+                  <th>{{ $t('common.actions') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -373,12 +374,12 @@
                     </div>
                     <div v-else class="group-name-display">
                       {{ group.group_name }}
-                      <span v-if="group.id === 0" class="system-badge">{{ $t('trackerList.systemGroup') }}</span>
+                      <span v-if="group.id === 0" class="system-badge">{{ $t('tracker.trackerList.systemGroup') }}</span>
                     </div>
                   </td>
                   <td class="device-count-cell">
                     <span class="device-count">
-                      {{ $t('trackerList.deviceCount', { count: getGroupDeviceCount(group.group_name), plural: getGroupDeviceCount(group.group_name) !== 1 ? 's' : '' }) }}
+                      {{ $t('tracker.trackerList.deviceCount', getPluralizationParams(getGroupDeviceCount(group.group_name))) }}
                     </span>
                   </td>
                   <td class="actions-cell">
@@ -388,7 +389,7 @@
                           class="btn-action btn-save"
                           @click="saveGroupName(group)"
                           :disabled="isManagementLoading || !editingGroupName.trim()"
-                          :title="isManagementLoading ? $t('trackerList.saving') : $t('trackerList.saveChanges')"
+                          :title="isManagementLoading ? $t('tracker.trackerList.saving') : $t('tracker.trackerList.saveChanges')"
                         >
                           <i v-if="isManagementLoading" class="fas fa-spinner fa-spin"></i>
                           <i v-else class="fas fa-check"></i>
@@ -397,7 +398,7 @@
                           class="btn-action btn-cancel-edit"
                           @click="cancelEdit"
                           :disabled="isManagementLoading"
-                          :title="$t('trackerList.cancel')"
+                          :title="$t('tracker.trackerList.cancel')"
                         >
                           <i class="fas fa-times"></i>
                         </button>
@@ -408,7 +409,7 @@
                           class="btn-action btn-edit"
                           @click="startEdit(group)"
                           :disabled="isManagementLoading"
-                          :title="$t('trackerList.editName')"
+                          :title="$t('tracker.trackerList.editName')"
                         >
                           <i class="fas fa-edit"></i>
                         </button>
@@ -417,12 +418,12 @@
                           class="btn-action btn-delete"
                           @click="deleteGroup(group)"
                           :disabled="getGroupDeviceCount(group.group_name) > 0 || isManagementLoading"
-                          :title="isManagementLoading ? $t('trackerList.deleting') : getGroupDeviceCount(group.group_name) > 0 ? $t('trackerList.cannotDeleteGroupWithDevices') : $t('trackerList.deleteGroup')"
+                          :title="isManagementLoading ? $t('tracker.trackerList.deleting') : getGroupDeviceCount(group.group_name) > 0 ? $t('tracker.trackerList.cannotDeleteGroupWithDevices') : $t('tracker.trackerList.deleteGroup')"
                         >
                           <i v-if="isManagementLoading" class="fas fa-spinner fa-spin"></i>
                           <i v-else class="fas fa-trash"></i>
                         </button>
-                        <span v-if="group.id === 0" class="system-note">{{ $t('trackerList.systemGroup') }}</span>
+                        <span v-if="group.id === 0" class="system-note">{{ $t('tracker.trackerList.systemGroup') }}</span>
                       </template>
                     </div>
                   </td>
@@ -439,7 +440,7 @@
         
         <div class="modal-footer">
           <button class="btn btn-close-modal" @click="closeGroupManagementModal">
-            {{ $t('trackerList.close') }}
+            {{ $t('tracker.trackerList.close') }}
           </button>
         </div>
       </div>
@@ -449,7 +450,7 @@
     <div v-if="showMoveGroupModal" class="modal-overlay" @click="closeMoveGroupModal">
       <div class="move-group-modal" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">{{ $t('trackerList.moveDevices', { count: selectedDevices.size, plural: selectedDevices.size !== 1 ? 's' : '' }) }}</h3>
+          <h3 class="modal-title">{{ $t('tracker.trackerList.moveDevices', getPluralizationParams(selectedDevices.size)) }}</h3>
           <button class="btn-close" @click="closeMoveGroupModal">
             <i class="fas fa-times"></i>
           </button>
@@ -457,7 +458,7 @@
         
         <div class="modal-body">
           <div class="selected-devices-section">
-            <h4>{{ $t('trackerList.selectedDevicesTitle') }}</h4>
+            <h4>{{ $t('tracker.trackerList.selectedDevicesTitle') }}</h4>
             <div class="selected-devices-list">
               <div 
                 v-for="deviceId in Array.from(selectedDevices)" 
@@ -472,10 +473,10 @@
           
           <div class="target-group-section">
             <label class="form-label">
-              <span class="required-star">*</span> {{ $t('trackerList.targetGroup') }}
+              <span class="required-star">*</span> {{ $t('tracker.trackerList.targetGroup') }}
             </label>
             <select v-model="targetGroup" class="target-group-select">
-              <option value="">{{ $t('trackerList.selectTargetGroup') }}</option>
+              <option value="">{{ $t('tracker.trackerList.selectTargetGroup') }}</option>
               <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
             </select>
           </div>
@@ -488,7 +489,7 @@
         
         <div class="modal-footer">
           <button class="btn btn-cancel" @click="closeMoveGroupModal" :disabled="isMovingDevices">
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button 
             class="btn btn-move"
@@ -496,9 +497,9 @@
             @click="handleMoveDevices"
           >
             <span v-if="isMovingDevices">
-              <i class="fas fa-spinner fa-spin"></i> {{ $t('trackerList.moving') }}
+              <i class="fas fa-spinner fa-spin"></i> {{ $t('tracker.trackerList.moving') }}
             </span>
-            <span v-else>{{ $t('trackerList.move') }}</span>
+            <span v-else>{{ $t('tracker.trackerList.move') }}</span>
           </button>
         </div>
       </div>
@@ -592,10 +593,10 @@ const filters = computed(() => {
   const starred = trackerList.value.filter(t => t.starred).length
   
   return [
-    { key: 'all', label: 'All', count: trackerList.value.length },
-    { key: 'online', label: 'Online', count: online },
-    { key: 'offline', label: 'Offline', count: offline },
-    { key: 'starred', label: 'Starred', count: starred }
+    { key: 'all', label: t('tracker.trackerList.all'), count: trackerList.value.length },
+    { key: 'online', label: t('tracker.trackerList.online'), count: online },
+    { key: 'offline', label: t('tracker.trackerList.offline'), count: offline },
+    { key: 'starred', label: t('tracker.trackerList.starred'), count: starred }
   ]
 })
 
@@ -650,22 +651,32 @@ const isGroupNameValid = computed(() => {
   
   // 检查长度
   if (trimmedName.length > maxGroupNameLength) {
-    return { valid: false, error: `Group name cannot exceed ${maxGroupNameLength} characters` }
+    return { valid: false, error: t('tracker.trackerList.groupNameTooLong', { max: maxGroupNameLength }) }
   }
   
   // 检查是否为Default（不区分大小写）
   if (trimmedName.toLowerCase() === 'default') {
-    return { valid: false, error: 'Group name cannot be "Default"' }
+    return { valid: false, error: t('tracker.trackerList.groupNameReserved') }
   }
   
   // 检查是否与现有分组重复（不区分大小写）
   const existingNames = availableGroups.value.map(g => g.group_name.toLowerCase())
   if (existingNames.includes(trimmedName.toLowerCase())) {
-    return { valid: false, error: 'Group name already exists' }
+    return { valid: false, error: t('tracker.trackerList.groupNameExists') }
   }
   
   return { valid: true, error: '' }
 })
+
+// 辅助方法 - 处理复数形式的国际化文本
+const getPluralizationParams = (count) => {
+  // 英文需要复数形式，中文不需要
+  const currentLocale = t('common.unknown') === 'Unknown' ? 'en' : 'zh'
+  return {
+    count,
+    plural: currentLocale === 'en' && count !== 1 ? 's' : ''
+  }
+}
 
 // 方法 - 完全依赖后端online字段
 const getTrackerStatus = (tracker) => {
@@ -685,7 +696,7 @@ const getStatusIcon = (status) => {
 }
 
 const getStatusText = (status) => {
-  return status === 'online' ? 'Online' : 'Offline'
+  return status === 'online' ? t('tracker.trackerList.online') : t('tracker.trackerList.offline')
 }
 
 const getGroupColor = (group) => {
@@ -696,7 +707,7 @@ const getGroupColor = (group) => {
 
 const getSignalStrength = (tracker) => {
   if (!tracker.last_detected_beacons || tracker.last_detected_beacons.length === 0) {
-    return 'Unknown'
+    return t('common.unknown')
   }
   
   // 找到信号最强的beacon（RSSI值最大，因为是负数，所以是最接近0的）
@@ -707,7 +718,7 @@ const getSignalStrength = (tracker) => {
   })
   
   if (!strongestBeacon.rssi) {
-    return 'Unknown'
+    return t('common.unknown')
   }
   
   return `${strongestBeacon.rssi}dBm`
@@ -719,25 +730,25 @@ const getBatteryLevel = (tracker) => {
   
   // 处理null和undefined - 严格检查
   if (battery === null || battery === undefined) {
-    return 'Unknown'
+    return t('common.unknown')
   }
   
   // 处理特殊值：-1、unknown字符串、NaN
   if (battery === -1 || battery === 'unknown' || battery === 'Unknown' || battery === '') {
-    return 'Unknown'
+    return t('common.unknown')
   }
   
   // 处理数字类型
   if (typeof battery === 'number') {
     // 检查是否为NaN
     if (isNaN(battery)) {
-      return 'Unknown'
+      return t('common.unknown')
     }
     // 确保在0-100范围内
     if (battery >= 0 && battery <= 100) {
       return `${Math.round(battery)}%`
     } else {
-      return 'Unknown'
+      return t('common.unknown')
     }
   }
   
@@ -745,25 +756,25 @@ const getBatteryLevel = (tracker) => {
   if (typeof battery === 'string') {
     // 检查空字符串或仅空白字符
     if (battery.trim() === '') {
-      return 'Unknown'
+      return t('common.unknown')
     }
     
     // 检查是否为特殊字符串值
     const trimmedBattery = battery.trim().toLowerCase()
     if (trimmedBattery === 'null' || trimmedBattery === 'undefined' || trimmedBattery === 'nan') {
-      return 'Unknown'
+      return t('common.unknown')
     }
     
     const numBattery = parseFloat(battery)
     if (!isNaN(numBattery) && numBattery >= 0 && numBattery <= 100) {
       return `${Math.round(numBattery)}%`
     } else {
-      return 'Unknown'
+      return t('common.unknown')
     }
   }
   
   // 其他任何情况都显示Unknown
-  return 'Unknown'
+  return t('common.unknown')
 }
 
 const getDistanceString = (tracker) => {
@@ -772,11 +783,11 @@ const getDistanceString = (tracker) => {
     const distance = Math.sqrt(tracker.x * tracker.x + tracker.y * tracker.y)
     return `${distance.toFixed(1)}F`
   }
-  return tracker.map || 'Unknown'
+  return tracker.map || t('common.unknown')
 }
 
 const formatTime = (timestamp) => {
-  if (!timestamp) return 'Never'
+  if (!timestamp) return t('tracker.trackerList.never')
   
   const date = new Date(timestamp)
   
@@ -790,7 +801,7 @@ const formatTime = (timestamp) => {
 }
 
 const formatLastKnownTime = (timestamp) => {
-  if (!timestamp) return 'Never'
+  if (!timestamp) return t('tracker.trackerList.never')
   
   // last_known_measurement_time 是毫秒时间戳
   const date = new Date(timestamp)
@@ -846,13 +857,13 @@ const toggleStar = async (tracker) => {
       // 发射事件通知父组件
       emit('toggle-star', tracker)
     } else {
-      throw new Error(response.message || 'Failed to update star status')
+      throw new Error(response.message || t('tracker.trackerList.failedToUpdateStarStatus'))
     }
     
   } catch (error) {
     console.error('[TrackerList] Error updating star status:', error)
     // 可以选择显示错误提示，这里暂时只在控制台输出
-    alert(`Failed to update star status: ${error.message}`)
+    alert(`${t('tracker.trackerList.failedToUpdateStarStatus')}: ${error.message}`)
   }
 }
 
@@ -1016,7 +1027,7 @@ const handleCreateGroup = async () => {
     
     if (response.status === 409) {
       // 分组名称重复
-      createGroupError.value = 'Group name already exists'
+      createGroupError.value = t('tracker.trackerList.groupNameExists')
       return
     }
     
@@ -1038,12 +1049,12 @@ const handleCreateGroup = async () => {
         calculateGroupDeviceCounts()
       }
     } else {
-      createGroupError.value = result.message || 'Failed to create group'
+      createGroupError.value = result.message || t('tracker.trackerList.failedToCreateGroup')
     }
     
   } catch (error) {
     console.error('[TrackerList] Error creating group:', error)
-    createGroupError.value = 'Network error. Please try again.'
+    createGroupError.value = t('tracker.trackerList.networkError')
   } finally {
     isCreatingGroup.value = false
   }
@@ -1083,7 +1094,7 @@ const openCreateGroupFromManagement = () => {
 const startEdit = (group) => {
   // 防止编辑Default分组
   if (group.id === 0) {
-    managementError.value = 'Cannot edit the Default group name'
+    managementError.value = t('tracker.trackerList.cannotEditDefault')
     return
   }
   
@@ -1110,7 +1121,7 @@ const cancelEdit = () => {
 const saveGroupName = async (group) => {
   // 防止编辑Default分组（双重保险）
   if (group.id === 0) {
-    managementError.value = 'Cannot edit the Default group name'
+    managementError.value = t('tracker.trackerList.cannotEditDefault')
     return
   }
   
@@ -1118,19 +1129,19 @@ const saveGroupName = async (group) => {
   
   // 基本验证
   if (!trimmedName) {
-    managementError.value = t('trackerList.groupNameRequired')
+    managementError.value = t('tracker.trackerList.groupNameRequired')
     return
   }
   
   // 长度验证
   if (trimmedName.length > maxGroupNameLength) {
-    managementError.value = t('trackerList.groupNameTooLong', { max: maxGroupNameLength })
+    managementError.value = t('tracker.trackerList.groupNameTooLong', { max: maxGroupNameLength })
     return
   }
   
   // 禁用Default验证
   if (trimmedName.toLowerCase() === 'default') {
-    managementError.value = t('trackerList.groupNameReserved')
+    managementError.value = t('tracker.trackerList.groupNameReserved')
     return
   }
   
@@ -1139,7 +1150,7 @@ const saveGroupName = async (group) => {
     .filter(g => g.id !== group.id)
     .map(g => g.group_name.toLowerCase())
   if (existingNames.includes(trimmedName.toLowerCase())) {
-    managementError.value = t('trackerList.groupNameExists')
+    managementError.value = t('tracker.trackerList.groupNameExists')
     return
   }
   
@@ -1165,7 +1176,7 @@ const saveGroupName = async (group) => {
     
     if (response.status === 409) {
       // 分组名称重复
-      managementError.value = 'Group name already exists'
+      managementError.value = t('tracker.trackerList.groupNameExists')
       return
     }
     
@@ -1184,12 +1195,12 @@ const saveGroupName = async (group) => {
       // 重新计算设备统计
       calculateGroupDeviceCounts()
     } else {
-      managementError.value = result.message || 'Failed to update group name'
+      managementError.value = result.message || t('tracker.trackerList.failedToUpdateGroupName')
     }
     
   } catch (error) {
     console.error('[TrackerList] Error updating group:', error)
-    managementError.value = 'Network error. Please try again.'
+    managementError.value = t('tracker.trackerList.networkError')
   } finally {
     isManagementLoading.value = false
   }
@@ -1198,18 +1209,18 @@ const saveGroupName = async (group) => {
 const deleteGroup = async (group) => {
   // 防止删除Default分组
   if (group.id === 0) {
-    managementError.value = 'Cannot delete the Default group'
+    managementError.value = t('tracker.trackerList.cannotDeleteDefault')
     return
   }
   
   // 检查分组是否有设备
   if (getGroupDeviceCount(group.group_name) > 0) {
-    managementError.value = 'Cannot delete group with devices'
+    managementError.value = t('tracker.trackerList.cannotDeleteGroupWithDevices')
     return
   }
   
   // 确认删除
-  if (!confirm(`Are you sure you want to delete the group "${group.group_name}"?\n\nThis action cannot be undone.`)) {
+  if (!confirm(t('tracker.trackerList.confirmDeleteGroup', { name: group.group_name }))) {
     return
   }
   
@@ -1225,7 +1236,7 @@ const deleteGroup = async (group) => {
       if (response.status === 400) {
         // 分组仍有设备或其他业务错误
         const errorResult = await response.json()
-        managementError.value = errorResult.message || 'Cannot delete group'
+        managementError.value = errorResult.message || t('tracker.trackerList.cannotDeleteGroup')
         return
       }
       throw new Error(`HTTP error! status: ${response.status}`)
@@ -1242,12 +1253,12 @@ const deleteGroup = async (group) => {
       // 显示成功信息（可选）
       console.log(`Group "${group.group_name}" has been deleted successfully`)
     } else {
-      managementError.value = result.message || 'Failed to delete group'
+      managementError.value = result.message || t('tracker.trackerList.failedToDeleteGroup')
     }
     
   } catch (error) {
     console.error('[TrackerList] Error deleting group:', error)
-    managementError.value = 'Network error. Please try again.'
+    managementError.value = t('tracker.trackerList.networkError')
   } finally {
     isManagementLoading.value = false
   }
@@ -1303,7 +1314,7 @@ const getDeviceGroup = (deviceId) => {
 }
 
 const getGroupIdByName = (groupName) => {
-  if (groupName === t('tracker.defaultGroup')) {
+  if (groupName === 'Default') {
     return 0
   }
   const group = availableGroups.value.find(g => g.group_name === groupName)
@@ -1329,8 +1340,8 @@ const handleMoveDevices = async () => {
     
     // 获取目标分组的ID
     const groupId = getGroupIdByName(targetGroup.value)
-    if (groupId === null && targetGroup.value !== t('tracker.defaultGroup')) {
-      moveGroupError.value = 'Invalid target group selected'
+    if (groupId === null && targetGroup.value !== 'Default') {
+      moveGroupError.value = t('tracker.trackerList.invalidTargetGroup')
       return
     }
     
@@ -1371,7 +1382,7 @@ const handleMoveDevices = async () => {
       console.log(`Successfully moved ${deviceCount} device${deviceCount !== 1 ? 's' : ''} to "${targetGroup.value}" group`)
       
     } else {
-      moveGroupError.value = result.message || 'Failed to move devices'
+      moveGroupError.value = result.message || t('tracker.trackerList.failedToMoveDevices')
     }
     
   } catch (error) {
@@ -1420,13 +1431,13 @@ const handleSaveTracker = async (trackerData) => {
       
       console.log('[TrackerList] Tracker saved successfully')
     } else {
-      throw new Error(response.message || 'Failed to update device')
+      throw new Error(response.message || t('tracker.trackerList.failedToUpdateDevice'))
     }
     
   } catch (error) {
     console.error('[TrackerList] Error saving tracker:', error)
     // 设置错误信息传递给EditTrackerModal
-    editTrackerError.value = error.message || 'Failed to save device information. Please try again.'
+    editTrackerError.value = error.message || t('tracker.trackerList.failedToSaveDevice')
   }
 }
 

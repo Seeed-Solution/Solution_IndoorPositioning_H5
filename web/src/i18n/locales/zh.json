@@ -14,6 +14,36 @@
     "totalBeacons": "总信标数",
     "exitFullscreen": "退出全屏"
   },
+  "mapOverview": {
+    "title": "地图仪表盘",
+    "webSocketLabel": "WebSocket",
+    "maps": "地图",
+    "beacons": "信标",
+    "trackers": "追踪器",
+    "mapOverviewTitle": "地图总览",
+    "fullscreen": "全屏",
+    "mapViewer": "地图查看器",
+    "selectMapToView": "请选择一个地图查看",
+    "exitFullscreen": "退出全屏",
+    "map": "地图",
+    "onlineTrackers": "在线追踪器",
+    "noMapSelected": "未选择地图",
+    "connectionStatus": {
+      "connected": "已连接",
+      "connecting": "连接中...",
+      "disconnected": "已断开连接",
+      "error": "连接错误",
+      "unknown": "未知"
+    },
+    "status": {
+      "loadingMasterConfig": "正在加载主配置...",
+      "masterConfigLoadedFromServer": "主配置已从服务器加载。",
+      "noMasterConfigOnServer": "服务器上未找到主配置。正在检查本地存储...",
+      "masterConfigLoadFailed": "从服务器加载主配置失败：{error}。正在尝试本地存储。",
+      "masterConfigLoadedFromStorage": "主配置已从本地存储加载。",
+      "noConfigFound": "未找到配置。"
+    }
+  },
   "map": {
     "mapDimensions": "地图尺寸",
     "loadConfiguration": "加载配置以显示地图。"
@@ -32,6 +62,19 @@
     "exportConfig": "导出配置",
     "createNewMap": "创建新地图",
     "loadFromFile": "从文件加载",
+    "actions": {
+      "exporting": "正在导出配置...",
+      "noDataToExport": "没有配置数据可导出",
+      "exportSuccess": "配置已导出为 {filename}",
+      "exportFailed": "导出失败"
+    },
+    "validation": {
+      "mapObjectRequired": "地图对象不能为空",
+      "mapNameRequired": "地图名称不能为空",
+      "mapWidthInvalid": "地图宽度必须是大于0的数字",
+      "mapHeightInvalid": "地图高度必须是大于0的数字",
+      "mapEntitiesInvalid": "地图实体必须是数组"
+    },
     "management": {
       "title": "配置管理",
       "overview": "配置概览",
@@ -189,12 +232,12 @@
       "group": "分组",
       "status": "状态",
       "lastPosition": "最后位置",
-      "signalBattery": "信号/电池",
+      "signalBattery": "信号/电量",
       "actions": "操作",
       "online": "在线",
       "offline": "离线",
       "signal": "信号",
-      "battery": "电池",
+      "battery": "电量",
       "precise": "精确",
       "area": "区域",
       "default": "默认",
@@ -245,7 +288,35 @@
       "favorite": "收藏",
       "unfavorite": "取消收藏",
       "editDevice": "编辑设备",
-      "alertSettings": "警报设置"
+      "alertSettings": "警报设置",
+      "never": "从未",
+      "failedToUpdateStarStatus": "更新收藏状态失败",
+      "failedToCreateGroup": "创建分组失败",
+      "failedToUpdateGroupName": "更新分组名失败",
+      "failedToDeleteGroup": "删除分组失败",
+      "cannotDeleteGroup": "无法删除分组",
+      "invalidTargetGroup": "选择的目标分组无效",
+      "failedToMoveDevices": "移动设备失败",
+      "failedToUpdateDevice": "更新设备失败",
+      "failedToSaveDevice": "保存设备信息失败，请重试"
+    },
+    "editTrackerModal": {
+      "title": "编辑设备信息",
+      "deviceName": "设备名称",
+      "deviceNamePlaceholder": "请输入设备名称",
+      "deviceEui": "设备EUI",
+      "deviceEuiPlaceholder": "设备EUI",
+      "deviceGroup": "设备分组",
+      "selectGroup": "选择分组",
+      "star": "收藏",
+      "close": "关闭",
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中...",
+      "deviceNameRequired": "设备名称不能为空",
+      "deviceNameTooLong": "设备名称不能超过20个字符",
+      "selectDeviceGroup": "请选择设备分组",
+      "saveFailed": "保存设备信息失败，请重试"
     },
     "selectedMap": "已选择地图: {mapName}",
     "loadingTrackerData": "正在加载地图设备数据...",
@@ -263,8 +334,6 @@
     "deviceUpdateSuccess": "设备 {deviceName} 更新成功",
     "deviceUpdateSuccessButRefreshFailed": "设备更新成功，但刷新数据失败: {error}",
     "openAddDeviceInterface": "打开添加设备界面",
-    "favorite": "收藏",
-    "unfavorite": "取消收藏",
     "favoriteSuccessRefreshing": "{action}设备成功，正在刷新数据...",
     "favoriteSuccess": "{action}设备成功",
     "favoriteSuccessButRefreshFailed": "收藏状态更新成功，但刷新数据失败: {error}",
@@ -274,7 +343,11 @@
     "dataRefreshFailed": "数据刷新失败: {error}",
     "showingAlarmOnMap": "正在地图上显示告警位置: {mapName}",
     "alarmNoPosition": "该告警没有位置信息",
-    "loadingAlarmDetails": "正在加载告警详情: {alarmName}"
+    "loadingAlarmDetails": "正在加载告警详情: {alarmName}",
+    "connectingToServer": "正在连接服务器...",
+    "connectedToServer": "已连接服务器",
+    "websocketConnectionError": "WebSocket连接错误",
+    "disconnectedReconnecting": "与服务器断开连接。正在重连..."
   },
   "positioning": {
     "trilateration": "三边测量",
@@ -452,5 +525,141 @@
       "manual": "手动恢复"
     },
     "resolved": "已恢复"
+  },
+  "alarmSettings": {
+    "title": "告警设置",
+    "createAlarm": "创建告警",
+    "editAlarm": "编辑告警",
+    "loading": "加载告警中...",
+    "retry": "重试",
+    "noAlarms": "暂无告警配置",
+    "noAlarmsHint": "点击\"创建告警\"添加您的第一个告警",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "saving": "保存中...",
+    "save": "保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "delete": "删除",
+    "close": "关闭",
+    "table": {
+      "alarmName": "告警名称",
+      "alarmType": "告警类型",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "types": {
+      "sos": "SOS告警",
+      "offline": "离线告警",
+      "checkin": "签到事件",
+      "position": "位置检测"
+    },
+    "form": {
+      "alarmName": "告警名称",
+      "alarmNamePlaceholder": "请输入告警名称",
+      "alarmType": "告警类型",
+      "selectAlarmType": "请选择告警类型",
+      "deviceScope": "设备范围",
+      "bluetoothBeacons": "蓝牙信标",
+      "checkinRule": "签到规则",
+      "checkinRange": "签到范围",
+      "triggerDuration": "触发持续时间",
+      "durationConfig": "持续时间配置",
+      "enableAlarm": "启用告警",
+      "required": "*"
+    },
+    "deviceScope": {
+      "selectDevices": "选择设备...",
+      "allDevices": "所有设备",
+      "loadingDevices": "加载设备中...",
+      "noDevices": "暂无可用设备",
+      "deviceSelected": "个设备已选择"
+    },
+    "beaconScope": {
+      "selectBeacons": "选择信标...",
+      "loadingBeacons": "加载信标中...",
+      "noBeacons": "暂无可用信标",
+      "beaconSelected": "个信标已选择",
+      "beaconsSelected": "个信标已选择"
+    },
+    "checkinOptions": {
+      "anyBeacon": "在任意信标签到",
+      "anyBeaconDesc": "当设备在任意一个配置的信标处签到时触发"
+    },
+    "triggerOptions": {
+      "immediate": "立即触发",
+      "immediateDesc": "当设备离开信标范围时立即触发告警",
+      "duration": "基于持续时间触发",
+      "durationDesc": "当设备离开信标指定时间后触发告警"
+    },
+    "units": {
+      "meters": "米",
+      "minutes": "分钟"
+    },
+    "helpText": {
+      "checkinRange": "设备必须在此距离内才能触发签到（0.5-50米）",
+      "durationConfig": "设备必须离开信标多长时间后才触发告警"
+    },
+    "deleteConfirm": {
+      "title": "确认删除",
+      "message": "您确定要删除告警",
+      "warning": "此操作无法撤销。",
+      "confirm": "删除",
+      "cancel": "取消"
+    },
+    "errorModal": {
+      "title": "操作失败",
+      "confirm": "确定"
+    },
+    "messages": {
+      "alarmCreated": "告警创建成功",
+      "alarmUpdated": "告警更新成功",
+      "alarmDeleted": "告警删除成功",
+      "alarmEnabled": "告警已启用",
+      "alarmDisabled": "告警已禁用",
+      "loadFailed": "加载告警失败",
+      "saveFailed": "保存告警失败",
+      "deleteFailed": "删除告警失败",
+      "toggleFailed": "切换告警状态失败",
+      "contactAdmin": "请联系管理员或稍后重试",
+      "noPermission": "没有权限执行此操作",
+      "resourceNotFound": "对应资源不存在",
+      "duplicateName": "名称重复，请使用其他名称"
+    },
+    "validation": {
+      "nameRequired": "告警名称是必填项",
+      "nameTooLong": "告警名称过长",
+      "nameExists": "告警名称已存在",
+      "typeRequired": "告警类型是必填项",
+      "deviceRequired": "至少需要选择一个设备",
+      "beaconRequired": "此告警类型至少需要选择一个信标",
+      "rangeMin": "签到范围至少为0.5米",
+      "rangeMax": "签到范围不能超过100米",
+      "durationMin": "持续时间至少为1分钟",
+      "durationMax": "持续时间不能超过1440分钟（24小时）"
+    },
+    "pagination": {
+      "total": "共",
+      "alarms": "个告警"
+    }
+  },
+  "server": {
+    "credentials": {
+      "setTitle": "设置 {service} 凭据",
+      "username": "用户名",
+      "password": "密码",
+      "saving": "保存中...",
+      "save": "保存凭据"
+    },
+    "password": {
+      "changed": "密码修改成功",
+      "successMessage": "您的密码已成功更新。"
+    }
+  },
+  "common": {
+    "cancel": "取消",
+    "loading": "加载中",
+    "error": "错误",
+    "confirm": "确定"
   }
 }

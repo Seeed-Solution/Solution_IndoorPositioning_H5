@@ -14,6 +14,36 @@
     "totalBeacons": "Total Beacons",
     "exitFullscreen": "Exit Fullscreen"
   },
+  "mapOverview": {
+    "title": "Map Dashboard",
+    "webSocketLabel": "WebSocket",
+    "maps": "Maps",
+    "beacons": "Beacons",
+    "trackers": "Trackers",
+    "mapOverviewTitle": "Map Overview",
+    "fullscreen": "Fullscreen",
+    "mapViewer": "Map Viewer",
+    "selectMapToView": "Please select a map to view",
+    "exitFullscreen": "Exit Fullscreen",
+    "map": "Map",
+    "onlineTrackers": "Online Trackers",
+    "noMapSelected": "No Map Selected",
+    "connectionStatus": {
+      "connected": "Connected",
+      "connecting": "Connecting...",
+      "disconnected": "Disconnected",
+      "error": "Connection Error",
+      "unknown": "Unknown"
+    },
+    "status": {
+      "loadingMasterConfig": "Loading master configuration...",
+      "masterConfigLoadedFromServer": "Master configuration loaded from server.",
+      "noMasterConfigOnServer": "No master configuration found on server. Checking local storage...",
+      "masterConfigLoadFailed": "Failed to load master config from server: {error}. Trying local storage.",
+      "masterConfigLoadedFromStorage": "Master configuration loaded from local storage.",
+      "noConfigFound": "No configuration found."
+    }
+  },
   "map": {
     "mapDimensions": "Map Dimensions",
     "loadConfiguration": "Load configuration to display map."
@@ -32,6 +62,19 @@
     "exportConfig": "Export Configuration",
     "createNewMap": "Create New Map",
     "loadFromFile": "Load from File",
+    "actions": {
+      "exporting": "Exporting configuration...",
+      "noDataToExport": "No configuration data available for export",
+      "exportSuccess": "Configuration exported as {filename}",
+      "exportFailed": "Export failed"
+    },
+    "validation": {
+      "mapObjectRequired": "Map object cannot be empty",
+      "mapNameRequired": "Map name cannot be empty",
+      "mapWidthInvalid": "Map width must be a number greater than 0",
+      "mapHeightInvalid": "Map height must be a number greater than 0",
+      "mapEntitiesInvalid": "Map entities must be an array"
+    },
     "management": {
       "title": "Configuration Management",
       "overview": "Configuration Overview",
@@ -245,7 +288,35 @@
       "favorite": "Favorite",
       "unfavorite": "Unfavorite",
       "editDevice": "Edit Device",
-      "alertSettings": "Alert Settings"
+      "alertSettings": "Alert Settings",
+      "never": "Never",
+      "failedToUpdateStarStatus": "Failed to update star status",
+      "failedToCreateGroup": "Failed to create group",
+      "failedToUpdateGroupName": "Failed to update group name",
+      "failedToDeleteGroup": "Failed to delete group", 
+      "cannotDeleteGroup": "Cannot delete group",
+      "invalidTargetGroup": "Invalid target group selected",
+      "failedToMoveDevices": "Failed to move devices",
+      "failedToUpdateDevice": "Failed to update device",
+      "failedToSaveDevice": "Failed to save device information. Please try again."
+    },
+    "editTrackerModal": {
+      "title": "Edit Device Information",
+      "deviceName": "Device Name",
+      "deviceNamePlaceholder": "Enter device name",
+      "deviceEui": "Device EUI",
+      "deviceEuiPlaceholder": "Device EUI",
+      "deviceGroup": "Device Group",
+      "selectGroup": "Select a group",
+      "star": "Star",
+      "close": "Close",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "deviceNameRequired": "Device name is required",
+      "deviceNameTooLong": "Device name cannot exceed 20 characters",
+      "selectDeviceGroup": "Please select a device group",
+      "saveFailed": "Failed to save device information. Please try again."
     },
     "selectedMap": "Selected map: {mapName}",
     "loadingTrackerData": "Loading tracker data for selected map...",
@@ -272,7 +343,11 @@
     "dataRefreshFailed": "Data refresh failed: {error}",
     "showingAlarmOnMap": "Showing alarm position on map: {mapName}",
     "alarmNoPosition": "This alarm has no position information",
-    "loadingAlarmDetails": "Loading alarm details: {alarmName}"
+    "loadingAlarmDetails": "Loading alarm details: {alarmName}",
+    "connectingToServer": "Connecting to server...",
+    "connectedToServer": "Connected to server",
+    "websocketConnectionError": "WebSocket connection error",
+    "disconnectedReconnecting": "Disconnected from server. Reconnecting..."
   },
   "positioning": {
     "trilateration": "Trilateration",
@@ -450,5 +525,146 @@
       "manual": "Manual Recovery"
     },
     "resolved": "Resolved"
+  },
+  "alarmSettings": {
+    "title": "Alarm Settings",
+    "createAlarm": "Create Alarm",
+    "editAlarm": "Edit Alarm",
+    "loading": "Loading alarms...",
+    "retry": "Retry",
+    "noAlarms": "No alarms configured",
+    "noAlarmsHint": "Click \"Create Alarm\" to add your first alarm",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "saving": "Saving...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "close": "Close",
+    "table": {
+      "alarmName": "Alarm Name",
+      "alarmType": "Alarm Type",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "types": {
+      "sos": "SOS Alarm",
+      "offline": "Offline Alarm", 
+      "checkin": "Check-in Event",
+      "position": "Position Detection"
+    },
+    "form": {
+      "alarmName": "Alarm Name",
+      "alarmNamePlaceholder": "Enter alarm name",
+      "alarmType": "Alarm Type",
+      "selectAlarmType": "Select alarm type",
+      "deviceScope": "Device Scope",
+      "bluetoothBeacons": "Bluetooth Beacons",
+      "checkinRule": "Check-in Rule",
+      "checkinRange": "Check-in Range",
+      "triggerDuration": "Trigger Duration",
+      "durationConfig": "Duration Configuration",
+      "enableAlarm": "Enable Alarm",
+      "required": "*"
+    },
+    "deviceScope": {
+      "selectDevices": "Select devices...",
+      "allDevices": "All Devices",
+      "loadingDevices": "Loading devices...",
+      "noDevices": "No devices available",
+      "deviceSelected": "device(s) selected"
+    },
+    "beaconScope": {
+      "selectBeacons": "Select beacons...",
+      "loadingBeacons": "Loading beacons...",
+      "noBeacons": "No beacons available",
+      "beaconSelected": "beacon selected",
+      "beaconsSelected": "beacons selected"
+    },
+    "checkinOptions": {
+      "anyBeacon": "Check-in at any beacon",
+      "anyBeaconDesc": "Trigger when device checks in at any of the configured beacons"
+    },
+    "triggerOptions": {
+      "immediate": "Immediate trigger",
+      "immediateDesc": "Trigger alarm immediately when device leaves beacon range",
+      "duration": "Duration-based trigger",
+      "durationDesc": "Trigger alarm when device stays away from beacon for specified duration"
+    },
+    "units": {
+      "meters": "m",
+      "minutes": "Minutes"
+    },
+    "helpText": {
+      "checkinRange": "Device must be within this distance from beacon to trigger check-in (0.5-50 meters)",
+      "durationConfig": "How long must stay away from beacon for this duration before triggering alarm"
+    },
+    "deleteConfirm": {
+      "title": "Confirm Deletion",
+      "message": "Are you sure you want to delete the alarm",
+      "warning": "This action cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "errorModal": {
+      "title": "Operation Failed",
+      "confirm": "OK"
+    },
+    "messages": {
+      "alarmCreated": "Alarm created successfully",
+      "alarmUpdated": "Alarm updated successfully",
+      "alarmDeleted": "Alarm deleted successfully",
+      "alarmEnabled": "Alarm enabled",
+      "alarmDisabled": "Alarm disabled",
+      "loadFailed": "Failed to load alarms",
+      "saveFailed": "Failed to save alarm",
+      "deleteFailed": "Failed to delete alarm",
+      "toggleFailed": "Failed to toggle alarm status",
+      "contactAdmin": "Please contact administrator or try again later",
+      "noPermission": "No permission to perform this operation",
+      "resourceNotFound": "Corresponding resource does not exist",
+      "duplicateName": "Duplicate name, please use a different name"
+    },
+    "validation": {
+      "mapObjectRequired": "Map object cannot be empty",
+      "mapNameRequired": "Map name cannot be empty",
+      "mapWidthInvalid": "Map width must be a number greater than 0",
+      "mapHeightInvalid": "Map height must be a number greater than 0",
+      "mapEntitiesInvalid": "Map entities must be an array",
+      "nameRequired": "Alarm name is required",
+      "nameTooLong": "Alarm name is too long",
+      "nameExists": "Alarm name already exists",
+      "typeRequired": "Alarm type is required",
+      "deviceRequired": "At least one device must be selected",
+      "beaconRequired": "At least one beacon must be selected for this alarm type",
+      "rangeMin": "Check-in range must be at least 0.5 meters",
+      "rangeMax": "Check-in range cannot exceed 100 meters",
+      "durationMin": "Duration must be at least 1 minute",
+      "durationMax": "Duration cannot exceed 1440 minutes (24 hours)"
+    },
+    "pagination": {
+      "total": "Total",
+      "alarms": "alarms"
+    }
+  },
+  "server": {
+    "credentials": {
+      "setTitle": "Set {service} Credentials",
+      "username": "Username",
+      "password": "Password",
+      "saving": "Saving...",
+      "save": "Save Credentials"
+    },
+    "password": {
+      "changed": "Password Changed Successfully",
+      "successMessage": "Your password has been updated successfully."
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "loading": "Loading",
+    "error": "Error",
+    "confirm": "Confirm"
   }
 }

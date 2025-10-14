@@ -1,0 +1,23 @@
+{
+  "sensecapOpenStream": {
+    "enabled": false
+  },
+  "chirpStackMqtt": {
+    "enabled": false
+  },
+  "server": {
+    "port": 8022
+  },
+  "kalman": {
+    "processVariance": 1.0,
+    "measurementVariance": 10.0
+  },
+  "tracker_list": [],
+  "allow_all_tracker": true,
+  "allow_area_location": true,
+  "username": "admin",
+  "password": "83EtWJUbGrPnQjdCqyKq",
+  "webhook": {
+    "enable": false
+  }
+}
