@@ -33,6 +33,10 @@ COPY server/ ./server/
 COPY run_in_docker.sh ./
 COPY web/web.py ./web/
 
+# COPY corresponding environment setting
+COPY server/config/server_runtime_config_local.json ./server/config/server_runtime_config.json
+COPY server/config/dashboard_config_local.json ./server/config/dashboard_config.json
+
 # Install Python dependencies
 RUN pip install -r /app/server/requirements.txt
 

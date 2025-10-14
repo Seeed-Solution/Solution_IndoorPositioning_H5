@@ -655,11 +655,5 @@
       "changed": "密码修改成功",
       "successMessage": "您的密码已成功更新。"
     }
-  },
-  "common": {
-    "cancel": "取消",
-    "loading": "加载中",
-    "error": "错误",
-    "confirm": "确定"
   }
 }

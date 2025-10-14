@@ -660,11 +660,5 @@
       "changed": "Password Changed Successfully",
       "successMessage": "Your password has been updated successfully."
     }
-  },
-  "common": {
-    "cancel": "Cancel",
-    "loading": "Loading",
-    "error": "Error",
-    "confirm": "Confirm"
   }
 }

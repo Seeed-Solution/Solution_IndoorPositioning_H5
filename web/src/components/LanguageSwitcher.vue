@@ -1,12 +1,10 @@
 <template>
-  <div class="language-switcher">
-    <div class="language-dropdown">
-      <i class="fas fa-globe language-icon"></i>
-      <select v-model="currentLanguage" @change="changeLanguage" class="language-select">
-        <option value="en">English</option>
-        <option value="zh">中文</option>
-      </select>
-    </div>
+  <div class="language-dropdown">
+    <i class="fas fa-globe language-icon"></i>
+    <select v-model="currentLanguage" @change="changeLanguage" class="language-select">
+      <option value="en">English</option>
+      <option value="zh">中文</option>
+    </select>
   </div>
 </template>
 
@@ -30,30 +28,25 @@ const changeLanguage = (event) => {
 </script>
 
 <style scoped>
-.language-switcher {
-  display: flex;
-  align-items: center;
-}
-
 .language-dropdown {
   position: relative;
   display: flex;
   align-items: center;
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  color: var(--secondary-color);
   padding: 0.4rem 0.8rem;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
+  border-radius: var(--border-radius);
   cursor: pointer;
   font-size: 0.9rem;
-  color: var(--secondary-color);
+  transition: all 0.2s ease;
+  gap: 0.5rem;
 }
 
 .language-dropdown:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background-color: rgba(76, 175, 80, 0.05);
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+  background-color: rgba(245, 108, 108, 0.05);
 }
 
 .language-icon {
