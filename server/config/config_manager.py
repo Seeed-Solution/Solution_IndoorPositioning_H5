@@ -13,8 +13,8 @@ from server.components.beacon_holder import beacon_holder
 # Define paths for the two configuration files
 # These paths are relative to the project root, assuming FastAPI runs from there.
 MINIPROGRAM_CONFIG_FILE_PATH = Path("server/config/miniprogram_config.json")
-SERVER_RUNTIME_CONFIG_FILE_PATH = Path("server/config/server_runtime_config.json")
-DASHBOARD_CONFIG_FILE_PATH = Path("server/config/dashboard_config.json")
+SERVER_RUNTIME_CONFIG_FILE_PATH = Path("server/config/json/server_runtime_config.json")
+DASHBOARD_CONFIG_FILE_PATH = Path("server/config/json/dashboard_config.json")
 # WEB_CONFIG_FILE_PATH = Path("server/config/web_config.json")
 
 # Placeholder for passwords when returning config to frontend
