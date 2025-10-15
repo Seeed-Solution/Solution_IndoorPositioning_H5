@@ -62,12 +62,6 @@
     "exportConfig": "Export Configuration",
     "createNewMap": "Create New Map",
     "loadFromFile": "Load from File",
-    "actions": {
-      "exporting": "Exporting configuration...",
-      "noDataToExport": "No configuration data available for export",
-      "exportSuccess": "Configuration exported as {filename}",
-      "exportFailed": "Export failed"
-    },
     "validation": {
       "mapObjectRequired": "Map object cannot be empty",
       "mapNameRequired": "Map name cannot be empty",
@@ -97,6 +91,10 @@
       "settingsTab": "Settings"
     },
     "actions": {
+      "exporting": "Exporting configuration...",
+      "noDataToExport": "No configuration data available for export",
+      "exportSuccess": "Configuration exported as {filename}",
+      "exportFailed": "Export failed",
       "saveAllChanges": "Save All Changes",
       "saveChanges": "Save Changes",
       "cancelAllChanges": "Cancel All Changes",
@@ -156,7 +154,6 @@
     "accuracy": "Acc",
     "strongestRssi": "Strongest RSSI",
     "detected": "Detected",
-    "beacons": "beacon(s)",
     "noBeaconsDetected": "No beacons detected in last update.",
     "showTrails": "Show Trails",
     "hideTrails": "Hide Trails",
@@ -185,7 +182,6 @@
     "chooseMap": "Choose Map",
     "unnamedMap": "Unnamed Map",
     "selectMapPlaceholder": "Select a map to view",
-    "entities": "entities",
     "noMapsAvailable": "No maps available",
     "activeTrackers": "active trackers",
     "noMapSelected": "No Map Selected",
@@ -242,7 +238,6 @@
       "area": "Area",
       "default": "Default",
       "unknown": "Unknown",
-      "never": "Never",
       "noTrackers": "No tracker data available",
       "totalDevices": "Total {count} device{plural}",
       "selectedDevices": "{count} device{plural} selected",
@@ -467,6 +462,13 @@
       "confirmMessage": "Are you sure you want to restart the service?\n\nRestarting the service will:\n• Temporarily interrupt all connections\n• Apply the latest configuration changes\n• System will restart automatically",
       "restarting": "Restarting service...",
       "restartInitiated": "Restart command sent, system will restart in a few seconds"
+    },
+    "credentials": {
+      "setTitle": "Set {service} Credentials",
+      "username": "Username",
+      "password": "Password",
+      "saving": "Saving...",
+      "save": "Save Credentials"
     }
   },
   "common": {
@@ -646,19 +648,6 @@
     "pagination": {
       "total": "Total",
       "alarms": "alarms"
-    }
-  },
-  "server": {
-    "credentials": {
-      "setTitle": "Set {service} Credentials",
-      "username": "Username",
-      "password": "Password",
-      "saving": "Saving...",
-      "save": "Save Credentials"
-    },
-    "password": {
-      "changed": "Password Changed Successfully",
-      "successMessage": "Your password has been updated successfully."
     }
   }
 }

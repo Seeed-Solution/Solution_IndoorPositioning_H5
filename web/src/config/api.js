@@ -34,7 +34,7 @@ const API_CONFIG = {
   // 生产环境配置
   production: {
     // 本地容器模式 - web和后端在同一个服务中
-    local: '/api',
+    local: `${window.location.protocol}//${window.location.hostname}:8022/api`,
     // 远程模式 - 访问远程服务器
     remote: 'https://indoorpositioning-demo.seeed.cc/api'
   }

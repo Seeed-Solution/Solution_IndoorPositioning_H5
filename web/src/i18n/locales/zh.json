@@ -62,12 +62,6 @@
     "exportConfig": "导出配置",
     "createNewMap": "创建新地图",
     "loadFromFile": "从文件加载",
-    "actions": {
-      "exporting": "正在导出配置...",
-      "noDataToExport": "没有配置数据可导出",
-      "exportSuccess": "配置已导出为 {filename}",
-      "exportFailed": "导出失败"
-    },
     "validation": {
       "mapObjectRequired": "地图对象不能为空",
       "mapNameRequired": "地图名称不能为空",
@@ -97,6 +91,10 @@
       "settingsTab": "设置"
     },
     "actions": {
+      "exporting": "正在导出配置...",
+      "noDataToExport": "没有配置数据可导出",
+      "exportSuccess": "配置已导出为 {filename}",
+      "exportFailed": "导出失败",
       "saveAllChanges": "保存所有更改",
       "saveChanges": "保存更改",
       "cancelAllChanges": "取消所有更改",
@@ -156,7 +154,6 @@
     "accuracy": "精度",
     "strongestRssi": "最强信号",
     "detected": "检测到",
-    "beacons": "个信标",
     "noBeaconsDetected": "最后更新中未检测到信标。",
     "showTrails": "显示轨迹",
     "hideTrails": "隐藏轨迹",
@@ -242,7 +239,6 @@
       "area": "区域",
       "default": "默认",
       "unknown": "未知",
-      "never": "从未",
       "noTrackers": "暂无设备数据",
       "totalDevices": "共 {count} 台设备",
       "selectedDevices": "已选择 {count} 台设备",
@@ -324,7 +320,6 @@
     "beacon": "信标",
     "beacons": "信标",
     "entity": "实体",
-    "entities": "实体",
     "refreshDataFailed": "刷新设备数据失败: {error}",
     "noMapsFoundInDashboard": "仪表板配置中未找到地图。",
     "noMapsCheckingFallback": "仪表板中未找到地图。正在检查备用源...",
@@ -467,6 +462,13 @@
       "confirmMessage": "您确定要重启服务吗？\n\n重启服务将会：\n• 暂时中断所有连接\n• 应用最新的配置更改\n• 系统将自动重新启动",
       "restarting": "正在重启服务...",
       "restartInitiated": "重启指令已发送，系统将在几秒钟内重新启动"
+    },
+    "credentials": {
+      "setTitle": "设置 {service} 凭据",
+      "username": "用户名",
+      "password": "密码",
+      "saving": "保存中...",
+      "save": "保存凭据"
     }
   },
   "common": {
@@ -641,19 +643,6 @@
     "pagination": {
       "total": "共",
       "alarms": "个告警"
-    }
-  },
-  "server": {
-    "credentials": {
-      "setTitle": "设置 {service} 凭据",
-      "username": "用户名",
-      "password": "密码",
-      "saving": "保存中...",
-      "save": "保存凭据"
-    },
-    "password": {
-      "changed": "密码修改成功",
-      "successMessage": "您的密码已成功更新。"
     }
   }
 }

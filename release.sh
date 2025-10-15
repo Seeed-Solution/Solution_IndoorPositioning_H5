@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=0.2.0
+version=0.2.1
 #
 #docker build -t seeedcloud/sensecraft-indoor-positioning-remote:$version -t seeedcloud/sensecraft-indoor-positioning-local -f Dockerfile-remote .
 #docker build -t seeedcloud/sensecraft-indoor-positioning:$version -t seeedcloud/sensecraft-indoor-positioning -f Dockerfile-local .
