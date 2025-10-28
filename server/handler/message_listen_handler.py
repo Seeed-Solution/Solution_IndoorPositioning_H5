@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 
+# 初始化设备信息, 更新最新上报时间和在线状态
 def pre_listener(report: TrackerReport):
     device = device_holder.get_tracker_state(report.trackerId)
     if device is None:
@@ -40,6 +41,7 @@ def pre_listener(report: TrackerReport):
         device_holder.update_tracker_battery(report.trackerId, int(report.battery))
 
 
+# 定位结果广播
 async def post_listener(state: TrackerState):
     state.online = event_constant.ONLINE_STATUS_ACTIVE
     device_holder.set_tracker_state(state.trackerId, state)

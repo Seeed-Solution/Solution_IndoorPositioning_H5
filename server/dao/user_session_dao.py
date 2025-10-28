@@ -34,10 +34,10 @@ class UserSessionDao(BaseDao[UserSessionRecord]):
         expire_time = login_time + timedelta(hours=expire_hours)
         
         # 先删除该用户的所有旧会话（可选，取决于是否允许多会话）
-        with self.get_session() as session:
-            session.query(UserSessionTable).filter(
-                UserSessionTable.username == username
-            ).delete()
+        # with self.get_session() as session:
+        #     session.query(UserSessionTable).filter(
+        #         UserSessionTable.username == username
+        #     ).delete()
         
         return self.create(
             session_token=session_token,

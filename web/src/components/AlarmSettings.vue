@@ -544,7 +544,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { fetchApi } from '@/utils/httpClient.js';
+import { apiRequest } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
 
 const { t: $t } = useI18n();
@@ -764,17 +764,14 @@ const loadAlarmList = async (page = null) => {
     // 使用传入的页码或当前页码
     const targetPage = page !== null ? page : currentPage.value;
     
-    // 构建带分页参数的URL
-    const url = new URL(API_ENDPOINTS.EVENTS, window.location.origin);
-    url.searchParams.append('page', targetPage.toString());
-    url.searchParams.append('page_size', itemsPerPage.toString());
+    // 使用axios进行请求
+    const params = {
+      page: targetPage.toString(),
+      page_size: itemsPerPage.toString()
+    };
     
-    const response = await fetchApi(url.pathname + url.search);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const responseData = await response.json();
+    const response = await apiRequest.get(API_ENDPOINTS.EVENTS, { params });
+    const responseData = response.data;
     
     // 转换后端数据格式到前端格式
     alarmList.value = responseData.data.map(convertBackendToFrontend);
@@ -891,15 +888,13 @@ const loadDevicesAndGroups = async () => {
     
     // 并行加载分组和设备数据
     const [groupsResponse, trackersResponse] = await Promise.all([
-      fetchApi('/groups'),
-      fetchApi('/trackers')
+      apiRequest.get('/groups'),
+      apiRequest.get('/trackers')
     ]);
     
     // 解析响应数据
-    const [groupsData, trackersData] = await Promise.all([
-      groupsResponse.json(),
-      trackersResponse.json()
-    ]);
+    const groupsData = groupsResponse.data;
+    const trackersData = trackersResponse.data;
     
     // 处理分组数据
     const groups = Array.isArray(groupsData) ? groupsData : [];
@@ -975,8 +970,8 @@ const loadBeacons = async () => {
     isLoadingBeacons.value = true;
     beaconLoadError.value = '';
     
-    const response = await fetchApi('/beacons');
-    const beaconData = await response.json();
+    const response = await apiRequest.get('/beacons');
+    const beaconData = response.data;
     
     // 将数据转换为地图分组格式
     beaconMaps.value = Object.entries(beaconData).map(([mapName, beacons]) => ({
@@ -1300,33 +1295,12 @@ const saveAlarm = async () => {
 
     if (isEditingAlarm.value) {
       // 编辑现有报警 - PUT /api/events/{id}
-      const response = await fetchApi(API_ENDPOINTS.EVENT_BY_ID(editingAlarmId.value), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(backendData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      await apiRequest.put(API_ENDPOINTS.EVENT_BY_ID(editingAlarmId.value), backendData);
 
       emit('update-status', $t('alarmSettings.messages.alarmUpdated'));
     } else {
       // 创建新报警 - POST /api/events
-      const response = await fetchApi(API_ENDPOINTS.EVENTS, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(backendData)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
+      await apiRequest.post(API_ENDPOINTS.EVENTS, backendData);
 
       emit('update-status', $t('alarmSettings.messages.alarmCreated'));
     }
@@ -1361,20 +1335,10 @@ const toggleAlarmStatus = async (alarm) => {
   
   try {
     // 调用切换状态 API - PUT /api/events/{id}
-    const response = await fetchApi(API_ENDPOINTS.EVENT_BY_ID(alarm.id), {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id: alarm.id,
-        enable_status: alarm.enabled
-      })
+    await apiRequest.put(API_ENDPOINTS.EVENT_BY_ID(alarm.id), {
+      id: alarm.id,
+      enable_status: alarm.enabled
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
     
     const message = alarm.enabled ? $t('alarmSettings.messages.alarmEnabled') : $t('alarmSettings.messages.alarmDisabled');
     emit('update-status', message);
@@ -1418,13 +1382,7 @@ const confirmDelete = async () => {
   
   try {
     // 调用删除 API - DELETE /api/events/{id}
-    const response = await fetchApi(API_ENDPOINTS.EVENT_BY_ID(deleteTargetAlarm.value.id), {
-      method: 'DELETE'
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    await apiRequest.delete(API_ENDPOINTS.EVENT_BY_ID(deleteTargetAlarm.value.id));
     
     emit('update-status', $t('alarmSettings.messages.alarmDeleted'));
     

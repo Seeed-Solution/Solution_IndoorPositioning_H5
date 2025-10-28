@@ -93,6 +93,7 @@ async def parse_sensecap_payload(topic: str, payload_bytes: bytes) -> Optional[T
                 timestamp=payload_timestamp,
                 detectedBeacons=beacon_values,
                 battery=battery,
+                sos=sos,
                 loc=loc,
                 loc_type=loc_type,
                 sourceType=message_constant.SOURCE_FROM_SENSECAP
@@ -205,7 +206,7 @@ async def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional
                     gps_value['lon'] = entry.get('measurementValue', 0)
                 case '5002':
                     beacon_values = entry.get('measurementValue', 0)
-                case '4200':
+                case '5003':
                     event_list = entry.get('measurementValue', 0)
                     for event in event_list:
                         if event.get("id", 0) == 7:

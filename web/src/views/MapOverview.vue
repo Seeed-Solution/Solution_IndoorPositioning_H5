@@ -374,6 +374,7 @@ const connectWebSocket = () => {
 
           const trackerInstanceData = {
             trackerId: newTrackerData.trackerId,
+            device_name: newTrackerData.device_name,
             position: newTrackerData.position ? {
               x: newTrackerData.position.x,
               y: newTrackerData.position.y,
@@ -407,6 +408,7 @@ const connectWebSocket = () => {
 
           const trackerInstanceData = {
             trackerId: newTrackerData.trackerId,
+            device_name: newTrackerData.device_name,
             position: null, // 区域定位没有精确position
             radius: newTrackerData.radius,
             timestamp: newTrackerData.timestamp,

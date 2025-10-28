@@ -6,6 +6,7 @@
 import axios from 'axios'
 import { getApiBaseUrl } from '../config/api.js'
 import notificationService from '../services/notificationService.js'
+import { getTokenFromLocalStorage } from '../services/localStorageService.js'
 
 /**
  * 创建axios实例
@@ -25,7 +26,11 @@ const httpClient = axios.create({
 httpClient.interceptors.request.use(
   (config) => {
     // 在请求发送之前做一些处理
-    // 例如添加认证token、请求日志等
+    // 从localStorage获取token并添加到请求头
+    const token = getTokenFromLocalStorage()
+    if (token) {
+      config.headers['session_token'] = token
+    }
     return config
   },
   (error) => {
@@ -92,11 +97,19 @@ export async function fetchApi(endpoint, options = {}) {
   const baseUrl = getApiBaseUrl()
   const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`
   
+  // 从localStorage获取token并添加到请求头
+  const token = getTokenFromLocalStorage()
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+  
+  if (token) {
+    headers['session_token'] = token
+  }
+  
   const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
     ...options,
   }
   

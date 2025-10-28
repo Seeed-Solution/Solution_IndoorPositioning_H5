@@ -1020,7 +1020,7 @@ import {
   saveServerConfiguration,
   changePassword as changePasswordAPI
 } from '@/services/configApiService.js';
-import { fetchApi } from '@/utils/httpClient.js';
+import { apiRequest } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
 
 // i18n setup
@@ -2810,12 +2810,8 @@ const loadTrackerList = async () => {
 const loadTrackersData = async () => {
   try {
     // 直接使用/trackers接口，与AlarmSettings.vue保持一致
-    const response = await fetchApi('/trackers');
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const trackersData = await response.json();
+    const response = await apiRequest.get('/trackers');
+    const trackersData = response.data;
     
     // 处理返回的数据格式（可能是对象或数组）
     if (Array.isArray(trackersData)) {
@@ -3458,24 +3454,13 @@ const saveCredentials = async () => {
   credentialsError.value = '';
 
   try {
-    const response = await fetchApi(API_ENDPOINTS.SERVICE_CREDENTIALS, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        service_type: currentServiceType.value,
-        username: credentialsForm.value.username,
-        password: credentialsForm.value.password
-      }),
+    const response = await apiRequest.post(API_ENDPOINTS.SERVICE_CREDENTIALS, {
+      service_type: currentServiceType.value,
+      username: credentialsForm.value.username,
+      password: credentialsForm.value.password
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to save credentials');
-    }
-
-    const result = await response.json();
+    const result = response.data;
     console.log('Credentials saved successfully:', result);
     
     // 显示成功消息
@@ -3508,14 +3493,9 @@ const restartService = async () => {
     configStatusMessage.value = t('server.restart.restarting');
     
     // 调用后端关闭接口
-    const response = await fetchApi(API_ENDPOINTS.SHUTDOWN, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await apiRequest.post(API_ENDPOINTS.SHUTDOWN);
     
-    if (response.ok) {
+    if (response.status === 200) {
       configStatusMessage.value = t('server.restart.restartInitiated');
       // 显示消息后稍等片刻，让用户看到反馈
       setTimeout(() => {

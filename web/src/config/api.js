@@ -170,6 +170,11 @@ export const API_ENDPOINTS = {
   TRACKERS: '/trackers',
   ALLOW_TRACKER_LIST: '/allow_tracker-list',
   PAAS_DEVICES: '/list_paas_device',
+  DEVICES_BATCH_UPDATE_GROUP: '/devices/batch-update-group',
+  
+  // 分组相关
+  GROUPS: '/groups',
+  GROUP_BY_ID: (id) => `/groups/${id}`,
   
   // 系统相关
   SHUTDOWN: '/shutdown',

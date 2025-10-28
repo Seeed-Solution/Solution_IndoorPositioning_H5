@@ -55,7 +55,8 @@ async def devices_offline_check(device_list: list[DeviceRecord], timestamp: int)
     for device in device_list:
         tracker_state = device_holder.get_tracker_state(device.dev_eui)
         old_online_status = tracker_state.online
-        if old_online_status == event_constant.ONLINE_STATUS_OFFLINE:
+        if (old_online_status == event_constant.ONLINE_STATUS_OFFLINE or
+                old_online_status == event_constant.ONLINE_STATUS_UNKNOWN):
             continue
         online_status = event_constant.ONLINE_STATUS_ACTIVE
         if (timestamp_ms - tracker_state.last_update_time) > DEFAULT_ONLINE_CHECK_INTERVAL_MS:

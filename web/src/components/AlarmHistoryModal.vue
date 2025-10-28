@@ -47,7 +47,7 @@
                 <div class="header-cell alarm-time">{{ $t('alarm.alarmTime') }}</div>
                 <div class="header-cell alarm-position">{{ $t('alarm.alarmPosition') }}</div>
                 <div class="header-cell position-type">{{ $t('alarm.positionType') }}</div>
-                <div class="header-cell actions">{{ $t('common.actions') }}</div>
+<!--                <div class="header-cell actions">{{ $t('common.actions') }}</div>-->
               </div>
             </div>
             
@@ -103,17 +103,17 @@
                   </span>
                 </div>
                 
-                <div class="table-cell actions">
-                  <button 
-                    v-if="alarm.position && (alarm.position.x !== null || alarm.position.y !== null || alarm.position.radius !== null)"
-                    class="action-button view-map" 
-                    @click="viewOnMap(alarm)" 
-                    title="View on Map"
-                  >
-                    {{ $t('alarm.viewMap') }}
-                  </button>
-                  <span v-else class="no-action">{{ $t('common.dash') }}</span>
-                </div>
+<!--                <div class="table-cell actions">-->
+<!--                  <button -->
+<!--                    v-if="alarm.position && (alarm.position.x !== null || alarm.position.y !== null || alarm.position.radius !== null)"-->
+<!--                    class="action-button view-map" -->
+<!--                    @click="viewOnMap(alarm)" -->
+<!--                    title="View on Map"-->
+<!--                  >-->
+<!--                    {{ $t('alarm.viewMap') }}-->
+<!--                  </button>-->
+<!--                  <span v-else class="no-action">{{ $t('common.dash') }}</span>-->
+<!--                </div>-->
               </div>
             </div>
           </div>

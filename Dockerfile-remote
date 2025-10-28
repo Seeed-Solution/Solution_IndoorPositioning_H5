@@ -33,6 +33,9 @@ COPY server/ ./server/
 COPY run_in_docker.sh ./
 COPY web/web.py ./web/
 
+COPY server/config/json/server_runtime_config.json ./server/config/server_runtime_config.json
+COPY server/config/json/dashboard_config.json ./server/config/dashboard_config.json
+
 # Install Python dependencies
 RUN pip install -r /app/server/requirements.txt
 

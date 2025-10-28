@@ -26,7 +26,6 @@ class DeviceTable(Base):
         Index('idx_device_name', 'device_name'),
         Index('idx_group_id', 'group_id'),
         Index('idx_is_favorite', 'is_favorite'),
-        Index('idx_create_time', 'create_time'),
         Index('idx_delete_time', 'delete_time'),
         Index('idx_last_data_update_time', 'last_data_update_time'),
     )

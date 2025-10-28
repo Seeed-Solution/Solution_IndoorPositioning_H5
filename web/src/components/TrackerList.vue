@@ -111,7 +111,10 @@
                 />
               </td>
               <td class="device-info">
-                <div class="device-name">{{ tracker.name || tracker.trackerId }}</div>
+                <div class="device-name">
+                  {{ tracker.name || tracker.trackerId }}
+                  <span v-if="tracker.sos === 1" class="sos-indicator">SOS</span>
+                </div>
                 <div class="device-id">EUI: {{ tracker.trackerId }}</div>
               </td>
               <td class="group-cell">
@@ -521,6 +524,8 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EditTrackerModal from './EditTrackerModal.vue'
+import httpClient from '../utils/httpClient.js'
+import { API_ENDPOINTS } from '../config/api.js'
 
 const props = defineProps({
   trackers: {
@@ -874,11 +879,8 @@ const showTrackerAlert = (tracker) => {
 // API调用函数
 const fetchGroups = async () => {
   try {
-    const response = await fetch('/api/groups')
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    const groups = await response.json()
+    const response = await httpClient.get(API_ENDPOINTS.GROUPS)
+    const groups = response.data
     
     // 自动添加Default分组到列表开头
     const groupsWithDefault = [
@@ -1015,27 +1017,11 @@ const handleCreateGroup = async () => {
   isCreatingGroup.value = true
   
   try {
-    const response = await fetch('/api/groups', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        group_name: trimmedName
-      })
+    const response = await httpClient.post(API_ENDPOINTS.GROUPS, {
+      group_name: trimmedName
     })
     
-    if (response.status === 409) {
-      // 分组名称重复
-      createGroupError.value = t('tracker.trackerList.groupNameExists')
-      return
-    }
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const result = await response.json()
+    const result = response.data
     
     if (result.success) {
       console.log('[TrackerList] Group created successfully:', result.data)
@@ -1054,7 +1040,12 @@ const handleCreateGroup = async () => {
     
   } catch (error) {
     console.error('[TrackerList] Error creating group:', error)
-    createGroupError.value = t('tracker.trackerList.networkError')
+    if (error.response?.status === 409) {
+      // 分组名称重复
+      createGroupError.value = t('tracker.trackerList.groupNameExists')
+    } else {
+      createGroupError.value = t('tracker.trackerList.networkError')
+    }
   } finally {
     isCreatingGroup.value = false
   }
@@ -1164,27 +1155,11 @@ const saveGroupName = async (group) => {
     isManagementLoading.value = true
     managementError.value = ''
     
-    const response = await fetch(`/api/groups/${group.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        group_name: trimmedName
-      })
+    const response = await httpClient.put(API_ENDPOINTS.GROUP_BY_ID(group.id), {
+      group_name: trimmedName
     })
     
-    if (response.status === 409) {
-      // 分组名称重复
-      managementError.value = t('tracker.trackerList.groupNameExists')
-      return
-    }
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const result = await response.json()
+    const result = response.data
     
     if (result.success) {
       console.log('[TrackerList] Group updated successfully:', result.data)
@@ -1200,7 +1175,12 @@ const saveGroupName = async (group) => {
     
   } catch (error) {
     console.error('[TrackerList] Error updating group:', error)
-    managementError.value = t('tracker.trackerList.networkError')
+    if (error.response?.status === 409) {
+      // 分组名称重复
+      managementError.value = t('tracker.trackerList.groupNameExists')
+    } else {
+      managementError.value = t('tracker.trackerList.networkError')
+    }
   } finally {
     isManagementLoading.value = false
   }
@@ -1228,21 +1208,9 @@ const deleteGroup = async (group) => {
     isManagementLoading.value = true
     managementError.value = ''
     
-    const response = await fetch(`/api/groups/${group.id}`, {
-      method: 'DELETE'
-    })
+    const response = await httpClient.delete(API_ENDPOINTS.GROUP_BY_ID(group.id))
     
-    if (!response.ok) {
-      if (response.status === 400) {
-        // 分组仍有设备或其他业务错误
-        const errorResult = await response.json()
-        managementError.value = errorResult.message || t('tracker.trackerList.cannotDeleteGroup')
-        return
-      }
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const result = await response.json()
+    const result = response.data
     
     if (result.success) {
       console.log('[TrackerList] Group deleted successfully:', group.group_name)
@@ -1258,7 +1226,13 @@ const deleteGroup = async (group) => {
     
   } catch (error) {
     console.error('[TrackerList] Error deleting group:', error)
-    managementError.value = t('tracker.trackerList.networkError')
+    if (error.response?.status === 400) {
+      // 分组仍有设备或其他业务错误
+      const errorResult = error.response.data
+      managementError.value = errorResult?.message || t('tracker.trackerList.cannotDeleteGroup')
+    } else {
+      managementError.value = t('tracker.trackerList.networkError')
+    }
   } finally {
     isManagementLoading.value = false
   }
@@ -1353,19 +1327,9 @@ const handleMoveDevices = async () => {
     
     console.log('[TrackerList] Moving devices to group:', requestData)
     
-    const response = await fetch('/api/devices/batch-update-group', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    })
+    const response = await httpClient.post(API_ENDPOINTS.DEVICES_BATCH_UPDATE_GROUP, requestData)
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const result = await response.json()
+    const result = response.data
     
     if (result.success) {
       console.log('[TrackerList] Devices moved successfully:', result)
@@ -1750,6 +1714,20 @@ onUnmounted(() => {
 .device-id {
   font-size: 0.8rem;
   color: #6c757d;
+}
+
+.sos-indicator {
+  display: inline-block;
+  background-color: #dc3545;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: top;
 }
 
 .group-badge {

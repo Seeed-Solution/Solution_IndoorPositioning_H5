@@ -72,6 +72,7 @@ import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import httpClient from '../utils/httpClient.js'
 import { API_ENDPOINTS } from '../config/api.js'
+import { authService } from '../services/authService.js'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -252,6 +253,8 @@ const handleLogin = async () => {
     })
     
     if (response.status === 200) {
+      // 处理登录响应中的token
+      authService.handleLoginResponse(response)
       // 登录成功，跳转到原始页面或首页
       const redirectPath = router.currentRoute.value.query.redirect || '/'
       router.push(redirectPath)
@@ -282,6 +285,8 @@ const handleGuestLogin = async () => {
     })
     
     if (response.status === 200) {
+      // 处理登录响应中的token
+      authService.handleLoginResponse(response)
       // 登录成功，跳转到原始页面或首页
       const redirectPath = router.currentRoute.value.query.redirect || '/'
       router.push(redirectPath)

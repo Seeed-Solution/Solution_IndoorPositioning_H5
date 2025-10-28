@@ -1,4 +1,5 @@
 const LOCAL_STORAGE_KEY = 'webUIConfiguration';
+const TOKEN_STORAGE_KEY = 'authToken';
 
 /**
  * Saves the current Web UI configuration to localStorage.
@@ -48,5 +49,48 @@ export const clearConfigFromLocalStorage = () => {
     console.log('Configuration cleared from localStorage.');
   } catch (error) {
     console.error('Error clearing configuration from localStorage:', error);
+  }
+};
+
+/**
+ * Saves authentication token to localStorage.
+ * @param {string} token The authentication token to save.
+ */
+export const saveTokenToLocalStorage = (token) => {
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    console.log('Token saved to localStorage.');
+  } catch (error) {
+    console.error('Error saving token to localStorage:', error);
+  }
+};
+
+/**
+ * Loads authentication token from localStorage.
+ * @returns {string | null} The token, or null if not found or error.
+ */
+export const getTokenFromLocalStorage = () => {
+  try {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (token === null) {
+      console.log('No token found in localStorage.');
+      return null;
+    }
+    return token;
+  } catch (error) {
+    console.error('Error loading token from localStorage:', error);
+    return null;
+  }
+};
+
+/**
+ * Removes authentication token from localStorage.
+ */
+export const removeTokenFromLocalStorage = () => {
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    console.log('Token removed from localStorage.');
+  } catch (error) {
+    console.error('Error removing token from localStorage:', error);
   }
 }; 

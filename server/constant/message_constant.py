@@ -89,7 +89,8 @@ def get_tracker_update(state: TrackerState) -> dict:
             {
                 "name": beacon_holder.get_beacon(beacon.macAddress).displayName,
                 "configured_x": beacon_holder.get_beacon(beacon.macAddress).x,
-                "configured_y": beacon_holder.get_beacon(beacon.macAddress).y
+                "configured_y": beacon_holder.get_beacon(beacon.macAddress).y,
+                "rssi": beacon.rssi
             } for beacon in state.used_beacons
         ],
         "position_history": state.position_history,
@@ -111,7 +112,8 @@ def get_tracker_loc_appr(state: TrackerState) -> dict:
             {
                 "name": beacon_holder.get_beacon(beacon.macAddress).displayName,
                 "configured_x": beacon_holder.get_beacon(beacon.macAddress).x,
-                "configured_y": beacon_holder.get_beacon(beacon.macAddress).y
+                "configured_y": beacon_holder.get_beacon(beacon.macAddress).y,
+                "rssi": beacon.rssi
             } for beacon in state.used_beacons
         ],  # Use the enriched list
         "map": state.map,

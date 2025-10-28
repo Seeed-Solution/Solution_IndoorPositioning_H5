@@ -147,7 +147,7 @@
     "tracker": "追踪器", 
     "trackers": "追踪器",
     "allGroups": "所有分组",
-    "defaultGroup": "默认",
+    "defaultGroup": "Default",
     "noTrackers": "尚未接收到追踪器数据。",
     "noPositionData": "无位置数据",
     "lastSeen": "最后在线",

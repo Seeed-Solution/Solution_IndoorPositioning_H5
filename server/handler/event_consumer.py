@@ -59,8 +59,9 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                 ## sos 状态与当前设备状态不一致, 则触发
                 previous_sos = device_holder.get_tracker_sos(state.trackerId)
                 device_holder.update_tracker_sos(state.trackerId, state.sos)
+                log.info(f'the tracker: {state.trackerId} sos event: {state.sos} from {previous_sos}')
                 if previous_sos != state.sos and state.sos != event_constant.SOS_STATUS_UNKNOWN:
-                    device_holder.update_tracker_sos(tracker_id=state.trackerId, sos=state.sos)
+                    # device_holder.update_tracker_sos(tracker_id=state.trackerId, sos=state.sos)
                     await websocket_holder.broadcast(message_constant.get_sos_message(state))
                     if previous_sos == event_constant.SOS_STATUS_UNKNOWN:
                         return

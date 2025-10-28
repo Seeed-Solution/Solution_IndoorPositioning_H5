@@ -113,7 +113,7 @@
           </div>
           <ul v-if="trackerList.length > 0">
             <li v-for="tracker in trackerList" :key="tracker.trackerId" class="tracker-item" :class="{ 'tracker-sos': tracker.sos === 1 }" @click="showTrackerAlarmRecords(tracker)">
-              <strong>{{ tracker.trackerId }}</strong>
+              <strong>{{ tracker.device_name || tracker.trackerId }}</strong>
               
               <!-- SOS Status -->
               <div v-if="tracker.sos === 1" class="tracker-sos-status">
@@ -146,6 +146,8 @@
                 </div>
                 <div v-if="tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-meta-item">
                   {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm
+<!--                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi).filter(v => !isNaN(v))) }} dBm-->
+<!--                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm-->
                   ({{ t('tracker.detected') }} {{ tracker.last_detected_beacons.length }} {{ t('tracker.beacons') }})
                 </div>
                 <div v-else-if="tracker.last_detected_beacons" class="tracker-meta-item">
@@ -212,11 +214,9 @@ const mergedTrackers = computed(() => {
         } else {
             trackersToUse = props.trackers;
         }
-        console.log('[MergedTrackers] Using props.trackers:', Object.keys(trackersToUse).map(id => ({ id, beacons: trackersToUse[id].last_detected_beacons?.length || 0 })));
     } else if (Object.keys(localTrackers.value).length > 0) {
         // 如果 props.trackers 没有数据，使用预加载的数据
         trackersToUse = localTrackers.value;
-        console.log('[MergedTrackers] Using localTrackers:', Object.keys(trackersToUse).map(id => ({ id, beacons: trackersToUse[id].last_detected_beacons?.length || 0 })));
     }
     
     return trackersToUse;
@@ -231,17 +231,13 @@ const filteredTrackers = computed(() => {
     }
     
     const result = allTrackers.filter(tracker => {
-        // 首先基于 map 字段过滤
         if (props.config.map.name === tracker.map) {
-            console.log(`[FilteredTrackers] ${props.config.map.name} 存在 tracker: ${tracker.trackerId}, beacons:`, tracker.last_detected_beacons);
             return true;
         } else {
-            console.log(`[FilteredTrackers] ${props.config.map.name} 跳过 tracker: ${tracker.trackerId} (map字段不匹配: tracker.map=${tracker.map})`);
             return false;
         }
     });
-    
-    console.log(`[FilteredTrackers] 过滤结果数量: ${result.length}`);
+
     return result;
 });
 
@@ -698,7 +694,6 @@ const drawMap = (ctx) => {
        } else if (tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0) {
            // 区域定位绘制
            const beacon = tracker.last_detected_beacons[0]; // 使用第一个检测到的beacon
-           console.log(`[DEBUG] 尝试区域定位绘制 tracker: ${tracker.trackerId}, radius: ${tracker.radius}, message:`, JSON.stringify(tracker));
            if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
              const centerX = (beacon.configured_x - minX) * currentScale;
              const centerY = (beacon.configured_y - minY) * currentScale;

@@ -34,8 +34,11 @@ COPY run_in_docker.sh ./
 COPY web/web.py ./web/
 
 # COPY corresponding environment setting
-COPY server/config/json/server_runtime_config_local.json ./server/config/json/server_runtime_config.json
-COPY server/config/json/dashboard_config_local.json ./server/config/json/dashboard_config.json
+#COPY server/config/json/server_runtime_config_local.json ./server/config/json/server_runtime_config.json
+#COPY server/config/json/dashboard_config_local.json ./server/config/json/dashboard_config.json
+
+COPY server/config/json/server_runtime_config.json ./server/config/json/server_runtime_config.json
+COPY server/config/json/dashboard_config.json ./server/config/json/dashboard_config.json
 
 # Install Python dependencies
 RUN pip install -r /app/server/requirements.txt

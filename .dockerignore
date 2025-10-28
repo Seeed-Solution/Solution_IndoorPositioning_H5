@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Development
+.env
+.env.local
+.env.development
+.env.test
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build outputs (will be built in Docker)
+web/dist/
+web/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+.pytest_cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+db/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation
+*.md
+README*
+docs/
+design/
+
+# Test files
+tests/
+test/
+*test*
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Backup files
+*.backup
+*.bak
+Dockerfilenew
+
+# UV lock file (Python package manager)
+uv.lock
+
+# Claude Code
+.claude/

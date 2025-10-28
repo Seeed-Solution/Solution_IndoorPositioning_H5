@@ -11,6 +11,7 @@ from server.components.beacon_holder import beacon_holder
 from server.components.uplink_collector import UplinkCollector
 
 import server.constant.message_constant as message_constant
+import server.constant.event_constant as event_constant
 
 import server.config.config_manager as config_manager
 
@@ -40,7 +41,8 @@ def do(report: TrackerReport) -> TrackerState:
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_WGS84,
                 x=report.loc.get("alt"),
-                y=report.loc.get("lon")
+                y=report.loc.get("lon"),
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
         if report.locType != message_constant.TRACKER_POSITIONING_TYPE_BLE:
             return TrackerState(
@@ -50,6 +52,7 @@ def do(report: TrackerReport) -> TrackerState:
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_UNKNOWN,
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
         # 非蓝牙定位, 不需要进入后面的部分
         if len(report.detectedBeacons) == 0:
@@ -60,6 +63,7 @@ def do(report: TrackerReport) -> TrackerState:
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_UNKNOWN,
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
 
         log.info(f"开始进行蓝牙定位计算: eui=>{report.trackerId}")
@@ -107,7 +111,8 @@ def do(report: TrackerReport) -> TrackerState:
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
                 map=best_map,
-                last_detected_beacons=report.detectedBeacons
+                last_detected_beacons=report.detectedBeacons,
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
         log.info(f"device(id: {tracker_id}): choose map '{best_map}' length of beacons: {len(best_beacons)} ")
 
@@ -122,7 +127,8 @@ def do(report: TrackerReport) -> TrackerState:
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
                 map=best_map,
-                last_detected_beacons=report.detectedBeacons
+                last_detected_beacons=report.detectedBeacons,
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
 
         map_config = None
@@ -142,7 +148,8 @@ def do(report: TrackerReport) -> TrackerState:
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
                 map=best_map,
-                last_detected_beacons=report.detectedBeacons
+                last_detected_beacons=report.detectedBeacons,
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
 
         report.map_name = map_config.map.name
@@ -170,7 +177,9 @@ def do(report: TrackerReport) -> TrackerState:
                     battery=report.battery,
                     type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
                     map=best_map,
-                    last_detected_beacons=report.detectedBeacons
+                    used_beacons=best_beacons,
+                    last_detected_beacons=report.detectedBeacons,
+                    online=event_constant.ONLINE_STATUS_ACTIVE
                 )
 
             scanned_beacon = best_beacons[int(calculated_position[1])]
@@ -195,7 +204,8 @@ def do(report: TrackerReport) -> TrackerState:
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_RANGE,
-                radius=calculated_position[0]
+                radius=calculated_position[0],
+                online=event_constant.ONLINE_STATUS_ACTIVE
             )
 
             # device_holder.set_tracker_state(tracker_id, new_state)
@@ -258,7 +268,8 @@ def do(report: TrackerReport) -> TrackerState:
             map=best_map,
             sos=report.sos,
             battery=report.battery,
-            type=message_constant.TRACKER_STATE_TYPE_BLE_CAL
+            type=message_constant.TRACKER_STATE_TYPE_BLE_CAL,
+            online=event_constant.ONLINE_STATUS_ACTIVE
         )
         return new_state
     except Exception as err:

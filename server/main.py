@@ -70,7 +70,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -145,35 +145,38 @@ def _verify_basic_auth(username: str, password: str) -> bool:
     return runtime_cfg.username == username and runtime_cfg.password == password
 
 async def websocket_auth_handler(websocket: WebSocket) -> bool:
+    await websocket.accept()
+    return True
     """WebSocket认证处理器"""
     # 首先检查cookie认证
-    session_token = websocket.cookies.get("session_token")
-    if session_token and len(session_token) > 0 and session_holder.get(session_token):
-        logging.info(f"ws-session: {session_token}")
-        await websocket.accept()
-        log.info(f"WebSocket client connected via session: {websocket.client}")
-        return True
-    
-    # 检查Authorization头部的Basic Auth
-    auth_header = websocket.headers.get("Authorization")
-    if auth_header:
-        credentials = _parse_basic_auth(auth_header)
-        if credentials:
-            username, password = credentials
-            if _verify_basic_auth(username, password):
-                logging.info(f"ws-basic-auth: {username}")
-                await websocket.accept()
-                log.info(f"WebSocket client connected via Basic Auth: {websocket.client}")
-                return True
-            else:
-                logging.warning(f"WebSocket Basic Auth failed for user: {username}")
-        else:
-            logging.warning("WebSocket received invalid Authorization header format")
-    
-    # 认证失败，关闭连接
-    logging.warning(f"WebSocket connection rejected - no valid authentication: {websocket.client}")
-    await websocket.close(code=1008, reason="Authentication required")
-    return False
+    # session_token = websocket.cookies.get("session_token")
+    # session_token = websocket.headers.get("session_token")
+    # if session_token and len(session_token) > 0 and session_holder.get(session_token):
+    #     logging.info(f"ws-session: {session_token}")
+    #     await websocket.accept()
+    #     log.info(f"WebSocket client connected via session: {websocket.client}")
+    #     return True
+    #
+    # # 检查Authorization头部的Basic Auth
+    # auth_header = websocket.headers.get("Authorization")
+    # if auth_header:
+    #     credentials = _parse_basic_auth(auth_header)
+    #     if credentials:
+    #         username, password = credentials
+    #         if _verify_basic_auth(username, password):
+    #             logging.info(f"ws-basic-auth: {username}")
+    #             await websocket.accept()
+    #             log.info(f"WebSocket client connected via Basic Auth: {websocket.client}")
+    #             return True
+    #         else:
+    #             logging.warning(f"WebSocket Basic Auth failed for user: {username}")
+    #     else:
+    #         logging.warning("WebSocket received invalid Authorization header format")
+    #
+    # # 认证失败，关闭连接
+    # logging.warning(f"WebSocket connection rejected - no valid authentication: {websocket.client}")
+    # await websocket.close(code=1008, reason="Authentication required")
+    # return False
 
 
 # --- MQTT Handling ---
@@ -641,7 +644,8 @@ async def shutdown_event():
 
 # --- API Endpoints ---
 def check_authority(request: Request):
-    session_token = request.cookies.get('session_token')
+    # session_token = request.cookies.get('session_token')
+    session_token = request.headers.get("session_token")
     if not session_token:
         raise HTTPException(status_code=401, detail="No session token")
     if not session_holder.get(session_token):
@@ -1052,19 +1056,22 @@ async def login(login_request: LoginRequest, response: Response):
         session_holder.set(session_token, user_session, username=login_request.username)
         
         # 设置httponly cookie，有效期1天
-        response.set_cookie(
-            key="session_token",
-            value=session_token,
-            max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
-            httponly=True,
-            secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
-            samesite="lax"
-        )
+        # response.set_cookie(
+        #     key="session_token",
+        #     value=session_token,
+        #     max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
+        #     httponly=True,
+        #     secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
+        #     samesite="lax"
+        # )
         log.info(f"Login successful for username: {login_request.username}")
         return {
             "success": True,
             "message": "登录成功",
-            "username": login_request.username
+            "username": login_request.username,
+            "data": {
+                "token": session_token
+            }
         }
         
     except HTTPException:
@@ -1080,7 +1087,8 @@ async def check_auth(request: Request, response: Response):
     检查当前用户的登录状态
     """
     try:
-        session_token = request.cookies.get('session_token')
+        # session_token = request.cookies.get('session_token')
+        session_token = request.headers.get("session_token")
         if session_token and session_holder.get(session_token):
             return {
                 "success": True,
@@ -1094,19 +1102,22 @@ async def check_auth(request: Request, response: Response):
         session_holder.set(session_token, user_session, username="guest")
 
         # 设置httponly cookie，有效期1天
-        response.set_cookie(
-            key="session_token",
-            value=session_token,
-            max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
-            httponly=True,
-            secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
-            samesite="lax"
-        )
+        # response.set_cookie(
+        #     key="session_token",
+        #     value=session_token,
+        #     max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
+        #     httponly=True,
+        #     secure=False,  # 允许HTTP，如果需要HTTPS可以设为True
+        #     samesite="lax"
+        # )
         log.info(f"Login successful for username: guest")
         return {
             "success": True,
             "message": "登录成功",
-            "username": "guest"
+            "username": "guest",
+            "data": {
+                "token": session_token
+            }
         }
 
 
@@ -1135,17 +1146,18 @@ async def logout(request: Request, response: Response):
     清除session token和cookie
     """
     try:
-        session_token = request.cookies.get('session_token')
+        # session_token = request.cookies.get('session_token')
+        session_token = request.headers.get("session_token")
         if session_token:
             session_holder.remove(session_token)
         
         # 清除cookie
-        response.delete_cookie(
-            key="session_token",
-            httponly=True,
-            secure=False,
-            samesite="lax"
-        )
+        # response.delete_cookie(
+        #     key="session_token",
+        #     httponly=True,
+        #     secure=False,
+        #     samesite="lax"
+        # )
         
         return {
             "success": True,
@@ -1159,6 +1171,8 @@ async def logout(request: Request, response: Response):
 
 @app.middleware("http")
 async def auth_middleware(request: Request, next):
+    if request.method == "OPTIONS":
+        return await next(request)
     # 允许访问的公开路径
     public_paths = ['/api/login', '/api/auth/check', '/ws', '/login', '/']
     
@@ -1170,7 +1184,8 @@ async def auth_middleware(request: Request, next):
     
     # 对于API路径，检查认证状态
     if request.url.path.startswith('/api/'):
-        session_token = request.cookies.get('session_token')
+        # session_token = request.cookies.get('session_token')
+        session_token = request.headers.get("session_token")
         if not session_token:
             return JSONResponse(status_code=401, content={"detail": "No session token"})
 

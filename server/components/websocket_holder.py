@@ -97,7 +97,7 @@ class WebSocketHolder:
         if not self.active_connections:
             return 0
             
-        message = json.dumps(data)
+        message = json.dumps(data, ensure_ascii=False)
         disconnected_clients = []
         successful_sends = 0
         

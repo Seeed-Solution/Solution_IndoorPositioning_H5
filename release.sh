@@ -1,6 +1,11 @@
 #!/bin/bash
 
-version=0.2.1
+version=0.2.3
+
+# Clean up previous build artifacts to ensure fresh build
+rm -rf ./web/dist/
+
+
 #
 #docker build -t seeedcloud/sensecraft-indoor-positioning-remote:$version -t seeedcloud/sensecraft-indoor-positioning-local -f Dockerfile-remote .
 #docker build -t seeedcloud/sensecraft-indoor-positioning:$version -t seeedcloud/sensecraft-indoor-positioning -f Dockerfile-local .
