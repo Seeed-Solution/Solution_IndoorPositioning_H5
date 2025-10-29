@@ -274,7 +274,7 @@ const convertAlarmData = (backendRecord) => {
     id: backendRecord.id.toString(),
     name: backendRecord.event_name || t('alarm.unknownAlarm'),
     type: getAlarmTypeFromEventType(backendRecord.event_type),
-    timestamp: new Date(backendRecord.alarm_time).getTime(),
+    timestamp: new Date(backendRecord.alarm_time + (backendRecord.alarm_time.includes('Z') ? '' : 'Z')).getTime(),
     position: hasValidLocation ? {
       map: backendRecord.map_name || t('common.unknown'),
       x: backendRecord.loc.x,
@@ -286,7 +286,7 @@ const convertAlarmData = (backendRecord) => {
     resolveType: isResolved ? 'auto' : null, // 可以根据具体业务逻辑调整
     duration: null, // 后端数据中暂无持续时间，可以根据业务需求计算
     devEui: backendRecord.dev_eui,
-    createTime: new Date(backendRecord.create_time).getTime(),
+    createTime: new Date(backendRecord.create_time + (backendRecord.create_time && !backendRecord.create_time.includes('Z') ? 'Z' : '')).getTime(),
     posType: backendRecord.pos_type,
     beacons: (backendRecord.beacons && Array.isArray(backendRecord.beacons)) ? backendRecord.beacons : [],
     description: backendRecord.desc || {}

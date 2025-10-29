@@ -1341,6 +1341,9 @@ const handleMoveDevices = async () => {
       // 重新计算设备统计
       calculateGroupDeviceCounts()
       
+      // 刷新页面数据
+      emit('refresh-data')
+      
       // 显示成功信息（可选）
       const deviceCount = requestData.dev_eui_list.length
       console.log(`Successfully moved ${deviceCount} device${deviceCount !== 1 ? 's' : ''} to "${targetGroup.value}" group`)

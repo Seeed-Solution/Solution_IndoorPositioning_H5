@@ -210,7 +210,7 @@ async def global_leaving_event_check(now: int):
 async def position_detection_task():
     while True:
         now = datetime.datetime.now().timestamp() * 1000
-        log.info(f"leaving_event_trigger is running, now: ${now}")
+        log.info(f"leaving_event_trigger is running, now: {now}")
         await global_leaving_event_check(int(now))
-        log.info(f"leaving_event_trigger is end, now: ${datetime.datetime.now()}")
+        log.info(f"leaving_event_trigger is end, now: {datetime.datetime.now()}")
         await asyncio.sleep(30)
