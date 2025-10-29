@@ -89,6 +89,47 @@ const router = createRouter({
   routes,
 });
 
+// 智能路由决策函数
+const getDefaultRoute = async () => {
+  try {
+    // 这里可以添加自定义逻辑来决定默认页面
+    
+    // 示例逻辑1：根据用户角色或权限
+    // const userInfo = await authService.getUserInfo()
+    // if (userInfo.role === 'admin') {
+    //   return '/config'
+    // } else if (userInfo.role === 'viewer') {
+    //   return '/map-overview'
+    // }
+    
+    // 示例逻辑2：根据本地存储的用户偏好
+    const lastVisitedPage = localStorage.getItem('lastVisitedPage')
+    if (lastVisitedPage && lastVisitedPage !== '/login') {
+      return lastVisitedPage
+    }
+    
+    // 示例逻辑3：根据时间段
+    // const hour = new Date().getHours()
+    // if (hour >= 9 && hour <= 17) { // 工作时间
+    //   return '/config-tracker'
+    // } else {
+    //   return '/map-overview'
+    // }
+    
+    // 示例逻辑4：根据设备配置状态
+    // const hasConfiguredMaps = await checkIfMapsConfigured()
+    // if (!hasConfiguredMaps) {
+    //   return '/config'
+    // }
+    
+    // 默认返回 tracker 页面
+    return '/config-tracker'
+  } catch (error) {
+    console.error('Error determining default route:', error)
+    return '/config-tracker' // 出错时的默认页面
+  }
+}
+
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
   // 检查路由是否需要认证
@@ -100,6 +141,20 @@ router.beforeEach(async (to, from, next) => {
       const isAuthenticated = await authService.checkAuth()
       
       if (isAuthenticated) {
+        // 如果访问的是根路径 "/"，使用智能路由决策
+        if (to.path === '/') {
+          const defaultRoute = await getDefaultRoute()
+          if (defaultRoute !== '/') {
+            next(defaultRoute)
+            return
+          }
+        }
+        
+        // 记录用户访问的页面（用于下次登录时的智能跳转）
+        if (to.path !== '/login') {
+          localStorage.setItem('lastVisitedPage', to.path)
+        }
+        
         next() // 已登录，允许访问
       } else {
         // 未登录，重定向到登录页面

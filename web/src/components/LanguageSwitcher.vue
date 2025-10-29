@@ -35,12 +35,17 @@ const changeLanguage = (event) => {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--secondary-color);
-  padding: 0.4rem 0.8rem;
+  padding: 0;
   border-radius: var(--border-radius);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
   transition: all 0.2s ease;
   gap: 0.5rem;
+  height: 36px;
+  box-sizing: border-box;
+  padding-left: 0.8rem;
+  padding-right: 0.8rem;
 }
 
 .language-dropdown:hover {
@@ -53,6 +58,9 @@ const changeLanguage = (event) => {
   font-size: 0.9rem;
   color: inherit;
   pointer-events: none;
+  flex-shrink: 0;
+  height: 32px;
+  line-height: 32px;
 }
 
 .language-select {
@@ -61,10 +69,14 @@ const changeLanguage = (event) => {
   outline: none;
   color: inherit;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   min-width: 70px;
   font-family: inherit;
-  font-weight: 500;
+  height: 32px;
+  line-height: 32px;
+  margin: 0;
+  padding: 0;
 }
 
 .language-select:focus {

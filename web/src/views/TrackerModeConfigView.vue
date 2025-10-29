@@ -829,6 +829,7 @@ const handleViewAlarmDetails = (alarm) => {
 
 // 定时器引用
 let statsUpdateInterval = null;
+let dataRefreshInterval = null;
 
 onMounted(() => {
     // connectWebSocket(); // DISABLED - for Map Preview
@@ -838,6 +839,18 @@ onMounted(() => {
     statsUpdateInterval = setInterval(() => {
         statsRefreshTrigger.value++;
     }, 30000); // 30秒
+    
+    // 启动设备数据自动刷新定时器，每10秒刷新一次设备数据
+    dataRefreshInterval = setInterval(async () => {
+        try {
+            console.log('[TrackerModeConfig] Auto-refreshing tracker data...');
+            await refreshTrackerData();
+            console.log('[TrackerModeConfig] Auto-refresh completed successfully');
+        } catch (error) {
+            console.error('[TrackerModeConfig] Auto-refresh failed:', error);
+            // 自动刷新失败时不显示错误提示，避免干扰用户
+        }
+    }, 10000); // 10秒
     
     // 初始化时获取数据 (替代WebSocket连接时的初始化)
     loadAvailableMaps();
@@ -855,6 +868,9 @@ onUnmounted(() => {
     // 清理定时器
     if (statsUpdateInterval) {
         clearInterval(statsUpdateInterval);
+    }
+    if (dataRefreshInterval) {
+        clearInterval(dataRefreshInterval);
     }
 });
 

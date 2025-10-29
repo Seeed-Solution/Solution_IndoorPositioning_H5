@@ -1,6 +1,6 @@
 <template>
   <div id="app-shell">
-    <nav v-if="!isLoginPage" class="main-nav">
+    <nav v-if="!isLoginPage && !isFullscreenMode" class="main-nav">
       <div class="nav-links">
         <!-- <router-link to="/" class="nav-link">Live Map</router-link> REMOVE THIS -->
         <router-link to="/config-tracker" class="nav-link">{{ $t('nav.mapTracker') }}</router-link>
@@ -17,12 +17,14 @@
         </button>
       </div>
     </nav>
-    <router-view />
+    <div class="main-content" :class="{ 'fullscreen-content': isFullscreenMode }">
+      <router-view />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
@@ -32,6 +34,42 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const isLoginPage = computed(() => route.path === '/login')
+
+// 检测全屏模式的状态
+const isFullscreenMode = ref(false)
+
+// 检测全屏模式的函数
+const checkFullscreenMode = () => {
+  // 检查 DOM 中是否存在全屏模式的标识
+  const fullscreenOverlay = document.querySelector('.fullscreen-overlay')
+  isFullscreenMode.value = !!fullscreenOverlay
+}
+
+// 使用 MutationObserver 监听 DOM 变化
+let observer
+onMounted(() => {
+  // 初始检查
+  checkFullscreenMode()
+  
+  // 创建 observer 监听 DOM 变化
+  observer = new MutationObserver(() => {
+    checkFullscreenMode()
+  })
+  
+  // 开始观察 document.body 的子元素变化
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class']
+  })
+})
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
+})
 
 const handleLogout = async () => {
   try {
@@ -61,6 +99,11 @@ const handleLogout = async () => {
 }
 
 .main-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   background-color: var(--card-background); /* Changed from --dark-color to white */
   padding: 0.75rem 1.5rem;
   display: flex;
@@ -68,6 +111,16 @@ const handleLogout = async () => {
   align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.08); /* Adjusted shadow for white bg */
   border-bottom: 1px solid var(--border-color); /* Added a light border like SenseCraft */
+}
+
+.main-content {
+  /* 为固定导航栏留出空间 */
+  margin-top: 70px; /* 导航栏高度 + 一些余量 */
+}
+
+.main-content.fullscreen-content {
+  /* 全屏模式下不需要顶部边距 */
+  margin-top: 0;
 }
 
 .nav-links {
@@ -116,7 +169,10 @@ const handleLogout = async () => {
   border-radius: var(--border-radius);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
   transition: all 0.2s ease;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .logout-button {
@@ -130,7 +186,17 @@ const handleLogout = async () => {
   border-radius: var(--border-radius);
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
   transition: all 0.2s ease;
+  height: 36px;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.logout-button i {
+  display: flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .logout-button:hover {
@@ -142,6 +208,9 @@ const handleLogout = async () => {
 .logout-text {
   font-size: 0.85rem;
   font-weight: 500;
+  line-height: 1;
+  display: flex;
+  align-items: center;
 }
 
 @media (max-width: 768px) {
