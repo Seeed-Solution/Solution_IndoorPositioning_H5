@@ -17,9 +17,9 @@ class GroupTable(Base):
 
     # 创建索引提高查询性能
     __table_args__ = (
-        Index('idx_group_name', 'group_name'),
-        Index('idx_create_time', 'create_time'),
-        Index('idx_delete_time', 'delete_time'),
+        Index(f'idx_{__tablename__}_group_name', 'group_name'),
+        Index(f'idx_{__tablename__}_create_time', 'create_time'),
+        Index(f'idx_{__tablename__}_delete_time', 'delete_time'),
     )
 
 

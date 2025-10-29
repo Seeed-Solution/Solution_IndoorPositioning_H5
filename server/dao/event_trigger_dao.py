@@ -24,11 +24,11 @@ class EventTriggerTable(Base):
 
     # 创建索引提高查询性能
     __table_args__ = (
-        Index('idx_event_name', 'event_name'),
-        Index('idx_event_type', 'event_type'),
-        Index('idx_enable_status', 'enable_status'),
-        Index('idx_create_time', 'create_time'),
-        Index('idx_delete_time', 'delete_time'),
+        Index(f'idx_{__tablename__}_event_name', 'event_name'),
+        Index(f'idx_{__tablename__}_event_type', 'event_type'),
+        Index(f'idx_{__tablename__}_enable_status', 'enable_status'),
+        Index(f'idx_{__tablename__}_create_time', 'create_time'),
+        Index(f'idx_{__tablename__}_delete_time', 'delete_time'),
     )
 
 

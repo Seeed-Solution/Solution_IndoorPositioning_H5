@@ -33,12 +33,13 @@ COPY server/ ./server/
 COPY run_in_docker.sh ./
 COPY web/web.py ./web/
 
-# COPY corresponding environment setting
+# 实际本地版本配置
 #COPY server/config/json/server_runtime_config_local.json ./server/config/json/server_runtime_config.json
 #COPY server/config/json/dashboard_config_local.json ./server/config/json/dashboard_config.json
 
-COPY server/config/json/server_runtime_config.json ./server/config/json/server_runtime_config.json
-COPY server/config/json/dashboard_config.json ./server/config/json/dashboard_config.json
+# 测试环境使用配置
+COPY server/config/json/server_runtime_config.json ./server/config/server_runtime_config.json
+COPY server/config/json/dashboard_config.json ./server/config/dashboard_config.json
 
 # Install Python dependencies
 RUN pip install -r /app/server/requirements.txt
@@ -52,6 +53,8 @@ EXPOSE 5173 8022
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+ENV NODE_ENV=production
+ENV VITE_LOCAL_CONTAINER=true
 
 # Health check
 #HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

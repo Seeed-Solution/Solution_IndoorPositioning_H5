@@ -17,8 +17,8 @@ class UserSessionTable(Base):
     
     # 创建索引提高查询性能
     __table_args__ = (
-        Index('idx_username', 'username'),
-        Index('idx_expire_time', 'expire_time'),
+        Index(f'idx_{__tablename__}_username', 'username'),
+        Index(f'idx_{__tablename__}_expire_time', 'expire_time'),
     )
 
 

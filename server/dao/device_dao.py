@@ -22,12 +22,12 @@ class DeviceTable(Base):
 
     # 创建索引提高查询性能
     __table_args__ = (
-        Index('idx_dev_eui', 'dev_eui'),
-        Index('idx_device_name', 'device_name'),
-        Index('idx_group_id', 'group_id'),
-        Index('idx_is_favorite', 'is_favorite'),
-        Index('idx_delete_time', 'delete_time'),
-        Index('idx_last_data_update_time', 'last_data_update_time'),
+        Index(f'idx_{__tablename__}_dev_eui', 'dev_eui'),
+        Index(f'idx_{__tablename__}_device_name', 'device_name'),
+        Index(f'idx_{__tablename__}_group_id', 'group_id'),
+        Index(f'idx_{__tablename__}_is_favorite', 'is_favorite'),
+        Index(f'idx_{__tablename__}_delete_time', 'delete_time'),
+        Index(f'idx_{__tablename__}_last_data_update_time', 'last_data_update_time'),
     )
 
 

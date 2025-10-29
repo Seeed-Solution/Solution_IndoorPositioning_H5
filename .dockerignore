@@ -6,12 +6,6 @@
 Dockerfile*
 .dockerignore
 
-# Development
-.env
-.env.local
-.env.development
-.env.test
-
 
 # IDE
 .vscode/
