@@ -197,7 +197,7 @@
     "totalTrackers": "Total Trackers",
     "onlineTrackers": "Online",
     "offlineTrackers": "Offline",
-    "sosAlerts": "SOS Alerts",
+    "sosAlerts": "Devices in SOS alarm state",
     "distributionByMap": "Distribution by Map",
     "configuration": {
       "title": "App Setting",

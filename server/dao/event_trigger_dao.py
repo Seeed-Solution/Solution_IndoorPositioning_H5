@@ -11,7 +11,7 @@ class EventTriggerTable(Base):
     __tablename__ = 'event_triggers'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    event_name = Column(String(100), nullable=False, comment='事件名称')
+    event_name = Column(String(50), nullable=False, comment='事件名称')
     event_type = Column(Integer, nullable=False, default=0, comment='事件类型') ## 1:sos, 2:offline, 3:checkin, 4:leaving
     device_range = Column(Text, nullable=False, default='[]', comment='设备范围JSON')
     ble_range = Column(Text, nullable=False, default='[]', comment='BLE范围JSON')

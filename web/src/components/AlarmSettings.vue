@@ -1652,34 +1652,34 @@ onBeforeUnmount(() => {
 }
 
 .alarm-type-sos {
-  background: #ffeaa7;
-  color: #d63031;
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .alarm-type-offline {
-  background: #a29bfe;
-  color: #6c5ce7;
+  background: #e5e7eb;
+  color: #6b7280;
 }
 
 .alarm-type-checkin {
-  background: #74b9ff;
-  color: #0984e3;
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 .alarm-type-position {
-  background: #fd79a8;
-  color: #e84393;
+  background: #d1fae5;
+  color: #059669;
 }
 
 .alarm-type-default {
-  background: #ddd6fe;
-  color: #7c3aed;
+  background: #f3f4f6;
+  color: #4b5563;
 }
 
 .alarm-status {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 0.75rem;
 }
 
