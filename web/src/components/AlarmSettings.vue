@@ -1751,41 +1751,53 @@ onBeforeUnmount(() => {
 }
 
 .action-btn {
-  padding: 0.5rem;
-  border: none;
+  padding: 6px 12px;
+  border: 1px solid transparent;
   border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
-  font-size: 0.9rem;
   transition: all 0.2s ease;
-  display: flex;
+  white-space: nowrap;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.3rem;
   width: 32px;
   height: 32px;
   min-width: 32px;
   min-height: 32px;
+  justify-content: center;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .edit-btn {
-  background: #007bff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
-.edit-btn:hover {
-  background: #0056b3;
+.edit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .delete-btn {
-  background: #dc3545;
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
   color: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(74, 85, 104, 0.3);
 }
 
-.delete-btn:hover {
-  background: #c82333;
+.delete-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3a4553 0%, #1a202c 100%);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  box-shadow: 0 4px 8px rgba(74, 85, 104, 0.4);
 }
 
 .alarm-table-footer {
