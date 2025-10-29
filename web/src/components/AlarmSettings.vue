@@ -439,7 +439,7 @@
             
             <div class="form-group">
               <label>{{ $t('alarmSettings.form.enableAlarm') }}</label>
-              <div class="alarm-status">
+              <div class="alarm-status form-alarm-status">
                 <label class="status-toggle">
                   <input 
                     type="checkbox" 
@@ -1681,6 +1681,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
+}
+
+/* 表单中的alarm-status样式 - 靠左对齐 */
+.form-alarm-status {
+  justify-content: flex-start !important;
 }
 
 .status-toggle {
