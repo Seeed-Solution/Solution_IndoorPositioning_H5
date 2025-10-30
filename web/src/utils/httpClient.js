@@ -29,7 +29,7 @@ httpClient.interceptors.request.use(
     // 从localStorage获取token并添加到请求头
     const token = getTokenFromLocalStorage()
     if (token) {
-      config.headers['session_token'] = token
+      config.headers['session-token'] = token
     }
     return config
   },
@@ -105,7 +105,7 @@ export async function fetchApi(endpoint, options = {}) {
   }
   
   if (token) {
-    headers['session_token'] = token
+    headers['session-token'] = token
   }
   
   const defaultOptions = {

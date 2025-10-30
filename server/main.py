@@ -149,8 +149,8 @@ async def websocket_auth_handler(websocket: WebSocket) -> bool:
     return True
     """WebSocket认证处理器"""
     # 首先检查cookie认证
-    # session_token = websocket.cookies.get("session_token")
-    # session_token = websocket.headers.get("session_token")
+    # session_token = websocket.cookies.get("session-token")
+    # session_token = websocket.headers.get("session-token")
     # if session_token and len(session_token) > 0 and session_holder.get(session_token):
     #     logging.info(f"ws-session: {session_token}")
     #     await websocket.accept()
@@ -645,7 +645,7 @@ async def shutdown_event():
 # --- API Endpoints ---
 def check_authority(request: Request):
     # session_token = request.cookies.get('session_token')
-    session_token = request.headers.get("session_token")
+    session_token = request.headers.get("session-token")
     if not session_token:
         raise HTTPException(status_code=401, detail="No session token")
     if not session_holder.get(session_token):
@@ -1057,7 +1057,7 @@ async def login(login_request: LoginRequest, response: Response):
         
         # 设置httponly cookie，有效期1天
         # response.set_cookie(
-        #     key="session_token",
+        #     key="session-token",
         #     value=session_token,
         #     max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
         #     httponly=True,
@@ -1088,7 +1088,7 @@ async def check_auth(request: Request, response: Response):
     """
     try:
         # session_token = request.cookies.get('session_token')
-        session_token = request.headers.get("session_token")
+        session_token = request.headers.get("session-token")
         if session_token and session_holder.get(session_token):
             return {
                 "success": True,
@@ -1103,7 +1103,7 @@ async def check_auth(request: Request, response: Response):
 
         # 设置httponly cookie，有效期1天
         # response.set_cookie(
-        #     key="session_token",
+        #     key="session-token",
         #     value=session_token,
         #     max_age=86400 * 15,  # 1天 (24小时 * 60分钟 * 60秒)
         #     httponly=True,
@@ -1147,13 +1147,13 @@ async def logout(request: Request, response: Response):
     """
     try:
         # session_token = request.cookies.get('session_token')
-        session_token = request.headers.get("session_token")
+        session_token = request.headers.get("session-token")
         if session_token:
             session_holder.remove(session_token)
         
         # 清除cookie
         # response.delete_cookie(
-        #     key="session_token",
+        #     key="session-token",
         #     httponly=True,
         #     secure=False,
         #     samesite="lax"
@@ -1185,7 +1185,7 @@ async def auth_middleware(request: Request, next):
     # 对于API路径，检查认证状态
     if request.url.path.startswith('/api/'):
         # session_token = request.cookies.get('session_token')
-        session_token = request.headers.get("session_token")
+        session_token = request.headers.get("session-token")
         if not session_token:
             return JSONResponse(status_code=401, content={"detail": "No session token"})
 
