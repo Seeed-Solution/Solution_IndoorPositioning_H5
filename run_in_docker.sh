@@ -30,7 +30,7 @@ echo "Configuration check completed."
 # Function to handle script termination
 cleanup() {
     echo "Shutting down services..."
-    kill $FRONTEND_PID 2>/dev/null
+    nginx -s quit 2>/dev/null
     kill $BACKEND_PID 2>/dev/null
     exit 0
 }
@@ -38,16 +38,15 @@ cleanup() {
 # Set up trap for cleanup on script termination
 trap cleanup SIGINT SIGTERM
 
-cd /app/web
-#python -m http.server 5173 &
-uvicorn web:app --host 0.0.0.0 --port 5173 &
-FRONTEND_PID=$!
+# Start nginx in background
+nginx
 
+# Start Python backend
 cd /app
 python -m server.main &
 BACKEND_PID=$!
 
-echo "Services started. Press Ctrl+C to stop."
+echo "Services started. Nginx on port 5173, Backend on port 8022. Press Ctrl+C to stop."
 
 wait $BACKEND_PID
 echo "Services stopped. i ready to dead.."

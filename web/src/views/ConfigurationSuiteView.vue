@@ -76,6 +76,39 @@
         <div v-if="availableMaps.length === 0" class="no-maps-message">
           <p>📭 {{ t('config.mapSelector.noMaps') }}</p>
           <p class="hint">{{ t('config.mapSelector.noMapsHint') }}</p>
+          <!-- 即使没有地图也显示创建按钮 -->
+          <div class="map-actions no-maps-actions">
+            <template v-if="shouldShowSaveFunction">
+              <button 
+                @click="saveChanges" 
+                class="action-button save-button"
+                :title="t('config.actions.saveAllChanges')"
+              >
+                <i class="fas fa-save"></i> {{ t('config.actions.saveChanges') }}
+              </button>
+              <button 
+                @click="cancelAllChanges" 
+                class="action-button cancel-button"
+                :title="t('config.actions.cancelAllChanges')"
+              >
+                <i class="fas fa-times"></i> {{ t('config.actions.cancel') }}
+              </button>
+            </template>
+            <template v-else>
+              <button 
+                @click="createNewMap" 
+                class="action-button create-button"
+                :title="t('config.createNewMap')"
+              >
+                <i class="fas fa-plus"></i> {{ t('config.actions.create') }}
+              </button>
+            </template>
+          </div>
+          <!-- 创建新地图模式提示 -->
+          <div v-if="isCreatingNewMap" class="create-mode-banner">
+            <i class="fas fa-plus-circle"></i>
+            <span>{{ t('config.status.creating') }} "{{ tempMapName }}" - {{ t('config.status.creatingHint') }}</span>
+          </div>
         </div>
         <div v-else class="map-selector-dropdown">
           <div class="dropdown-wrapper">
@@ -205,14 +238,6 @@
           <div class="map-basic-info card">
             <div class="card-header">
               <h3><i class="fas fa-info-circle"></i> {{ t('config.mapInfo.title') }}</h3>
-              <button 
-                v-if="isEditMode || isCreatingNewMap" 
-                @click="triggerMapJsonImport" 
-                class="import-json-btn"
-                :title="t('config.actions.importTooltip')"
-              >
-                <i class="fas fa-file-import"></i> {{ t('config.actions.import') }}
-              </button>
             </div>
             <div class="card-content">
               <!-- 只读模式 -->
@@ -224,8 +249,19 @@
                 <div class="info-item">
                   <label>{{ t('config.mapInfo.dimensions') }}</label>
                   <span class="info-value">
-                    {{ (currentConfiguration.map?.width || 0).toFixed(3) }}{{ t('config.mapInfo.meters') }} × {{ (currentConfiguration.map?.height || 0).toFixed(3) }}{{ t('config.mapInfo.meters') }}
+                    {{ (currentConfiguration.map?.width || 0).toFixed(2) }}{{ t('config.mapInfo.meters') }} × {{ (currentConfiguration.map?.height || 0).toFixed(2) }}{{ t('config.mapInfo.meters') }}
                   </span>
+                </div>
+                <div v-if="currentConfiguration.map?.background" class="info-item map-background-display">
+                  <label>背景图</label>
+                  <div class="map-image-container">
+                    <img 
+                      :src="currentConfiguration.map.background" 
+                      alt="地图背景图" 
+                      class="map-background-image"
+                      @error="handleMapImageError"
+                    />
+                  </div>
                 </div>
                 <div v-if="currentConfiguration.map?.entities?.length > 0" class="info-item">
                   <label>{{ t('config.mapInfo.entities') }}</label>
@@ -253,31 +289,57 @@
                 </div>
                 
                 <div class="edit-item">
-                  <label for="mapWidth">{{ t('config.mapInfo.width') }}</label>
+                  <label for="mapWidth">{{ t('config.mapInfo.width') }} <span class="required-indicator">*</span></label>
                   <input 
                     type="number" 
                     id="mapWidth"
                     v-model.number="currentConfiguration.map.width"
-                    min="1"
+                    min="0.01"
                     max="1000"
-                    step="0.1"
+                    step="0.01"
                     class="map-info-input"
                     :placeholder="t('config.mapInfo.widthPlaceholder')"
+                    @input="handleEditWidthHeightChange"
                   />
                 </div>
                 
                 <div class="edit-item">
-                  <label for="mapHeight">{{ t('config.mapInfo.height') }}</label>
+                  <label for="mapHeight">{{ t('config.mapInfo.height') }} <span class="required-indicator">*</span></label>
                   <input 
                     type="number" 
                     id="mapHeight"
                     v-model.number="currentConfiguration.map.height"
-                    min="1"
+                    min="0.01"
                     max="1000"
-                    step="0.1"
+                    step="0.01"
                     class="map-info-input"
                     :placeholder="t('config.mapInfo.heightPlaceholder')"
+                    @input="handleEditWidthHeightChange"
                   />
+                </div>
+                
+                <div class="edit-item">
+                  <label for="mapBackground">背景图片 <span class="required-indicator">*</span></label>
+                  <input 
+                    type="file" 
+                    id="mapBackground"
+                    accept="image/*"
+                    class="map-background-file-input"
+                    @change="handleEditBackgroundFileSelect"
+                  />
+                  <div v-if="currentConfiguration.map?.background" class="background-preview">
+                    <img :src="currentConfiguration.map.background" alt="背景图预览" class="preview-image" />
+                    <button type="button" @click="clearEditBackgroundFile" class="clear-preview-btn">
+                      <i class="fas fa-times"></i> 清除
+                    </button>
+                  </div>
+                  <div v-else class="file-input-hint">
+                    <i class="fas fa-image"></i>
+                    <span>请选择本地图片文件（支持 JPG、PNG、GIF 等格式）</span>
+                  </div>
+                  <div class="input-help-small">
+                    <span>请从本地选择背景图片文件（必填）</span>
+                  </div>
                 </div>
                 
                 <div v-if="currentConfiguration.map?.entities?.length > 0" class="edit-item">
@@ -821,7 +883,7 @@
       style="display: none;"
     />
 
-    <!-- 创建新地图名称输入模态框 -->
+    <!-- 创建新地图输入模态框 -->
     <div v-if="showNewMapModal" class="modal-overlay">
       <div class="modal-content">
         <h4><i class="fas fa-map-plus"></i> {{ t('config.newMapModal.title') }}</h4>
@@ -849,8 +911,82 @@
             </div>
           </div>
           
+          <div class="form-group">
+            <label for="newMapWidth">{{ t('config.mapInfo.width') }} (米) <span class="required-indicator">*</span></label>
+            <input 
+              type="number" 
+              id="newMapWidth"
+              v-model.number="newMapWidth" 
+              min="0.01"
+              max="1000"
+              step="0.01"
+              class="map-name-input"
+              :placeholder="t('config.mapInfo.widthPlaceholder')"
+              :readonly="isMapCropped"
+              @input="handleWidthHeightChange"
+            />
+            <div v-if="mapWidthError" class="error-message">
+              <i class="fas fa-exclamation-triangle"></i>
+              {{ mapWidthError }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="newMapHeight">{{ t('config.mapInfo.height') }} (米) <span class="required-indicator">*</span></label>
+            <input 
+              type="number" 
+              id="newMapHeight"
+              v-model.number="newMapHeight" 
+              min="0.01"
+              max="1000"
+              step="0.01"
+              class="map-name-input"
+              :placeholder="t('config.mapInfo.heightPlaceholder')"
+              :readonly="isMapCropped"
+              @input="handleWidthHeightChange"
+            />
+            <div v-if="mapHeightError" class="error-message">
+              <i class="fas fa-exclamation-triangle"></i>
+              {{ mapHeightError }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="newMapBackground">背景图片 <span class="required-indicator">*</span></label>
+            <input 
+              type="file" 
+              id="newMapBackground"
+              ref="mapBackgroundFileInputRef"
+              accept="image/*"
+              class="map-background-file-input"
+              :disabled="!canSelectImage"
+              @change="handleBackgroundFileSelect"
+            />
+            <div v-if="!canSelectImage" class="file-input-hint disabled-hint">
+              <i class="fas fa-info-circle"></i>
+              <span>请先输入地图名称和宽高，然后才能选择图片</span>
+            </div>
+            <div v-else-if="newMapBackgroundPreview" class="background-preview">
+              <img :src="newMapBackgroundPreview" alt="背景图预览" class="preview-image" />
+              <button type="button" @click="clearBackgroundFile" class="clear-preview-btn">
+                <i class="fas fa-times"></i> 清除
+              </button>
+            </div>
+            <div v-else class="file-input-hint">
+              <i class="fas fa-image"></i>
+              <span>请选择本地图片文件（支持 JPG、PNG、GIF 等格式）</span>
+            </div>
+            <div class="input-help">
+              <span>请从本地选择背景图片文件（必填），选择后将自动打开裁剪页面</span>
+            </div>
+            <div v-if="mapBackgroundError" class="error-message">
+              <i class="fas fa-exclamation-triangle"></i>
+              {{ mapBackgroundError }}
+            </div>
+          </div>
+          
           <div class="modal-actions">
-            <button type="submit" class="btn-primary" :disabled="!isMapNameValid">
+            <button type="submit" class="btn-primary" :disabled="!isNewMapFormValid">
               <i class="fas fa-check"></i> {{ t('config.newMapModal.confirm') }}
             </button>
             <button type="button" @click="cancelCreateMap" class="btn-secondary">
@@ -858,6 +994,21 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- 图片裁剪模态框 -->
+    <div v-if="showImageCropper" class="modal-overlay cropper-modal-overlay">
+      <div class="cropper-modal-content">
+        <ImageCropper
+          :imageSrc="cropperImageSrc"
+          :title="cropperTitle"
+          :showClose="true"
+          :defaultAspectRatio="cropperAspectRatio"
+          @crop="handleCropComplete"
+          @cancel="handleCropCancel"
+          @close="handleCropClose"
+        />
       </div>
     </div>
 
@@ -1010,6 +1161,7 @@ import BeaconManagerTab from '@/components/configuration/BeaconManagerTab.vue';
 import MapEditorTab from '@/components/configuration/MapEditorTab.vue';
 import GeneralSettingsTab from '@/components/configuration/GeneralSettingsTab.vue';
 import AlarmSettings from '@/components/AlarmSettings.vue';
+import ImageCropper from '@/components/ImageCropper.vue';
 import { 
   loadDashboardConfiguration, 
   saveDashboardConfiguration,
@@ -1022,6 +1174,9 @@ import {
 } from '@/services/configApiService.js';
 import { apiRequest } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
+import httpClient from '@/utils/httpClient.js';
+import { getApiBaseUrl } from '@/config/api.js';
+import { getTokenFromLocalStorage } from '@/services/localStorageService.js';
 
 // i18n setup
 const { t } = useI18n();
@@ -1061,7 +1216,34 @@ const hasUnsavedChanges = ref(false);
 // 新地图创建相关
 const showNewMapModal = ref(false);
 const newMapName = ref('');
+const newMapWidth = ref(50);
+const newMapHeight = ref(50);
+const newMapBackgroundFile = ref(null); // 存储选中的文件对象
+const newMapBackgroundPreview = ref(''); // 存储预览图片的临时 URL（用于预览）
+const newMapBackgroundCropped = ref(null); // 存储裁剪后的图片（blob 或 dataURL）
+const isMapCropped = ref(false); // 标记是否已完成裁剪
 const mapNameError = ref('');
+const mapWidthError = ref('');
+const mapHeightError = ref('');
+const mapBackgroundError = ref('');
+const mapBackgroundFileInputRef = ref(null);
+
+// 计算是否可以选择图片（需要先输入名称和宽高）
+const canSelectImage = computed(() => {
+  return isMapNameValid.value && 
+         newMapWidth.value > 0 && 
+         newMapHeight.value > 0 &&
+         !mapWidthError.value &&
+         !mapHeightError.value;
+});
+
+// 图片裁剪相关
+const showImageCropper = ref(false);
+const cropperImageSrc = ref('');
+const cropperAspectRatio = ref(null);
+const cropperTitle = ref('裁剪地图背景图');
+const isCroppingForNewMap = ref(true); // true: 创建新地图, false: 编辑现有地图
+const editMapBackgroundFile = ref(null); // 编辑模式下的文件对象
 const mapNameInputRef = ref(null);
 const isCreatingNewMap = ref(false); // 标识是否在创建新地图状态
 const tempMapName = ref(''); // 临时存储新地图名称
@@ -1402,9 +1584,27 @@ const validateMapConfig = (mapConfig) => {
     if (typeof mapConfig.map.height !== 'number' || mapConfig.map.height <= 0) {
       errors.push($t('config.validation.mapHeightInvalid'));
     }
-    if (!Array.isArray(mapConfig.map.entities)) {
-      errors.push($t('config.validation.mapEntitiesInvalid'));
+    // 验证背景图（必填）
+    if (!mapConfig.map.background || typeof mapConfig.map.background !== 'string' || mapConfig.map.background.trim() === '') {
+      errors.push('背景图不能为空');
+    } else {
+      // 验证是否为有效的 URL（blob URL 或 http/https URL）
+      const background = mapConfig.map.background.trim();
+      const isBlobUrl = background.startsWith('blob:');
+      const isUrl = background.startsWith('http://') || background.startsWith('https://');
+      
+      if (!isBlobUrl && !isUrl) {
+        errors.push('背景图格式无效，应为 URL 格式');
+      } else if (isUrl && !isBlobUrl) {
+        // 如果是普通 URL，验证 URL 格式
+        try {
+          new URL(background);
+        } catch (e) {
+          errors.push('背景图 URL 格式无效');
+        }
+      }
     }
+    // 不再验证 entities，因为地图配置不再需要 entities 字段
   }
   
   // 验证信标配置
@@ -1446,13 +1646,25 @@ const validateMapConfig = (mapConfig) => {
 
 // 格式化地图配置数据
 const formatMapConfig = (mapConfig) => {
+  // 构建地图对象，只包含必要的字段
+  // 长宽限制为两位小数
+  const width = Number(mapConfig.map?.width || 50);
+  const height = Number(mapConfig.map?.height || 50);
+  
+  const mapObj = {
+    name: String(mapConfig.map?.name || '').trim(),
+    width: Math.round(width * 100) / 100,
+    height: Math.round(height * 100) / 100,
+    background: String(mapConfig.map?.background || '').trim()
+  };
+  
+  // 背景图链接必填，如果为空则使用默认值或抛出错误
+  if (!mapObj.background) {
+    console.warn('警告：地图背景图链接为空，这可能导致保存失败');
+  }
+  
   return {
-    map: {
-      name: String(mapConfig.map?.name || '').trim(),
-      width: Number(mapConfig.map?.width || 50),
-      height: Number(mapConfig.map?.height || 50),
-      entities: Array.isArray(mapConfig.map?.entities) ? mapConfig.map.entities : []
-    },
+    map: mapObj,
     beacons: Array.isArray(mapConfig.beacons) ? mapConfig.beacons.map(beacon => ({
       uuid: String(beacon.uuid || '').toUpperCase(),
       major: Number(beacon.major || 0),
@@ -1579,7 +1791,18 @@ const validateMapName = () => {
 // 打开创建新地图模态框
 const createNewMap = () => {
   newMapName.value = '';
+  newMapWidth.value = 50;
+  newMapHeight.value = 50;
+  newMapBackgroundFile.value = null;
+  // 清理预览 URL
+  if (newMapBackgroundPreview.value) {
+    URL.revokeObjectURL(newMapBackgroundPreview.value);
+  }
+  newMapBackgroundPreview.value = '';
   mapNameError.value = '';
+  mapWidthError.value = '';
+  mapHeightError.value = '';
+  mapBackgroundError.value = '';
   showNewMapModal.value = true;
   
   // 等待DOM更新后聚焦到输入框
@@ -1587,7 +1810,383 @@ const createNewMap = () => {
     if (mapNameInputRef.value) {
       mapNameInputRef.value.focus();
     }
+    // 清空文件选择器
+    if (mapBackgroundFileInputRef.value) {
+      mapBackgroundFileInputRef.value.value = '';
+    }
   });
+};
+
+// 处理长宽变化 - 如果已选择图片，自动打开裁剪器或更新比例
+const handleWidthHeightChange = () => {
+  // 限制为两位小数
+  if (typeof newMapWidth.value === 'number' && !isNaN(newMapWidth.value)) {
+    newMapWidth.value = Math.round(newMapWidth.value * 100) / 100;
+  }
+  if (typeof newMapHeight.value === 'number' && !isNaN(newMapHeight.value)) {
+    newMapHeight.value = Math.round(newMapHeight.value * 100) / 100;
+  }
+  
+  // 先验证尺寸
+  validateMapDimensions();
+  
+  // 如果已选择图片且长宽都有效
+  if (newMapBackgroundFile.value && 
+      newMapWidth.value > 0 && 
+      newMapHeight.value > 0) {
+    // 确保预览 URL 存在
+    if (!newMapBackgroundPreview.value) {
+      newMapBackgroundPreview.value = URL.createObjectURL(newMapBackgroundFile.value);
+    }
+    
+    // 如果裁剪器已经打开，更新比例；否则打开裁剪器
+    if (showImageCropper.value && isCroppingForNewMap.value) {
+      // 更新比例
+      const newRatio = newMapWidth.value / newMapHeight.value;
+      cropperAspectRatio.value = newRatio;
+    } else if (!showImageCropper.value) {
+      // 打开裁剪器
+      openImageCropper(newMapBackgroundPreview.value, newMapWidth.value, newMapHeight.value, true);
+    }
+  }
+};
+
+// 验证地图尺寸
+const validateMapDimensions = () => {
+  mapWidthError.value = '';
+  mapHeightError.value = '';
+  
+  if (!newMapWidth.value || newMapWidth.value <= 0) {
+    mapWidthError.value = '宽度必须大于0';
+    return false;
+  }
+  
+  if (!newMapHeight.value || newMapHeight.value <= 0) {
+    mapHeightError.value = '高度必须大于0';
+    return false;
+  }
+  
+  if (newMapWidth.value > 1000) {
+    mapWidthError.value = '宽度不能超过1000米';
+    return false;
+  }
+  
+  if (newMapHeight.value > 1000) {
+    mapHeightError.value = '高度不能超过1000米';
+    return false;
+  }
+  
+  // 限制为两位小数
+  const widthRounded = Math.round(newMapWidth.value * 100) / 100;
+  const heightRounded = Math.round(newMapHeight.value * 100) / 100;
+  if (widthRounded !== newMapWidth.value) {
+    newMapWidth.value = widthRounded;
+  }
+  if (heightRounded !== newMapHeight.value) {
+    newMapHeight.value = heightRounded;
+  }
+  
+  return true;
+};
+
+// 处理创建地图时的背景图文件选择
+const handleBackgroundFileSelect = (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    newMapBackgroundFile.value = null;
+    // 清理之前的预览 URL
+    if (newMapBackgroundPreview.value) {
+      URL.revokeObjectURL(newMapBackgroundPreview.value);
+    }
+    newMapBackgroundPreview.value = '';
+    mapBackgroundError.value = '';
+    isMapCropped.value = false;
+    newMapBackgroundCropped.value = null;
+    return;
+  }
+  
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    mapBackgroundError.value = '请选择图片文件';
+    event.target.value = ''; // 清空文件选择
+    return;
+  }
+  
+  // 验证文件大小（限制为 10MB）
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    mapBackgroundError.value = '图片文件大小不能超过 10MB';
+    event.target.value = '';
+    return;
+  }
+  
+  newMapBackgroundFile.value = file;
+  mapBackgroundError.value = '';
+  isMapCropped.value = false; // 重置裁剪状态
+  newMapBackgroundCropped.value = null; // 清空之前的裁剪结果
+  
+  // 创建临时 URL 用于预览
+  if (newMapBackgroundPreview.value) {
+    URL.revokeObjectURL(newMapBackgroundPreview.value);
+  }
+  const previewUrl = URL.createObjectURL(file);
+  newMapBackgroundPreview.value = previewUrl;
+  
+  // 自动打开裁剪器（此时已经验证了宽高）
+  openImageCropper(previewUrl, newMapWidth.value, newMapHeight.value, true);
+};
+
+// 清除创建地图时的背景图文件
+const clearBackgroundFile = () => {
+  newMapBackgroundFile.value = null;
+  // 清理预览 URL
+  if (newMapBackgroundPreview.value) {
+    URL.revokeObjectURL(newMapBackgroundPreview.value);
+  }
+  newMapBackgroundPreview.value = '';
+  newMapBackgroundCropped.value = null;
+  isMapCropped.value = false;
+  mapBackgroundError.value = '';
+  if (mapBackgroundFileInputRef.value) {
+    mapBackgroundFileInputRef.value.value = '';
+  }
+};
+
+// 处理编辑地图时的背景图文件选择
+const handleEditBackgroundFileSelect = (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    return;
+  }
+  
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件');
+    event.target.value = '';
+    return;
+  }
+  
+  // 验证文件大小（限制为 10MB）
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    alert('图片文件大小不能超过 10MB');
+    event.target.value = '';
+    return;
+  }
+  
+  editMapBackgroundFile.value = file;
+  
+  // 检查是否已有长宽，如果有则打开裁剪器
+  if (currentConfiguration.value.map && 
+      currentConfiguration.value.map.width > 0 && 
+      currentConfiguration.value.map.height > 0) {
+    const previewUrl = URL.createObjectURL(file);
+    openImageCropper(previewUrl, currentConfiguration.value.map.width, currentConfiguration.value.map.height, false);
+  } else {
+    // 如果没有长宽，直接创建预览 URL
+    if (currentConfiguration.value.map) {
+      if (currentConfiguration.value.map.background && currentConfiguration.value.map.background.startsWith('blob:')) {
+        URL.revokeObjectURL(currentConfiguration.value.map.background);
+      }
+      currentConfiguration.value.map.background = URL.createObjectURL(file);
+      hasUnsavedChanges.value = true;
+    }
+  }
+};
+
+// 清除编辑地图时的背景图文件
+const clearEditBackgroundFile = () => {
+  if (currentConfiguration.value.map) {
+    // 清理预览 URL
+    if (currentConfiguration.value.map.background && currentConfiguration.value.map.background.startsWith('blob:')) {
+      URL.revokeObjectURL(currentConfiguration.value.map.background);
+    }
+    currentConfiguration.value.map.background = '';
+    // 标记有未保存的更改
+    hasUnsavedChanges.value = true;
+  }
+  // 清空文件选择器
+  const fileInput = document.getElementById('mapBackground');
+  if (fileInput) {
+    fileInput.value = '';
+  }
+};
+
+// 打开图片裁剪器
+const openImageCropper = (imageSrc, width, height, isForNewMap) => {
+  cropperImageSrc.value = imageSrc;
+  // 计算长宽比
+  cropperAspectRatio.value = width / height;
+  isCroppingForNewMap.value = isForNewMap;
+  // 设置裁剪器标题，显示宽高信息
+  if (isForNewMap) {
+    cropperTitle.value = `裁剪地图背景图 (${width}米 × ${height}米)`;
+  } else {
+    cropperTitle.value = '裁剪地图背景图';
+  }
+  showImageCropper.value = true;
+};
+
+// 处理裁剪完成
+const handleCropComplete = (result) => {
+  // result 包含: { dataURL, blob, canvas, cropData, cropBoxData }
+  if (isCroppingForNewMap.value) {
+    // 创建新地图模式
+    newMapBackgroundCropped.value = result.blob || result.dataURL;
+    isMapCropped.value = true; // 标记已裁剪完成
+    // 更新预览
+    if (newMapBackgroundPreview.value) {
+      URL.revokeObjectURL(newMapBackgroundPreview.value);
+    }
+    if (result.blob) {
+      newMapBackgroundPreview.value = URL.createObjectURL(result.blob);
+    } else {
+      newMapBackgroundPreview.value = result.dataURL;
+    }
+  } else {
+    // 编辑地图模式
+    if (currentConfiguration.value.map) {
+      // 清理旧的预览 URL
+      if (currentConfiguration.value.map.background && currentConfiguration.value.map.background.startsWith('blob:')) {
+        URL.revokeObjectURL(currentConfiguration.value.map.background);
+      }
+      // 存储裁剪后的图片
+      if (result.blob) {
+        currentConfiguration.value.map.background = URL.createObjectURL(result.blob);
+      } else {
+        currentConfiguration.value.map.background = result.dataURL;
+      }
+      // 标记有未保存的更改
+      hasUnsavedChanges.value = true;
+    }
+  }
+  
+  // 关闭裁剪器
+  showImageCropper.value = false;
+  // 清理临时 URL
+  if (cropperImageSrc.value && cropperImageSrc.value.startsWith('blob:')) {
+    URL.revokeObjectURL(cropperImageSrc.value);
+  }
+  cropperImageSrc.value = '';
+};
+
+// 处理裁剪取消
+const handleCropCancel = () => {
+  showImageCropper.value = false;
+  // 清理临时 URL
+  if (cropperImageSrc.value && cropperImageSrc.value.startsWith('blob:')) {
+    URL.revokeObjectURL(cropperImageSrc.value);
+  }
+  cropperImageSrc.value = '';
+  
+  // 如果是创建新地图模式，清空选择的文件
+  if (isCroppingForNewMap.value) {
+    clearBackgroundFile();
+  }
+};
+
+// 处理裁剪关闭
+const handleCropClose = () => {
+  handleCropCancel();
+};
+
+// 处理编辑模式下的长宽变化
+const handleEditWidthHeightChange = () => {
+  // 限制为两位小数
+  if (currentConfiguration.value.map) {
+    if (typeof currentConfiguration.value.map.width === 'number' && !isNaN(currentConfiguration.value.map.width)) {
+      currentConfiguration.value.map.width = Math.round(currentConfiguration.value.map.width * 100) / 100;
+    }
+    if (typeof currentConfiguration.value.map.height === 'number' && !isNaN(currentConfiguration.value.map.height)) {
+      currentConfiguration.value.map.height = Math.round(currentConfiguration.value.map.height * 100) / 100;
+    }
+  }
+  
+  // 如果已选择文件且长宽都有效
+  if (editMapBackgroundFile.value && 
+      currentConfiguration.value.map &&
+      currentConfiguration.value.map.width > 0 && 
+      currentConfiguration.value.map.height > 0) {
+    // 如果裁剪器已经打开，更新比例；否则打开裁剪器
+    if (showImageCropper.value && !isCroppingForNewMap.value) {
+      // 更新比例
+      const newRatio = currentConfiguration.value.map.width / currentConfiguration.value.map.height;
+      cropperAspectRatio.value = newRatio;
+    } else if (!showImageCropper.value) {
+      // 打开裁剪器
+      const previewUrl = URL.createObjectURL(editMapBackgroundFile.value);
+      openImageCropper(previewUrl, currentConfiguration.value.map.width, currentConfiguration.value.map.height, false);
+    }
+  }
+};
+
+// 验证背景图（现在验证是否已完成裁剪）
+const validateMapBackground = () => {
+  mapBackgroundError.value = '';
+  
+  // 必填验证 - 检查是否已完成裁剪
+  if (!isMapCropped.value || !newMapBackgroundCropped.value) {
+    mapBackgroundError.value = '请选择并裁剪背景图片';
+    return false;
+  }
+  
+  return true;
+};
+
+// 处理地图图片加载错误
+const handleMapImageError = (event) => {
+  console.error('地图图片加载失败:', event.target.src);
+  // 可以在这里添加错误提示或显示占位图
+  event.target.style.display = 'none';
+};
+
+// 计算新地图表单是否有效
+const isNewMapFormValid = computed(() => {
+  return isMapNameValid.value && 
+         newMapWidth.value > 0 && 
+         newMapHeight.value > 0 &&
+         isMapCropped.value && // 必须完成裁剪
+         newMapBackgroundCropped.value !== null && // 必须有裁剪后的图片
+         !mapWidthError.value &&
+         !mapHeightError.value &&
+         !mapBackgroundError.value;
+});
+
+// 上传图片到服务器
+const uploadMapImage = async (blob, mapName) => {
+  try {
+    // 生成文件名：地图名+随机数
+    const randomNum = Math.floor(Math.random() * 1000000);
+    const fileExtension = blob.type.split('/')[1] || 'png';
+    const filename = `${mapName}_${randomNum}.${fileExtension}`;
+    
+    // 创建 FormData
+    const formData = new FormData();
+    formData.append('file', blob, filename);
+    
+    // 获取 token
+    const token = getTokenFromLocalStorage();
+    const headers = {
+      'Content-Type': 'multipart/form-data'
+    };
+    if (token) {
+      headers['session-token'] = token;
+    }
+    
+    // 上传文件（httpClient 的 baseURL 已经包含了 /api，所以直接使用 /upload）
+    const response = await httpClient.post('/upload', formData, { headers });
+    
+    if (response.data && response.data.url) {
+      // 构建完整的访问URL（当前协议+host+路径）
+      const fullUrl = `${window.location.protocol}//${window.location.host}${response.data.url}`;
+      return fullUrl;
+    } else {
+      throw new Error('上传失败：服务器未返回URL');
+    }
+  } catch (error) {
+    console.error('上传图片失败:', error);
+    throw new Error(`上传图片失败: ${error.message || '未知错误'}`);
+  }
 };
 
 // 确认地图名称并进入创建界面
@@ -1596,17 +2195,36 @@ const confirmCreateMap = async () => {
     return;
   }
   
+  if (!validateMapDimensions()) {
+    return;
+  }
+  
+  if (!validateMapBackground()) {
+    return;
+  }
+  
   const trimmedName = newMapName.value.trim();
   
   // 保存临时地图名称
   tempMapName.value = trimmedName;
   
-  // 创建临时地图配置用于编辑界面
+  // 创建临时地图配置用于编辑界面（此时使用裁剪后的图片预览，稍后提交时再上传）
+  let backgroundValue = null;
+  if (newMapBackgroundCropped.value) {
+    // 如果裁剪后的图片是 blob，创建 URL；如果是 dataURL，直接使用
+    if (newMapBackgroundCropped.value instanceof Blob) {
+      backgroundValue = URL.createObjectURL(newMapBackgroundCropped.value);
+    } else {
+      backgroundValue = newMapBackgroundCropped.value;
+    }
+  }
+  
   const tempMapConfig = {
     map: {
       name: trimmedName,
-      width: 50,
-      height: 50,
+      width: newMapWidth.value,
+      height: newMapHeight.value,
+      background: backgroundValue, // 临时使用预览URL，提交时再上传
       entities: []
     },
     beacons: [],
@@ -1631,7 +2249,7 @@ const confirmCreateMap = async () => {
   // 自动进入编辑模式
   isEditMode.value = true;
   
-  configStatusMessage.value = `正在创建新地图 "${trimmedName}"，请开始编辑地图内容`;
+  configStatusMessage.value = `新地图 "${trimmedName}" 已创建，请开始编辑地图内容`;
   setTimeout(() => { configStatusMessage.value = '' }, 5000);
   
   console.log('进入新地图创建界面:', tempMapConfig);
@@ -1641,7 +2259,13 @@ const confirmCreateMap = async () => {
 const cancelCreateMap = () => {
   showNewMapModal.value = false;
   newMapName.value = '';
+  newMapWidth.value = 50;
+  newMapHeight.value = 50;
+  clearBackgroundFile();
   mapNameError.value = '';
+  mapWidthError.value = '';
+  mapHeightError.value = '';
+  mapBackgroundError.value = '';
 };
 
 // 验证编辑地图名称
@@ -1678,12 +2302,12 @@ const validateEditingMapName = () => {
   return true;
 };
 
-// 触发地图JSON文件导入
-const triggerMapJsonImport = () => {
-  if (mapJsonFileInputRef.value) {
-    mapJsonFileInputRef.value.click();
-  }
-};
+// 触发地图JSON文件导入（已移除，不再使用）
+// const triggerMapJsonImport = () => {
+//   if (mapJsonFileInputRef.value) {
+//     mapJsonFileInputRef.value.click();
+//   }
+// };
 
 // 处理地图JSON文件导入（支持WebUIConfig格式）
 const handleMapJsonFileImport = (event) => {
@@ -2010,6 +2634,37 @@ const saveChanges = async () => {
       setTimeout(() => { configStatusMessage.value = '' }, 5000);
       return;
     }
+    
+    // 先上传裁剪后的图片
+    let backgroundUrl = null;
+    if (newMapBackgroundCropped.value) {
+      try {
+        configStatusMessage.value = '正在上传地图图片...';
+        
+        // 如果是 dataURL，转换为 Blob
+        let imageBlob = newMapBackgroundCropped.value;
+        if (typeof newMapBackgroundCropped.value === 'string' && newMapBackgroundCropped.value.startsWith('data:')) {
+          const response = await fetch(newMapBackgroundCropped.value);
+          imageBlob = await response.blob();
+        }
+        
+        // 上传图片
+        backgroundUrl = await uploadMapImage(imageBlob, tempMapName.value);
+        
+        configStatusMessage.value = '图片上传成功，正在保存配置...';
+      } catch (error) {
+        configStatusMessage.value = `图片上传失败: ${error.message}`;
+        setTimeout(() => { configStatusMessage.value = '' }, 5000);
+        return;
+      }
+    } else {
+      configStatusMessage.value = '错误：未找到裁剪后的图片';
+      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      return;
+    }
+    
+    // 更新地图配置中的背景URL
+    currentConfiguration.value.map.background = backgroundUrl;
     
     // 添加到地图列表 - 这必须在saveDashboardToServer之前完成，这样服务器才能收到完整配置
     availableMaps.value.push({
@@ -3734,6 +4389,15 @@ select {
   opacity: 0.8;
 }
 
+.no-maps-message .no-maps-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1.5rem;
+  margin-left: 0;
+  gap: 0.5rem;
+}
+
 /* 下拉选择器样式 */
 .map-selector-dropdown {
   width: 100%;
@@ -4026,17 +4690,183 @@ select {
   font-style: italic;
 }
 
+.background-link {
+  color: #667eea;
+  text-decoration: none;
+  word-break: break-all;
+  transition: color 0.2s;
+}
+
+.background-link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+/* 地图背景图显示样式 */
+.map-background-display {
+  grid-column: 1 / -1; /* 占据整行 */
+}
+
+.map-image-container {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #e9ecef;
+  background: #f8f9fa;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.map-background-image {
+  max-width: 100%;
+  max-height: 500px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.input-help-small {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+/* 背景图文件选择器样式 */
+.map-background-file-input {
+  padding: 0.75rem;
+  border: 2px dashed #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #f8f9fa;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box; /* 确保 padding 包含在宽度内 */
+  max-width: 100%; /* 防止超出容器 */
+}
+
+.map-background-file-input:hover {
+  border-color: #667eea;
+  background: #fff;
+}
+
+.map-background-file-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.file-input-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #6c757d;
+  font-size: 0.9rem;
+  max-width: 100%; /* 防止超出容器 */
+  box-sizing: border-box;
+  word-wrap: break-word; /* 长文本换行 */
+}
+
+.file-input-hint i {
+  font-size: 1.2rem;
+  color: #667eea;
+}
+
+.background-preview {
+  position: relative;
+  margin-top: 0.5rem;
+  display: inline-block;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid #e9ecef;
+  max-width: 100%; /* 防止预览图片超出容器 */
+  box-sizing: border-box;
+}
+
+.preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.clear-preview-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: background-color 0.2s;
+}
+
+.clear-preview-btn:hover {
+  background: rgba(220, 53, 69, 1);
+}
+
+.clear-preview-btn i {
+  font-size: 0.9rem;
+}
+
+/* 图片裁剪模态框样式 */
+.cropper-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.cropper-modal-content {
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
 /* 编辑模式样式 */
 .edit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .edit-item {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0; /* 防止 flex 子元素溢出 */
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 .edit-item label {

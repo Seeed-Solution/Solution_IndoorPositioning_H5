@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import (
     FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Response,
-    Query, Request, Depends
+    Query, Request, Depends, UploadFile, File
 )
 from pydantic import BaseModel
 from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
@@ -82,6 +82,11 @@ WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config/web_confi
 DEFAULT_TEST_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "config2.json")
 MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "config/map-example-format.json")  # Path to map example format in server directory
 
+# Define the path for uploaded static files
+UPLOAD_DIR = "uploads"
+# Ensure upload directory exists
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 # Mount static files (for serving the client-side HTML/JS)
 # Make sure the client directory exists relative to where uvicorn is run (usually project root)
 try:
@@ -90,6 +95,13 @@ except RuntimeError:
     log.warning("Static files directory '../client' not found. Serving API only.")
     # If you definitely need the static files, consider making the path absolute
     # or ensuring the server is run from the correct directory.
+
+# Mount uploaded files directory for static file serving
+try:
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    log.info(f"Uploaded files will be served from /uploads, directory: {UPLOAD_DIR}")
+except RuntimeError:
+    log.warning(f"Failed to mount uploads directory at {UPLOAD_DIR}")
 
 # --- Global State ---
 # Replace single current_config with two separate config holders
@@ -1314,6 +1326,52 @@ async def save_dashboard_config(config_content: DashboardConfig, response: Respo
         log.error(f"Error processing uploaded Dashboard configuration: {e}", exc_info=True)
         raise HTTPException(status_code=500,
                             detail=f"Internal server error while saving Dashboard configuration: {str(e)}")
+
+
+@app.post("/api/upload", status_code=200)
+async def upload_file(file: UploadFile = File(...), dep=Depends(check_authority)):
+    """
+    上传文件到服务器，文件将保存在 server/uploads 目录下
+    上传成功后可以通过 /uploads/文件名 访问
+    """
+    try:
+        # 确保上传目录存在
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        
+        # 获取文件名，处理路径安全问题
+        filename = os.path.basename(file.filename)
+        if not filename:
+            raise HTTPException(status_code=400, detail="文件名不能为空")
+        
+        # 构建文件保存路径
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        
+        # 如果文件已存在，可以选择覆盖或返回错误
+        # 这里选择覆盖已存在的文件
+        if os.path.exists(file_path):
+            log.warning(f"文件 {filename} 已存在，将被覆盖")
+        
+        # 保存文件
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        # 构建访问URL
+        file_url = f"/uploads/{filename}"
+        
+        log.info(f"文件上传成功: {filename}, 大小: {len(content)} 字节, URL: {file_url}")
+        
+        return {
+            "message": "文件上传成功",
+            "filename": filename,
+            "url": file_url,
+            "size": len(content)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"文件上传失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
 
 
 @app.get("/api/default-test-config")

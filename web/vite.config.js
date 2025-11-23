@@ -46,6 +46,15 @@ export default defineConfig({
           console.log(`[Vite Proxy] Proxying /api to ${options.target}`)
         }
       },
+      // 静态图片代理
+      '/uploads': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false, // 允许自签名证书
+        configure: (proxy, options) => {
+          console.log(`[Vite Proxy] Proxying /uploads to ${options.target}`)
+        }
+      },
       
       // WebSocket 代理 - 开发环境下将 /ws 代理到后端服务器
       '/ws': {

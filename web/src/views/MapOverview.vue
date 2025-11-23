@@ -765,6 +765,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-height: 0; /* 允许 flex 子元素收缩，防止被内容撑开 */
 }
 
 .map-selector {
@@ -821,6 +822,7 @@ onUnmounted(() => {
 .map-display-container {
   flex: 1;
   position: relative;
+  min-height: 0; /* 允许 flex 子元素收缩，防止被内容撑开 */
 }
 
 .map-display {

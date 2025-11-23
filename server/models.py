@@ -55,7 +55,7 @@ class WebUIMapInfo(BaseModel):
     name: Optional[str] = None # Optional name for the map layout itself
     width: float # in meters
     height: float # in meters
-    entities: List[WebUIMapEntity] = []
+    background: Optional[str] = None # Background image URL or path
 
 class WebUIBeaconConfig(BaseModel):
     uuid: str = Field(..., description="iBeacon UUID")
