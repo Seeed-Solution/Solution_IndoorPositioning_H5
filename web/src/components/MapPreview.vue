@@ -91,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, defineEmits, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import httpClient from '@/utils/httpClient.js';
 import { loadTrackers } from '@/services/configApiService.js';
@@ -106,7 +106,7 @@ const props = defineProps({
     default: null
   },
   trackers: {
-    type: Array,
+    type: [Array, Object],
     default: () => []
   },
   initialShowTrails: {
@@ -130,7 +130,7 @@ const isLoadingTrackers = ref(false);
 const mergedTrackers = computed(() => {
     // 优先使用 props.trackers (WebSocket 实时数据)，如果没有则使用预加载的数据
     let trackersToUse = {};
-    
+
     if (props.trackers && Object.keys(props.trackers).length > 0) {
         // 如果 props.trackers 有数据，使用它（WebSocket 实时数据）
         if (Array.isArray(props.trackers)) {
@@ -148,7 +148,7 @@ const mergedTrackers = computed(() => {
         // 如果 props.trackers 没有数据，使用预加载的数据
         trackersToUse = localTrackers.value;
     }
-    
+
     return trackersToUse;
 });
 
@@ -159,7 +159,7 @@ const filteredTrackers = computed(() => {
     if (!props.config?.map?.name || allTrackers.length === 0) {
         return [];
     }
-    
+
     const result = allTrackers.filter(tracker => {
         if (props.config.map.name === tracker.map) {
             return true;
@@ -176,7 +176,7 @@ const trackerList = computed(() => {
     return filteredTrackers.value.sort((a, b) => (a.trackerId || '').localeCompare(b.trackerId || ''));
 });
 
-const canvasWidth = ref(600); // Default canvas width  
+const canvasWidth = ref(600); // Default canvas width
 const canvasHeight = ref(450); // Default canvas height
 const localShowTrails = ref(props.initialShowTrails); // Initialize with prop
 
@@ -190,62 +190,29 @@ watch(() => props.initialShowTrails, (newValue) => {
   localShowTrails.value = newValue;
 });
 
-// 这里只是通过地图的长宽比与容器的宽度高度, 计算画布尺寸, 并同步到全局变量
 const updateCanvasSize = () => {
   const mapContainer = mapCanvas.value?.parentElement;
-  if (!mapContainer || !props.config?.map) {
-    // 如果没有配置，使用默认值
-    canvasWidth.value = 600;
-    canvasHeight.value = 450;
-    return;
-  }
+  if (mapContainer) {
+    const containerWidth = mapContainer.clientWidth;
+    const containerHeight = mapContainer.clientHeight;
 
-  const containerWidth = mapContainer.clientWidth;
-  const containerHeight = mapContainer.clientHeight;
-  
-  // 如果容器大小还没有渲染完成，使用默认值
-  if (containerWidth === 0 || containerHeight === 0) {
-    console.warn('[MapPreview] Container size is 0, using default canvas size');
-    canvasWidth.value = 600;
-    canvasHeight.value = 450;
-    return;
+    // 计算可用空间，减少预留空间（因为隐藏了map-info）
+    const availableWidth = Math.max(containerWidth - 20, 400); // 减少边距，最小宽度 400px
+    const availableHeight = Math.max(containerHeight - 50, 300); // 减少上下元素空间，最小高度 300px
+
+    // 直接使用可用空间，不强制固定宽高比
+    canvasWidth.value = Math.floor(availableWidth);
+    canvasHeight.value = Math.floor(availableHeight);
+
+    // console.log(`[DEBUG] Canvas size updated:`, {
+    //   containerWidth,
+    //   containerHeight,
+    //   availableWidth,
+    //   availableHeight,
+    //   canvasWidth: canvasWidth.value,
+    //   canvasHeight: canvasHeight.value
+    // });
   }
-  
-  // 获取地图宽高比
-  const mapWidthMeters = props.config.map.width || 100;
-  const mapHeightMeters = props.config.map.height || 100;
-  const mapAspectRatio = mapWidthMeters / mapHeightMeters;
-  
-  // 根据地图宽高比和容器可用空间计算画布大小，保持地图宽高比
-  const containerAspectRatio = containerWidth / containerHeight;
-  
-  if (mapAspectRatio > containerAspectRatio) {
-    // 地图更宽，以宽度为准
-    canvasWidth.value = Math.floor(containerWidth);
-    canvasHeight.value = Math.floor(containerWidth / mapAspectRatio);
-  } else {
-    // 地图更高，以高度为准
-    canvasHeight.value = Math.floor(containerHeight);
-    canvasWidth.value = Math.floor(containerHeight * mapAspectRatio);
-  }
-  
-  // 确保画布不会超出容器
-  if (canvasWidth.value > containerWidth) {
-    canvasWidth.value = Math.floor(containerWidth);
-    canvasHeight.value = Math.floor(containerWidth / mapAspectRatio);
-  }
-  if (canvasHeight.value > containerHeight) {
-    canvasHeight.value = Math.floor(containerHeight);
-    canvasWidth.value = Math.floor(containerHeight * mapAspectRatio);
-  }
-  
-  console.log(`[DEBUG] Canvas size updated:`, {
-    containerWidth,
-    containerHeight,
-    mapAspectRatio: mapAspectRatio.toFixed(3),
-    canvasWidth: canvasWidth.value,
-    canvasHeight: canvasHeight.value
-  });
 };
 
 const toggleTrails = () => {
@@ -269,12 +236,12 @@ const closeAlarmModal = () => {
 // 预加载 tracker 数据的函数
 const preloadTrackers = async () => {
   if (isLoadingTrackers.value) return;
-  
+
   isLoadingTrackers.value = true;
   try {
     console.log('[MapPreview] Preloading trackers data from /api/trackers...');
     const trackersData = await loadTrackers();
-    
+
     // 处理返回的数据格式
     if (trackersData) {
       if (Array.isArray(trackersData)) {
@@ -291,7 +258,7 @@ const preloadTrackers = async () => {
       } else {
         localTrackers.value = {};
       }
-      
+
       console.log(`[MapPreview] Successfully preloaded ${Object.keys(localTrackers.value).length} trackers`);
     } else {
       localTrackers.value = {};
@@ -307,20 +274,20 @@ const preloadTrackers = async () => {
 
 const isTrackerInCurrentMap = (tracker) => {
   console.log(`[Beacon检测] 检查 tracker: ${tracker.trackerId}`);
-  
+
   if (!props.config || !props.config.beacons) {
     console.log(`[Beacon检测] props.config 或 beacons 为空`);
     return true; // 临时改为 true，先让所有通过第一层过滤的 tracker 都显示
   }
-  
+
   if (!tracker.last_detected_beacons) {
     console.log(`[Beacon检测] tracker ${tracker.trackerId} 没有 last_detected_beacons 数据`);
     return true; // 临时改为 true，如果没有 beacon 数据就直接显示
   }
-  
+
   const mapBeacons = props.config.beacons;
   const trackerBeacons = tracker.last_detected_beacons;
-  
+
   const result = trackerBeacons.some(trackerBeacon => {
     return mapBeacons.some(mapBeacon => {
       const match = mapBeacon.macAddress.replace(":", "").toLowerCase() === trackerBeacon.macAddress.replace(":", "").toLowerCase();
@@ -330,147 +297,129 @@ const isTrackerInCurrentMap = (tracker) => {
       return match;
     });
   });
-  
+
   console.log(`[Beacon检测] tracker ${tracker.trackerId} 检测结果: ${result}`);
   return result;
 };
 
+const isValidNumber = (value) => {
+  return typeof value === 'number' && !isNaN(value);
+};
+
 const drawMap = (ctx) => {
-  const canvas = ctx.canvas;
-  const parentContainer = canvas.parentElement;
-  const containerHeight = parentContainer.clientHeight;  // 内容高度（不含 padding）
-  const containerWidth = parentContainer.clientWidth;
-  let containerRatio =  containerWidth / containerHeight;
-
-
   if (!props.config || !props.config.map || !ctx) {
     console.warn("[MapView] Attempted to drawMap without valid config.map data.");
     if (ctx) {
-        ctx.clearRect(0, 0, containerWidth, containerHeight);
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
     return;
   }
 
-  const { width: mapWidthMeters, height: mapHeightMeters } = props.config.map;
-  let mapWidth = props.config.map.width
-  let mapHeight = props.config.map.height
-  let mapRatio = mapWidth / mapHeight
-
-
-  let availableWidth = 0
-  let availableHeight = 0
-
-  if (containerRatio > mapRatio) {
-    // 更矮胖, 直接使用容器高度
-    availableHeight = containerHeight
-    availableWidth = availableHeight * mapRatio
-  } else {
-    availableWidth = containerWidth
-    availableHeight = availableWidth / mapRatio
-  }
-  console.log("容器比例: ", containerRatio, "地图比例: ", mapRatio)
-  console.log("容器宽: ", containerWidth, "可用宽: ", availableWidth)
-  console.log("容器高: ", containerHeight, "可用高: ", availableHeight)
-
+  const { width: mapWidthMeters, height: mapHeightMeters, entities } = props.config.map;
   const beacons = props.config.beacons || [];
-  
-  // Calculate actual bounds of map data
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-  // 如果没有实体数据，使用地图配置的宽高
-  if (minX === Infinity || maxX === -Infinity) {
+  // Calculate actual bounds of map data
+  // 优先从地图配置中获取边界值，如果没有则使用默认值
+  let minX, maxX, minY, maxY;
+  
+  if (isValidNumber(props.config.map.minX)) {
+    minX = props.config.map.minX;
+  } else {
     minX = 0;
-    maxX = mapWidthMeters || 100;
+  }
+
+  if (isValidNumber(props.config.map.maxX)) {
+    maxX = props.config.map.maxX;
+  } else {
+    maxX = mapWidthMeters;
+  }
+
+  if (isValidNumber(props.config.map.minY)) {
+    minY = props.config.map.minY;
+  } else {
     minY = 0;
-    maxY = mapHeightMeters || 100;
+  }
+
+  if (isValidNumber(props.config.map.maxY)) {
+    maxY = props.config.map.maxY;
+  } else {
+    maxY = mapHeightMeters;
   }
 
   // Ensure canvas internal drawing buffer matches these dimensions.
-  // 确保画布大小有效
-  if (containerWidth <= 0 || containerHeight <= 0) {
-    console.log("容器尺寸无效，使用默认值")
-    return;
-  }
-  
-  // 只在画布尺寸真正改变时才设置，避免不必要的清空画布
-  if (ctx.canvas.width !== containerWidth) {
-    ctx.canvas.width = containerWidth;
-  }
-  if (ctx.canvas.height !== containerHeight) {
-    ctx.canvas.height = containerHeight;
-  }
+  ctx.canvas.width = canvasWidth.value;
+  ctx.canvas.height = canvasHeight.value;
+
+  // Calculate the dimensions for the 80% content area
+  const contentAreaWidth = canvasWidth.value * 0.9;
+  const contentAreaHeight = canvasHeight.value * 0.9;
 
   // Use actual data bounds for scaling
   const dataWidth = maxX - minX;
   const dataHeight = maxY - minY;
-  
-  // Calculate scale to fit map into the canvas, maintaining aspect ratio
-  // 画布直接按地图比例绘制，铺满整个画布
+
+  // Calculate scale to fit map into the content area, maintaining aspect ratio
   let currentScale;
   if (dataWidth <= 0 || dataHeight <= 0) {
     // Avoid division by zero or negative scales if map dimensions are invalid
     currentScale = 1;
   } else {
-    const scaleX = containerWidth / dataWidth;
-    const scaleY = containerHeight / dataHeight;
+    const scaleX = contentAreaWidth / dataWidth;
+    const scaleY = contentAreaHeight / dataHeight;
     currentScale = Math.min(scaleX, scaleY);
   }
 
-  // Prevent scale from being zero or negative if map dimensions are very large or canvas is small
+  // Prevent scale from being zero or negative if map dimensions are very large or contentArea is small
   if (currentScale <= 0) {
       currentScale = 1; // Fallback to a minimal positive scale
   }
 
+  // Calculate the actual pixel dimensions of the scaled map content
+  const renderedMapWidth = dataWidth * currentScale;
+  const renderedMapHeight = dataHeight * currentScale;
+
+  // Calculate offsets to center the scaled map content within the canvas
+  const offsetX = (canvasWidth.value - renderedMapWidth) / 2;
+  const offsetY = (canvasHeight.value - renderedMapHeight) / 2;
+
   // Clear canvas
-  ctx.clearRect(0, 0, containerWidth, containerHeight);
+  ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
+
+  // 计算背景图的尺寸和位置（用于后续坐标系对齐）
+  let bgImageX = offsetX; // 默认使用 offsetX
+  let bgImageY = offsetY;
+  let bgImageWidth = renderedMapWidth;
+  let bgImageHeight = renderedMapHeight;
+  
+  if (mapImage.value && mapImage.value.complete) {
+    // 背景图占满高度，宽度按原始比例计算（不允许拉伸）
+    bgImageHeight = renderedMapHeight; // 高度占满
+    const bgImageAspectRatio = mapImage.value.width / mapImage.value.height; // 背景图原始宽高比
+    bgImageWidth = bgImageHeight * bgImageAspectRatio; // 宽度按原始比例计算
+    
+    // 计算居中位置
+    bgImageX = (canvasWidth.value - bgImageWidth) / 2; // 水平居中
+    bgImageY = offsetY; // 垂直位置与渲染地图一致
+  }
 
   // --- Draw Map Background Image (先绘制背景图，不翻转Y轴) ---
   if (mapImage.value && mapImage.value.complete) {
-    // 根据地图长宽比计算背景图尺寸：高度占满，宽度按比例拉伸
-    const mapRatio = mapWidthMeters / mapHeightMeters;
-    const bgImageHeight = containerHeight; // 高度占满
-    const bgImageWidth = bgImageHeight * mapRatio; // 宽度根据地图长宽比拉伸
-    
-    // 计算居中位置
-    const bgImageX = (containerWidth - bgImageWidth) / 2; // 水平居中
-    const bgImageY = 0; // 从顶部开始（高度占满）
-    
-    // 绘制背景图（Canvas 默认坐标系，Y轴向下）
+    // 绘制背景图（保持原始宽高比，不拉伸）
     ctx.drawImage(
       mapImage.value,
       0, 0, // 源图片起始位置
       mapImage.value.width, mapImage.value.height, // 源图片尺寸
-      bgImageX, bgImageY, // 目标位置（居中，顶部对齐）
-      bgImageWidth, bgImageHeight // 目标尺寸（高度占满，宽度按比例）
+      bgImageX, bgImageY, // 目标位置（居中）
+      bgImageWidth, bgImageHeight // 目标尺寸（保持原始宽高比）
     );
   }
 
   // --- 翻转Y轴，让坐标系统变成数学坐标系（Y轴向上）用于绘制其他内容 ---
   ctx.save();
-  // 先平移到画布底部，然后翻转Y轴
-  ctx.translate(0, containerHeight);
+  // Translate to the bottom-left corner of the centered content box, then flip Y
+  // 使用 bgImageX 而不是 offsetX，确保与背景图对齐
+  ctx.translate(bgImageX, canvasHeight.value - bgImageY);
   ctx.scale(1, -1);
-
-  // --- Draw Map Entities (暂时注释掉，使用背景图) ---
-  // entities.forEach((entity, index) => {
-  //   if (entity.type === 'polyline' && entity.points && entity.points.length > 0) {
-  //     ctx.beginPath();
-  //     ctx.strokeStyle = entity.color || '#333333';
-  //     ctx.lineWidth = entity.lineWidth || 1;
-
-  //     const startPoint = entity.points[0];
-  //     ctx.moveTo((startPoint[0] - minX) * currentScale, (startPoint[1] - minY) * currentScale);
-
-  //     for (let i = 1; i < entity.points.length; i++) {
-  //       ctx.lineTo((entity.points[i][0] - minX) * currentScale, (entity.points[i][1] - minY) * currentScale);
-  //     }
-
-  //     if (entity.closed) {
-  //       ctx.closePath();
-  //     }
-  //     ctx.stroke();
-  //   }
-  // });
 
    // --- Draw Beacons ---
    beacons.forEach(beacon => {
@@ -491,94 +440,94 @@ const drawMap = (ctx) => {
   });
 
    // --- Draw Trackers ---
-   // filteredTrackers.value.forEach(tracker => {
-   //     console.log(`[DEBUG] 处理tracker: ${tracker.trackerId}, position:`, tracker.position, ', radius:', tracker.radius, ', last_detected_beacons:', tracker.last_detected_beacons?.length);
-   //     if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
-   //         // 精确定位绘制
-   //         const trackerX = (tracker.position.x - minX) * currentScale;
-   //         const trackerY = (tracker.position.y - minY) * currentScale;
-   //
-   //         // Draw tracker circle with transparency
-   //         ctx.beginPath();
-   //         ctx.arc(trackerX, trackerY, 8, 0, 2 * Math.PI); // Slightly larger circle
-   //
-   //         // Change color based on SOS status
-   //         console.log(`[DEBUG] Tracker ${tracker.trackerId}: sos=${tracker.sos}, type=${typeof tracker.sos}, sos===1=${tracker.sos === 1}`);
-   //         if (tracker.sos === 1) {
-   //           ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Red with 80% opacity for SOS
-   //           ctx.strokeStyle = 'rgba(220, 0, 0, 1)'; // Darker red border for SOS
-   //           console.log(`[DEBUG] Drawing ${tracker.trackerId} as SOS (RED)`);
-   //         } else {
-   //           ctx.fillStyle = 'rgba(0, 123, 255, 0.7)'; // Blue with 70% opacity (normal)
-   //           ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)'; // Darker blue border (normal)
-   //           console.log(`[DEBUG] Drawing ${tracker.trackerId} as NORMAL (BLUE)`);
-   //         }
-   //
-   //         ctx.fill();
-   //
-   //         // Add border for better visibility
-   //         ctx.lineWidth = 2;
-   //         ctx.stroke();
-   //
-   //         // Draw text to the right of the circle
-   //         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Dark text with slight transparency
-   //         ctx.font = 'bold 11px Arial';
-   //         ctx.textAlign = 'left';
-   //         ctx.textBaseline = 'middle';
-   //
-   //         // Draw text upright despite flipped context
-   //         ctx.save();
-   //         ctx.translate(trackerX + 12, trackerY); // Position text to the right of circle
-   //         ctx.scale(1, -1); // Flip text back
-   //         ctx.fillText(tracker.trackerId.substring(10), 0, 0); // Show more chars
-   //         ctx.restore();
-   //
-   //         console.log(`tracker(${tracker.trackerId}) 绘制成功`)
-   //       return
-   //     } else if (tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0) {
-   //         // 区域定位绘制
-   //         const beacon = tracker.last_detected_beacons[0]; // 使用第一个检测到的beacon
-   //         if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
-   //           const centerX = (beacon.configured_x - minX) * currentScale;
-   //           const centerY = (beacon.configured_y - minY) * currentScale;
-   //           const radius = tracker.radius * currentScale;
-   //
-   //           // 根据SOS状态绘制不同颜色的圆圈
-   //           ctx.beginPath();
-   //           ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-   //           if (tracker.sos === 1) {
-   //             ctx.fillStyle = 'rgba(255, 182, 193, 0.3)'; // 浅红色，半透明
-   //             ctx.strokeStyle = 'rgba(220, 53, 69, 0.6)'; // 深红色边框
-   //           } else {
-   //             ctx.fillStyle = 'rgba(144, 238, 144, 0.3)'; // 浅绿色，半透明
-   //             ctx.strokeStyle = 'rgba(34, 139, 34, 0.6)'; // 深绿色边框
-   //           }
-   //           ctx.lineWidth = 2;
-   //           ctx.fill();
-   //           ctx.stroke();
-   //
-   //           // 在圆圈内显示tracker ID的后5位
-   //           const trackerId = tracker.trackerId;
-   //           const displayId = trackerId.length > 5 ? trackerId.substring(trackerId.length - 5) : trackerId;
-   //
-   //           ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // 黑色文字
-   //           ctx.font = 'bold 14px Arial';
-   //           ctx.textAlign = 'center';
-   //           ctx.textBaseline = 'middle';
-   //
-   //           // Draw text upright despite flipped context
-   //           ctx.save();
-   //           ctx.translate(centerX, centerY);
-   //           ctx.scale(1, -1); // Flip text back
-   //           ctx.fillText(displayId, 0, 0);
-   //           ctx.restore();
-   //
-   //           console.log(`tracker(${tracker.trackerId}) 区域定位绘制成功, radius: ${tracker.radius}, center: (${beacon.configured_x}, ${beacon.configured_y})`);
-   //           return;
-   //         }
-   //     }
-   //     console.log(`tracker(${tracker.trackerId}) 绘制失败, 无定位信息`)
-   // });
+   filteredTrackers.value.forEach(tracker => {
+       console.log(`[DEBUG] 处理tracker: ${tracker.trackerId}, position:`, tracker.position, ', radius:', tracker.radius, ', last_detected_beacons:', tracker.last_detected_beacons?.length);
+       if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
+           // 精确定位绘制
+           const trackerX = (tracker.position.x - minX) * currentScale;
+           const trackerY = (tracker.position.y - minY) * currentScale;
+
+           // Draw tracker circle with transparency
+           ctx.beginPath();
+           ctx.arc(trackerX, trackerY, 8, 0, 2 * Math.PI); // Slightly larger circle
+
+           // Change color based on SOS status
+           console.log(`[DEBUG] Tracker ${tracker.trackerId}: sos=${tracker.sos}, type=${typeof tracker.sos}, sos===1=${tracker.sos === 1}`);
+           if (tracker.sos === 1) {
+             ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Red with 80% opacity for SOS
+             ctx.strokeStyle = 'rgba(220, 0, 0, 1)'; // Darker red border for SOS
+             console.log(`[DEBUG] Drawing ${tracker.trackerId} as SOS (RED)`);
+           } else {
+             ctx.fillStyle = 'rgba(0, 123, 255, 0.7)'; // Blue with 70% opacity (normal)
+             ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)'; // Darker blue border (normal)
+             console.log(`[DEBUG] Drawing ${tracker.trackerId} as NORMAL (BLUE)`);
+           }
+
+           ctx.fill();
+
+           // Add border for better visibility
+           ctx.lineWidth = 2;
+           ctx.stroke();
+
+           // Draw text to the right of the circle
+           ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Dark text with slight transparency
+           ctx.font = 'bold 11px Arial';
+           ctx.textAlign = 'left';
+           ctx.textBaseline = 'middle';
+
+           // Draw text upright despite flipped context
+           ctx.save();
+           ctx.translate(trackerX + 12, trackerY); // Position text to the right of circle
+           ctx.scale(1, -1); // Flip text back
+           ctx.fillText(tracker.trackerId.substring(10), 0, 0); // Show more chars
+           ctx.restore();
+
+           console.log(`tracker(${tracker.trackerId}) 绘制成功`)
+         return
+       } else if (tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0) {
+           // 区域定位绘制
+           const beacon = tracker.last_detected_beacons[0]; // 使用第一个检测到的beacon
+           if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
+             const centerX = (beacon.configured_x - minX) * currentScale;
+             const centerY = (beacon.configured_y - minY) * currentScale;
+             const radius = tracker.radius * currentScale;
+
+             // 根据SOS状态绘制不同颜色的圆圈
+             ctx.beginPath();
+             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+             if (tracker.sos === 1) {
+               ctx.fillStyle = 'rgba(255, 182, 193, 0.3)'; // 浅红色，半透明
+               ctx.strokeStyle = 'rgba(220, 53, 69, 0.6)'; // 深红色边框
+             } else {
+               ctx.fillStyle = 'rgba(144, 238, 144, 0.3)'; // 浅绿色，半透明
+               ctx.strokeStyle = 'rgba(34, 139, 34, 0.6)'; // 深绿色边框
+             }
+             ctx.lineWidth = 2;
+             ctx.fill();
+             ctx.stroke();
+
+             // 在圆圈内显示tracker ID的后5位
+             const trackerId = tracker.trackerId;
+             const displayId = trackerId.length > 5 ? trackerId.substring(trackerId.length - 5) : trackerId;
+
+             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // 黑色文字
+             ctx.font = 'bold 14px Arial';
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
+
+             // Draw text upright despite flipped context
+             ctx.save();
+             ctx.translate(centerX, centerY);
+             ctx.scale(1, -1); // Flip text back
+             ctx.fillText(displayId, 0, 0);
+             ctx.restore();
+
+             console.log(`tracker(${tracker.trackerId}) 区域定位绘制成功, radius: ${tracker.radius}, center: (${beacon.configured_x}, ${beacon.configured_y})`);
+             return;
+           }
+       }
+       console.log(`tracker(${tracker.trackerId}) 绘制失败, 无定位信息`)
+   });
 
 
   // --- Draw Tracker Trails (if enabled) ---
@@ -605,8 +554,6 @@ const drawMap = (ctx) => {
 
   ctx.restore(); // Restore original context state
 };
-
-let resizeHandler;
 
 // 加载地图背景图的函数
 const loadMapBackgroundImage = () => {
@@ -647,45 +594,37 @@ const loadMapBackgroundImage = () => {
   img.src = props.config.map.background;
 };
 
+let resizeHandler;
+
 onMounted(async () => {
   // 加载地图背景图
   loadMapBackgroundImage();
   
   // 预加载 tracker 数据
   await preloadTrackers();
-  
-  // 等待 DOM 渲染完成后再计算画布大小
-  await nextTick();
 
-  // todo 这里是延迟渲染, 但此处的问题是重新渲染会造成图片丢失
-  // 使用 setTimeout 确保容器已经渲染完成
-  // setTimeout(() => {
-  //   updateCanvasSize();
-  //   const ctx = mapCanvas.value?.getContext('2d');
-  //   if (ctx) {
-  //     console.log("开始绘图")
-  //     drawMap(ctx);
-  //   }
-  // }, 100);
-  
+  updateCanvasSize();
+  const ctx = mapCanvas.value?.getContext('2d');
+  if (ctx) {
+    drawMap(ctx);
+  }
+
   // 监听窗口大小变化
   resizeHandler = () => {
-    // updateCanvasSize();
-    // const ctx = mapCanvas.value?.getContext('2d');
-    // if (ctx) {
-    //   drawMap(ctx);
-    // }
+    updateCanvasSize();
+    const ctx = mapCanvas.value?.getContext('2d');
+    if (ctx) {
+      drawMap(ctx);
+    }
   };
-
-  // todo size 变化时
-  // window.addEventListener('resize', resizeHandler);
+  window.addEventListener('resize', resizeHandler);
 });
 
 onUnmounted(() => {
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
   }
-  
+
 });
 
 // Watch for changes in background image URL
@@ -696,35 +635,13 @@ watch(() => props.config?.map?.background, (newUrl, oldUrl) => {
   }
 });
 
-// // todo 地图宽度变更
-// watch(() => props.config?.map?.width, () => {
-//   updateCanvasSize();
-//   const ctx = mapCanvas.value?.getContext('2d');
-//   if (ctx) {
-//     drawMap(ctx);
-//   }
-// });
-
-// todo 地图高度变更
-// watch(() => props.config?.map?.height, () => {
-//   updateCanvasSize();
-//   const ctx = mapCanvas.value?.getContext('2d');
-//   if (ctx) {
-//     drawMap(ctx);
-//   }
-// });
-
-// todo 地图/tracker之类的数据更新, 是否重新绘制
-// watch([() => props.config, () => props.trackers, mergedTrackers, localShowTrails], () => {
-//    // 如果 config 变化，可能需要重新计算画布大小
-//    if (props.config?.map) {
-//      updateCanvasSize();
-//    }
-//    const ctx = mapCanvas.value?.getContext('2d');
-//    if (ctx) {
-//        drawMap(ctx);
-//    }
-// }, { deep: true });
+// Watch for changes in config, trackers, trail visibility and redraw
+watch([() => props.config, () => props.trackers, mergedTrackers, localShowTrails], () => {
+   const ctx = mapCanvas.value?.getContext('2d');
+   if (ctx) {
+       drawMap(ctx);
+   }
+}, { deep: true });
 
 
 // 暴露方法给父组件使用
@@ -735,45 +652,45 @@ defineExpose({
 </script>
 
 <style scoped>
-/* 规则1: 只有最外层容器有 flex-grow: 1 */
 .map-preview-container {
   width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .content-columns {
   display: flex;
   gap: 10px;
-  flex: 1;
-  min-height: 0; /* 允许 flex 子元素收缩 */
 }
 
-/* 规则1: 只有这一个 flex-grow: 1 */
 .map-view-wrapper {
   flex-grow: 1;
-  min-height: 0; /* 允许 flex 子元素收缩 */
+  min-height: 450px;
   display: flex;
   flex-direction: column;
 }
 
-/* 规则3: 使用 position:relative + width/height:100% */
+/* Tracker 列表视图样式 */
+.tracker-list-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.tracker-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
 .map-container {
   position: relative;
   width: 100%;
-  height: 100%;
-  display: flex;           /* 添加：flexbox 布局 */
-  justify-content: center; /* 添加：水平居中 */
-  align-items: center;     /* 添加：垂直居中 */
-  box-sizing: border-box;
-}
-
-/* Canvas 的显示尺寸由 width/height 属性控制，不铺满父容器 */
-canvas {
-  display: block;
-  /* 移除 width: 100% 和 height: 100%，让 canvas 根据 width/height 属性显示 */
-  /* Canvas 的显示尺寸会等于它的 width/height 属性值 */
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .tracker-list-aside {
@@ -783,29 +700,8 @@ canvas {
   padding: 0.75rem;
   border-radius: 4px;
   border: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* 允许 flex 子元素收缩 */
-  overflow: hidden; /* 由子元素控制滚动 */
-}
-
-/* 规则5: 父容器负责布局，子容器只负责内容 */
-/* Tracker 列表视图样式 */
-.tracker-list-view {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto; /* 内容溢出时滚动 */
-  min-height: 0; /* 允许 flex 子元素收缩 */
-}
-
-.tracker-list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  flex-shrink: 0; /* 头部不收缩 */
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 .tracker-list-aside h4 {
@@ -839,7 +735,7 @@ canvas {
   border-bottom: none;
 }
 .tracker-item strong {
-  color: #0056b3; 
+  color: #0056b3;
   display: block;
   margin-bottom: 3px;
 }
@@ -918,6 +814,11 @@ canvas {
     font-size: 0.85em;
     color: #666;
     border: 1px solid rgba(0, 0, 0, 0.1);
+}
+canvas {
+    display: block; /* Prevents extra space below canvas */
+    max-width: 100%;
+    height: auto;
 }
 
 .loading-overlay {

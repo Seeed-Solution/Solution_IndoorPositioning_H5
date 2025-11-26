@@ -158,6 +158,7 @@
     "showTrails": "Show Trails",
     "hideTrails": "Hide Trails",
     "sosAlert": "🚨 SOS ALERT",
+    "loadingTrackers": "设备加载中...",
     "sosRecovery": "Alarm Recovery",
     "statusChange": "Status Change",
     "alarmRecords": "Alarm Records",

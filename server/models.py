@@ -55,6 +55,10 @@ class WebUIMapInfo(BaseModel):
     name: Optional[str] = None # Optional name for the map layout itself
     width: float # in meters
     height: float # in meters
+    minX: Optional[float] = None # Minimum X coordinate in meters
+    maxX: Optional[float] = None # Maximum X coordinate in meters
+    minY: Optional[float] = None # Minimum Y coordinate in meters
+    maxY: Optional[float] = None # Maximum Y coordinate in meters
     background: Optional[str] = None # Background image URL or path
 
 class WebUIBeaconConfig(BaseModel):
@@ -68,6 +72,7 @@ class WebUIBeaconConfig(BaseModel):
     macAddress: Optional[str] = Field(default=None, description="Physical MAC address, if known/relevant")
     deviceId: Optional[str] = Field(default=None, description="Device ID for backward compatibility - will be mapped to macAddress")
     map: Optional[str] = None
+    is_darwin: Optional[bool] = Field(default=False, description="True if MAC address is virtual (server running on macOS)")
 
 
 class WebUISettings(BaseModel):

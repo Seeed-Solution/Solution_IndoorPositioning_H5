@@ -59,62 +59,64 @@
 
 
     <!-- Add/Edit Beacon Modal -->
-    <div v-if="showBeaconModal" class="modal-overlay">
-      <div class="modal-content">
+    <div v-if="showBeaconModal" class="modal-overlay" @wheel="preventBackgroundScroll" @touchmove="preventBackgroundScroll" @scroll.stop>
+      <div class="modal-content" @wheel="preventBackgroundScroll" @touchmove="preventBackgroundScroll">
         <h4>{{ beaconModalMode === 'add' ? 'Add New Beacon' : 'Edit Beacon' }}</h4>
         <form @submit.prevent="saveBeacon">
-          <div>
-            <label>Display Name:</label>
-            <input type="text" v-model="editingBeacon.displayName" required />
-          </div>
-          <div>
-            <label>UUID:</label>
-            <input type="text" v-model="editingBeacon.uuid" required pattern="^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$" title="Please enter a standard UUID format, e.g., XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
-          </div>
-          <div>
-            <label>Major:</label>
-            <input type="number" v-model.number="editingBeacon.major" required min="0" max="65535"/>
-          </div>
-          <div>
-            <label>Minor:</label>
-            <input type="number" v-model.number="editingBeacon.minor" required min="0" max="65535"/>
-          </div>
-           <div>
-            <label>MAC Address / Device ID:</label>
-            <input type="text" v-model="editingBeacon.macAddress" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
-            <small>This is the physical MAC address (Device ID) from the scan. This is the ONLY identifier used to detect duplicate devices. UUID/Major/Minor can be the same for devices from the same manufacturer.</small>
-          </div>
-
-          <div v-if="beaconModalMode === 'edit' || (beaconModalMode === 'add' && editingBeacon.uuid)" class="form-actions coordinate-actions">
-             <label>Beacon Position (X, Y):</label>
-             <button 
-               type="button" 
-               @click="requestPlacementFromMapForEditingBeacon" 
-               :disabled="!hasMapWithEntities"
-               :title="!hasMapWithEntities ? '需要先导入包含绘图实体的地图才能使用地图选点功能' : ''"
-             >
-              {{ editingBeacon.x === null || editingBeacon.x === undefined ? 'Select Coordinates from Map' : 'Update Coordinates from Map' }}
-            </button>
-            <p v-if="!hasMapWithEntities" class="map-required-hint">
-              <i class="fas fa-info-circle"></i>
-              需要先导入包含绘图实体的地图才能使用地图选点功能，否则请手动输入坐标值
-            </p>
-          </div>
-
-          <div class="form-row coordinate-pair">
-            <div class="form-group-inline">
-              <label>X Coordinate (m):</label>
-              <input type="number" v-model.number="editingBeacon.x" step="0.01" />
+          <div class="form-scrollable" @wheel="preventBackgroundScroll" @touchmove="preventBackgroundScroll">
+            <div>
+              <label>Display Name:</label>
+              <input type="text" v-model="editingBeacon.displayName" required />
             </div>
-            <div class="form-group-inline">
-              <label>Y Coordinate (m):</label>
-              <input type="number" v-model.number="editingBeacon.y" step="0.01" />
+            <div>
+              <label>UUID:</label>
+              <input type="text" v-model="editingBeacon.uuid" required pattern="^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$" title="Please enter a standard UUID format, e.g., XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
             </div>
-          </div>
+            <div>
+              <label>Major:</label>
+              <input type="number" v-model.number="editingBeacon.major" required min="0" max="65535"/>
+            </div>
+            <div>
+              <label>Minor:</label>
+              <input type="number" v-model.number="editingBeacon.minor" required min="0" max="65535"/>
+            </div>
+             <div>
+              <label>MAC Address / Device ID:</label>
+              <input type="text" v-model="editingBeacon.macAddress" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
+              <small>This is the physical MAC address (Device ID) from the scan. This is the ONLY identifier used to detect duplicate devices. UUID/Major/Minor can be the same for devices from the same manufacturer.</small>
+            </div>
 
-          <div>
-            <label>TxPower (Reference RSSI@1m):</label>
-            <input type="number" v-model.number="editingBeacon.txPower" required />
+            <div v-if="beaconModalMode === 'edit' || (beaconModalMode === 'add' && editingBeacon.uuid)" class="form-actions coordinate-actions">
+               <label>Beacon Position (X, Y):</label>
+               <button 
+                 type="button" 
+                 @click="requestPlacementFromMapForEditingBeacon" 
+                 :disabled="!hasMapWithBackground"
+                 :title="!hasMapWithBackground ? '需要先上传地图背景图才能使用地图选点功能' : ''"
+               >
+                {{ editingBeacon.x === null || editingBeacon.x === undefined ? 'Select Coordinates from Map' : 'Update Coordinates from Map' }}
+              </button>
+              <p v-if="!hasMapWithBackground" class="map-required-hint">
+                <i class="fas fa-info-circle"></i>
+                需要先上传地图背景图才能使用地图选点功能，否则请手动输入坐标值
+              </p>
+            </div>
+
+            <div class="form-row coordinate-pair">
+              <div class="form-group-inline">
+                <label>X Coordinate (m):</label>
+                <input type="number" v-model.number="editingBeacon.x" step="0.01" />
+              </div>
+              <div class="form-group-inline">
+                <label>Y Coordinate (m):</label>
+                <input type="number" v-model.number="editingBeacon.y" step="0.01" />
+              </div>
+            </div>
+
+            <div>
+              <label>TxPower (Reference RSSI@1m):</label>
+              <input type="number" v-model.number="editingBeacon.txPower" required />
+            </div>
           </div>
           <div class="modal-actions">
             <button type="submit">Save</button>
@@ -164,11 +166,11 @@ const editingBeacon = ref(initialEditingBeacon());
 
 const hasMap = computed(() => !!props.currentMapLayout);
 
-const hasMapWithEntities = computed(() => 
+const hasMapWithBackground = computed(() => 
   props.currentMapLayout && 
-  props.currentMapLayout.entities && 
-  Array.isArray(props.currentMapLayout.entities) && 
-  props.currentMapLayout.entities.length > 0
+  props.currentMapLayout.background && 
+  typeof props.currentMapLayout.background === 'string' &&
+  props.currentMapLayout.background.trim() !== ''
 );
 
 // 格式化MAC地址为标准格式
@@ -209,6 +211,25 @@ watch(() => props.currentMapLayout, (newMap, oldMap) => {
               'Computed hasMap value:', hasMap.value);
 }, { deep: true, immediate: true });
 
+// 监听模态框显示状态，锁定/解锁 body 滚动
+watch(showBeaconModal, (isOpen) => {
+  if (isOpen) {
+    // 锁定 body 滚动
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingRight = '0px'; // 防止滚动条消失导致的布局偏移
+  } else {
+    // 解锁 body 滚动
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+  }
+});
+
+// 组件卸载时确保恢复 body 滚动
+onBeforeUnmount(() => {
+  document.body.style.overflow = '';
+  document.body.style.paddingRight = '';
+});
+
 
 const showAddBeaconModal = () => {
   if (!props.currentMapLayout) {
@@ -229,6 +250,21 @@ const showEditBeaconModal = (index) => {
 
 const hideBeaconModal = () => {
   showBeaconModal.value = false;
+};
+
+// 阻止模态框外部的滚动事件
+const preventBackgroundScroll = (e) => {
+  // 如果滚动发生在 .form-scrollable 内部，允许滚动但阻止冒泡
+  const target = e.target;
+  const scrollableElement = target.closest('.form-scrollable');
+  if (scrollableElement) {
+    // 允许内部滚动，但阻止事件冒泡到外部
+    e.stopPropagation();
+    return;
+  }
+  // 如果不在可滚动区域内，阻止所有滚动
+  e.preventDefault();
+  e.stopPropagation();
 };
 
 const saveBeacon = () => {
@@ -449,7 +485,9 @@ th {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 10000;
+  overflow: hidden;
+  touch-action: none;
 }
 .modal-content {
   background-color: white;
@@ -458,15 +496,55 @@ th {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   width: 90%;
   max-width: 500px;
+  height: 85vh;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .modal-content h4 {
   margin-top: 0;
   margin-bottom: 20px;
   font-size: 1.3em;
   color: #333;
+  flex-shrink: 0;
 }
-.modal-content form div {
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+.modal-content form > div:not(.modal-actions) {
   margin-bottom: 15px;
+  flex-shrink: 0;
+}
+.modal-content .form-scrollable {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  margin-right: -8px;
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+  touch-action: pan-y;
+}
+.modal-content .form-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-content .form-scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+.modal-content .form-scrollable::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+.modal-content .form-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 .modal-content form label {
   display: block;
@@ -510,6 +588,7 @@ th {
 .modal-actions {
   margin-top: 25px;
   text-align: right;
+  flex-shrink: 0;
 }
 .modal-actions button {
   margin-left: 10px;

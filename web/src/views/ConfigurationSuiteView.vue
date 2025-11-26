@@ -358,8 +358,8 @@
           @settings-updated="handleSettingsUpdated"
         />
         
-        <!-- 共享地图预览 - 所有标签页都能看到，在有绘图实体或需要放置信标时显示 -->
-        <div v-if="currentConfiguration.map?.entities?.length > 0 || selectedBeaconForPlacement" class="shared-map-preview card" ref="mapPreviewCardRef">
+        <!-- 共享地图预览 - 所有标签页都能看到，在有背景图或需要放置信标时显示 -->
+        <div v-if="currentConfiguration.map?.background || selectedBeaconForPlacement" class="shared-map-preview card" ref="mapPreviewCardRef">
           <div class="card-header">
             <h3><i class="fas fa-map"></i> {{ t('config.mapPreview.title') }}</h3>
             <div v-if="selectedBeaconForPlacement" class="placement-hint">
@@ -1192,6 +1192,9 @@ const mapPreviewCanvasRef = ref(null);
 const mapJsonFileInputRef = ref(null);
 const mapPreviewCardRef = ref(null);
 
+// 地图背景图
+const mapPreviewImage = ref(null);
+
 const isLoadingConfig = ref(false);
 const configStatusMessage = ref('');
 
@@ -1519,6 +1522,7 @@ const selectMap = (index) => {
 };
 
 // 更新当前配置以保持子组件兼容性
+// 更新当前配置后，加载背景图
 const updateCurrentConfiguration = () => {
   const selectedMap = selectedMapConfig.value;
   if (selectedMap && !selectedMap.isNewMap) {
@@ -1539,6 +1543,8 @@ const updateCurrentConfiguration = () => {
       if (generalSettingsTabRef.value?.loadSettings) {
         generalSettingsTabRef.value.loadSettings(currentConfiguration.value.settings);
       }
+      // 加载地图背景图
+      loadMapPreviewBackgroundImage();
     });
   }
 };
@@ -1554,14 +1560,32 @@ watch(() => selectedMapConfig.value, (newMapConfig) => {
 // 监听配置变化以重绘地图预览
 watch(() => currentConfiguration.value, () => {
   nextTick(() => {
-    drawMapPreview();
+    if (mapPreviewCanvasRef.value) {
+      const ctx = mapPreviewCanvasRef.value.getContext('2d');
+      if (ctx) {
+        drawMapPreview(ctx);
+      }
+    }
   });
 }, { deep: true });
 
-// 监听选中信标变化以重绘地图预览
+// 监听背景图URL变化，重新加载图片
+watch(() => currentConfiguration.value?.map?.background, (newUrl, oldUrl) => {
+  if (newUrl !== oldUrl && newUrl) {
+    console.log('[ConfigurationSuiteView] Background image URL changed, reloading...', { old: oldUrl, new: newUrl });
+    loadMapPreviewBackgroundImage();
+  }
+});
+
+// 监听选中信标变化以重绘地图预览（虽然不绘制beacon，但可能需要更新显示状态）
 watch(() => selectedBeaconForPlacement.value, () => {
   nextTick(() => {
-    drawMapPreview();
+    if (mapPreviewCanvasRef.value) {
+      const ctx = mapPreviewCanvasRef.value.getContext('2d');
+      if (ctx) {
+        drawMapPreview(ctx);
+      }
+    }
   });
 }, { deep: true });
 
@@ -1651,11 +1675,25 @@ const formatMapConfig = (mapConfig) => {
   const width = Number(mapConfig.map?.width || 50);
   const height = Number(mapConfig.map?.height || 50);
   
+  // 处理边界值：如果有值则使用原值，否则使用默认值
+  const isValidNumber = (value) => {
+    return typeof value === 'number' && !isNaN(value) && isFinite(value);
+  };
+  
+  const minX = isValidNumber(mapConfig.map?.minX) ? Number(mapConfig.map.minX) : 0;
+  const maxX = isValidNumber(mapConfig.map?.maxX) ? Number(mapConfig.map.maxX) : width;
+  const minY = isValidNumber(mapConfig.map?.minY) ? Number(mapConfig.map.minY) : 0;
+  const maxY = isValidNumber(mapConfig.map?.maxY) ? Number(mapConfig.map.maxY) : height;
+  
   const mapObj = {
     name: String(mapConfig.map?.name || '').trim(),
     width: Math.round(width * 100) / 100,
     height: Math.round(height * 100) / 100,
-    background: String(mapConfig.map?.background || '').trim()
+    background: String(mapConfig.map?.background || '').trim(),
+    minX: Math.round(minX * 100) / 100,
+    maxX: Math.round(maxX * 100) / 100,
+    minY: Math.round(minY * 100) / 100,
+    maxY: Math.round(maxY * 100) / 100
   };
   
   // 背景图链接必填，如果为空则使用默认值或抛出错误
@@ -3159,41 +3197,44 @@ const handleMapPreviewClick = (event) => {
   const map = currentConfiguration.value.map;
   const mapWidthMeters = map.width || 50;
   const mapHeightMeters = map.height || 50;
-  const entities = map.entities || [];
 
-  // 计算实际地图数据边界（与drawMapPreview中的逻辑完全一致）
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  if (entities && entities.length > 0) {
-    entities.forEach(entity => {
-      if (entity.points) {
-        entity.points.forEach(point => {
-          minX = Math.min(minX, point[0]);
-          maxX = Math.max(maxX, point[0]);
-          minY = Math.min(minY, point[1]);
-          maxY = Math.max(maxY, point[1]);
-        });
-      }
-    });
+  // 计算地图边界值 - 与drawMapPreview中的逻辑完全一致
+  // 优先从地图配置中获取边界值，如果没有则使用默认值
+  let minX, maxX, minY, maxY;
+  
+  if (map.minX !== undefined && map.maxX !== undefined && 
+      map.minY !== undefined && map.maxY !== undefined) {
+    // 如果地图配置中提供了边界值，直接使用
+    minX = map.minX;
+    maxX = map.maxX;
+    minY = map.minY;
+    maxY = map.maxY;
   } else {
-    // 如果没有entities，使用地图的尺寸作为边界
+    // 如果没有提供，使用默认值（从 0 开始，到地图的宽高）
     minX = 0;
+    maxX = mapWidthMeters || 100;
     minY = 0;
-    maxX = mapWidthMeters || 50;
-    maxY = mapHeightMeters || 50;
+    maxY = mapHeightMeters || 100;
   }
 
-  // 计算缩放比例和偏移量
+  // 计算缩放比例和偏移量 - 与drawMapPreview中的逻辑完全一致
   const contentAreaWidth = canvas.width * 0.9;
   const contentAreaHeight = canvas.height * 0.9;
   
   const dataWidth = maxX - minX;
   const dataHeight = maxY - minY;
   
-  let currentScale = 1;
-  if (dataWidth > 0 && dataHeight > 0) {
+  let currentScale;
+  if (dataWidth <= 0 || dataHeight <= 0) {
+    currentScale = 1;
+  } else {
     const scaleX = contentAreaWidth / dataWidth;
     const scaleY = contentAreaHeight / dataHeight;
     currentScale = Math.min(scaleX, scaleY);
+  }
+  
+  if (currentScale <= 0) {
+    currentScale = 1;
   }
 
   const renderedMapWidth = dataWidth * currentScale;
@@ -3201,13 +3242,28 @@ const handleMapPreviewClick = (event) => {
   const offsetX = (canvas.width - renderedMapWidth) / 2;
   const offsetY = (canvas.height - renderedMapHeight) / 2;
 
-  // 检查点击是否在地图区域内
-  if (bufferPixelX >= offsetX && bufferPixelX <= offsetX + renderedMapWidth &&
-      bufferPixelY >= offsetY && bufferPixelY <= offsetY + renderedMapHeight) {
+  // 计算背景图的尺寸和位置（与drawMapPreview中的逻辑一致）
+  let bgImageX = offsetX;
+  let bgImageY = offsetY;
+  let bgImageWidth = renderedMapWidth;
+  let bgImageHeight = renderedMapHeight;
+  
+  if (mapPreviewImage.value && mapPreviewImage.value.complete) {
+    bgImageHeight = renderedMapHeight;
+    const bgImageAspectRatio = mapPreviewImage.value.width / mapPreviewImage.value.height;
+    bgImageWidth = bgImageHeight * bgImageAspectRatio;
+    bgImageX = (canvas.width - bgImageWidth) / 2;
+    bgImageY = offsetY;
+  }
+
+  // 检查点击是否在地图区域内（使用背景图的实际位置）
+  if (bufferPixelX >= bgImageX && bufferPixelX <= bgImageX + bgImageWidth &&
+      bufferPixelY >= bgImageY && bufferPixelY <= bgImageY + bgImageHeight) {
     
     // 转换为地图坐标（使用数据边界归一化，注意Y轴翻转）
-    const relativeX = ((bufferPixelX - offsetX) / currentScale) + minX;
-    const relativeY = ((dataHeight - ((bufferPixelY - offsetY) / currentScale)) + minY);
+    // 注意：这里使用 bgImageX 和 bgImageY，与背景图对齐
+    const relativeX = ((bufferPixelX - bgImageX) / currentScale) + minX;
+    const relativeY = ((dataHeight - ((bufferPixelY - bgImageY) / currentScale)) + minY);
 
     const mapX = parseFloat(relativeX.toFixed(2));
     const mapY = parseFloat(relativeY.toFixed(2));
@@ -3237,50 +3293,89 @@ const handleMapPreviewClick = (event) => {
   }
 };
 
-// 绘制地图预览 - 修复偏移问题，参考MapPreview.vue的实现
-const drawMapPreview = () => {
+// 加载地图背景图的函数
+const loadMapPreviewBackgroundImage = () => {
+  if (!currentConfiguration.value?.map?.background) {
+    console.warn('[ConfigurationSuiteView] No background image URL in config');
+    mapPreviewImage.value = null;
+    // 即使没有背景图，也继续绘制其他内容
+    const ctx = mapPreviewCanvasRef.value?.getContext('2d');
+    if (ctx) {
+      drawMapPreview(ctx);
+    }
+    return;
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous'; // 允许跨域加载图片
+  
+  img.onload = () => {
+    mapPreviewImage.value = img;
+    console.log('[ConfigurationSuiteView] Background image loaded successfully:', currentConfiguration.value.map.background);
+    // 图片加载完成后重新绘制
+    const ctx = mapPreviewCanvasRef.value?.getContext('2d');
+    if (ctx) {
+      drawMapPreview(ctx);
+    }
+  };
+  
+  img.onerror = (error) => {
+    console.error('[ConfigurationSuiteView] Failed to load map background image:', currentConfiguration.value.map.background, error);
+    mapPreviewImage.value = null;
+    // 即使图片加载失败，也继续绘制其他内容
+    const ctx = mapPreviewCanvasRef.value?.getContext('2d');
+    if (ctx) {
+      drawMapPreview(ctx);
+    }
+  };
+  
+  img.src = currentConfiguration.value.map.background;
+};
+
+// 绘制地图预览 - 与MapPreview.vue相同的逻辑
+const drawMapPreview = (ctx) => {
   if (!mapPreviewCanvasRef.value || !currentConfiguration.value.map) {
     return;
   }
 
   const canvas = mapPreviewCanvasRef.value;
-  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    ctx = canvas.getContext('2d');
+  }
   const map = currentConfiguration.value.map;
   const beacons = currentConfiguration.value.beacons || [];
 
-  console.log('[MapPreview] Drawing map:', map.name, 'with', beacons.length, 'beacons');
+  console.log('[ConfigurationSuiteView] Drawing map:', map.name, 'with', beacons.length, 'beacons');
 
   if (!map) {
-    console.warn("[MapPreview] Attempted to drawMap without valid config.map data.");
+    console.warn("[ConfigurationSuiteView] Attempted to drawMap without valid config.map data.");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     return;
   }
 
-  const { width: mapWidthMeters, height: mapHeightMeters, entities } = map;
+  const { width: mapWidthMeters, height: mapHeightMeters } = map;
 
   // 确保画布内部绘制缓冲区与尺寸匹配
   ctx.canvas.width = canvas.width;
   ctx.canvas.height = canvas.height;
 
-  // 计算实际地图数据边界（与MapPreview.vue相同的逻辑）
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  if (entities && entities.length > 0) {
-    entities.forEach(entity => {
-      if (entity.points) {
-        entity.points.forEach(point => {
-          minX = Math.min(minX, point[0]);
-          maxX = Math.max(maxX, point[0]);
-          minY = Math.min(minY, point[1]);
-          maxY = Math.max(maxY, point[1]);
-        });
-      }
-    });
+  // 计算实际地图数据边界 - 与MapPreview.vue相同的逻辑
+  // 优先从地图配置中获取边界值，如果没有则使用默认值
+  let minX, maxX, minY, maxY;
+  
+  if (map.minX !== undefined && map.maxX !== undefined && 
+      map.minY !== undefined && map.maxY !== undefined) {
+    // 如果地图配置中提供了边界值，直接使用
+    minX = map.minX;
+    maxX = map.maxX;
+    minY = map.minY;
+    maxY = map.maxY;
   } else {
-    // 如果没有entities，使用地图的尺寸作为边界
+    // 如果没有提供，使用默认值（从 0 开始，到地图的宽高）
     minX = 0;
+    maxX = mapWidthMeters || 100;
     minY = 0;
-    maxX = mapWidthMeters || 50;
-    maxY = mapHeightMeters || 50;
+    maxY = mapHeightMeters || 100;
   }
 
   // 计算90%内容区域的尺寸
@@ -3293,6 +3388,7 @@ const drawMapPreview = () => {
   
   let currentScale;
   if (dataWidth <= 0 || dataHeight <= 0) {
+    // 避免除零或负缩放
     currentScale = 1;
   } else {
     const scaleX = contentAreaWidth / dataWidth;
@@ -3300,6 +3396,7 @@ const drawMapPreview = () => {
     currentScale = Math.min(scaleX, scaleY);
   }
   
+  // 防止缩放为零或负数
   if (currentScale <= 0) {
     currentScale = 1;
   }
@@ -3315,50 +3412,45 @@ const drawMapPreview = () => {
   // 清空画布
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // --- 绘制地图边框 ---
-  ctx.strokeStyle = '#cccccc';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(offsetX, offsetY, renderedMapWidth, renderedMapHeight);
-
-  // --- 绘制地图实体（如果存在） ---
-  if (entities && Array.isArray(entities)) {
-    ctx.save();
-    // 平移到居中内容框的左下角，然后翻转Y轴
-    ctx.translate(offsetX, canvas.height - offsetY);
-    ctx.scale(1, -1);
-
-    entities.forEach(entity => {
-      if (entity.type === 'polyline' && entity.points && entity.points.length > 0) {
-        ctx.beginPath();
-        ctx.strokeStyle = entity.color || '#333333';
-        ctx.lineWidth = entity.lineWidth || 1;
-
-        const startPoint = entity.points[0];
-        ctx.moveTo((startPoint[0] - minX) * currentScale, (startPoint[1] - minY) * currentScale);
-
-        for (let i = 1; i < entity.points.length; i++) {
-          ctx.lineTo((entity.points[i][0] - minX) * currentScale, (entity.points[i][1] - minY) * currentScale);
-        }
-
-        if (entity.closed) {
-          ctx.closePath();
-        }
-        ctx.stroke();
-      }
-    });
-
-    ctx.restore(); // 恢复平移和翻转
+  // 计算背景图的尺寸和位置（用于后续坐标系对齐）
+  let bgImageX = offsetX; // 默认使用 offsetX
+  let bgImageY = offsetY;
+  let bgImageWidth = renderedMapWidth;
+  let bgImageHeight = renderedMapHeight;
+  
+  if (mapPreviewImage.value && mapPreviewImage.value.complete) {
+    // 背景图占满高度，宽度按原始比例计算（不允许拉伸）
+    bgImageHeight = renderedMapHeight; // 高度占满
+    const bgImageAspectRatio = mapPreviewImage.value.width / mapPreviewImage.value.height; // 背景图原始宽高比
+    bgImageWidth = bgImageHeight * bgImageAspectRatio; // 宽度按原始比例计算
+    
+    // 计算居中位置
+    bgImageX = (canvas.width - bgImageWidth) / 2; // 水平居中
+    bgImageY = offsetY; // 垂直位置与渲染地图一致
   }
 
-  // --- 绘制信标 ---
+  // --- 绘制地图背景图（先绘制背景图，不翻转Y轴） ---
+  if (mapPreviewImage.value && mapPreviewImage.value.complete) {
+    // 绘制背景图（保持原始宽高比，不拉伸）
+    ctx.drawImage(
+      mapPreviewImage.value,
+      0, 0, // 源图片起始位置
+      mapPreviewImage.value.width, mapPreviewImage.value.height, // 源图片尺寸
+      bgImageX, bgImageY, // 目标位置（居中）
+      bgImageWidth, bgImageHeight // 目标尺寸（保持原始宽高比）
+    );
+  }
+
+  // --- 翻转Y轴，让坐标系统变成数学坐标系（Y轴向上）用于绘制其他内容 ---
   ctx.save();
-  // 为信标绘制设置坐标变换
-  ctx.translate(offsetX, canvas.height - offsetY);
+  // 使用 bgImageX 而不是 offsetX，确保与背景图对齐
+  ctx.translate(bgImageX, canvas.height - bgImageY);
   ctx.scale(1, -1);
   
+  // --- 绘制信标（用于坐标选择） ---
   beacons.forEach(beacon => {
     if (typeof beacon.x === 'number' && typeof beacon.y === 'number') {
-      // 使用数据边界归一化的坐标（修复偏移问题）
+      // 使用数据边界归一化的坐标
       const beaconX = (beacon.x - minX) * currentScale;
       const beaconY = (beacon.y - minY) * currentScale;
       

@@ -2,101 +2,138 @@
     "maps": [
         {
             "map": {
-                "name": "10.5 \u697c",
-                "width": 33.000010271730616,
-                "height": 32.947837811901124,
+                "name": "10.5 floor",
+                "width": 33.0,
+                "height": 32.95,
+                "minX": 2.06,
+                "maxX": 35.06,
+                "minY": 0.86,
+                "maxY": 33.81,
                 "background": "http://127.0.0.1:5173/uploads/10.5 \u697c_219003.png"
             },
             "beacons": [
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 32.41,
-          "y": 21.26,
-          "txPower": -59,
-          "displayName": "corner",
-          "macAddress": "C3:00:00:56:4B:59",
-          "is_darwin": true
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 32.41,
+                    "y": 21.26,
+                    "txPower": -59,
+                    "displayName": "corner",
+                    "macAddress": "C3:00:00:56:4B:59",
+                    "deviceId": "C3:00:00:56:4B:59",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 31.5,
+                    "y": 13.62,
+                    "txPower": -59,
+                    "displayName": "10.5\u7acb\u67f1",
+                    "macAddress": "C3:00:00:57:4B:5C",
+                    "deviceId": "C3:00:00:57:4B:5C",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 34.6,
+                    "y": 18.61,
+                    "txPower": -59,
+                    "displayName": "10.5 CSG\u7a97\u6237",
+                    "macAddress": "C3:00:00:58:4B:61",
+                    "deviceId": "C3:00:00:58:4B:61",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 34.19,
+                    "y": 9.87,
+                    "txPower": -59,
+                    "displayName": "10.5 \u9759\u831c\u4e0a\u65b9",
+                    "macAddress": "C3:00:00:58:4B:35",
+                    "deviceId": "C3:00:00:58:4B:35",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 26.38,
+                    "y": 4.4,
+                    "txPower": -59,
+                    "displayName": "10.5 \u5c0f\u4f1a\u8bae\u5ba4\u65c1",
+                    "macAddress": "C3:00:00:58:4B:38",
+                    "deviceId": "C3:00:00:58:4B:38",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 22.43,
+                    "y": 12.52,
+                    "txPower": -59,
+                    "displayName": "10.5 \u7535\u5546\u5899",
+                    "macAddress": "C3:00:00:58:4B:36",
+                    "deviceId": "C3:00:00:58:4B:36",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 23.69,
+                    "y": 18.63,
+                    "txPower": -59,
+                    "displayName": "10.5 \u9636\u68af\u6559\u5ba4\u4e0a\u65b9",
+                    "macAddress": "C3:00:00:58:4B:3E",
+                    "deviceId": "C3:00:00:58:4B:3E",
+                    "map": null,
+                    "is_darwin": false
+                },
+                {
+                    "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
+                    "major": 10001,
+                    "minor": 19641,
+                    "x": 27.55,
+                    "y": 10.53,
+                    "txPower": -59,
+                    "displayName": "10.5 \u4e2d\u95f4",
+                    "macAddress": "C3:00:00:58:4B:3F",
+                    "deviceId": "C3:00:00:58:4B:3F",
+                    "map": null,
+                    "is_darwin": false
+                }
+            ],
+            "settings": {
+                "signalPropagationFactor": 2.5
+            },
+            "is_darwin": false
         },
         {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 31.5,
-          "y": 13.62,
-          "txPower": -59,
-          "displayName": "10.5立柱",
-          "macAddress": "C3:00:00:57:4B:5C",
-          "is_darwin": true
-        },
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 34.6,
-          "y": 18.61,
-          "txPower": -59,
-          "displayName": "10.5 CSG窗户",
-          "macAddress": "C3:00:00:58:4B:61",
-          "is_darwin": true
-        },
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 34.19,
-          "y": 9.87,
-          "txPower": -59,
-          "displayName": "10.5 静茜上方",
-          "macAddress": "C3:00:00:58:4B:35",
-          "is_darwin": true
-        },
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 26.38,
-          "y": 4.4,
-          "txPower": -59,
-          "displayName": "10.5 小会议室旁",
-          "macAddress": "C3:00:00:58:4B:38",
-          "is_darwin": true
-        },
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 22.43,
-          "y": 12.52,
-          "txPower": -59,
-          "displayName": "10.5 电商墙",
-          "macAddress": "C3:00:00:58:4B:36",
-          "is_darwin": true
-        },
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 23.69,
-          "y": 18.63,
-          "txPower": -59,
-          "displayName": "10.5 阶梯教室上方",
-          "macAddress": "C3:00:00:58:4B:3E",
-          "is_darwin": true
-        },
-        {
-          "uuid": "FDA50693-A4E2-4FB1-AFCF-C6EB07647825",
-          "major": 10001,
-          "minor": 19641,
-          "x": 27.55,
-          "y": 10.53,
-          "txPower": -59,
-          "displayName": "10.5 中间",
-          "macAddress": "C3:00:00:58:4B:3F",
-          "is_darwin": true
-        }
-      ],
+            "map": {
+                "name": "10\u697c",
+                "width": 33.0,
+                "height": 33.42,
+                "minX": 0.0,
+                "maxX": 33.0,
+                "minY": 0.0,
+                "maxY": 33.42,
+                "background": "http://127.0.0.1:5173/uploads/10\u697c_83234.png"
+            },
+            "beacons": [],
             "settings": {
                 "signalPropagationFactor": 2.5
             },

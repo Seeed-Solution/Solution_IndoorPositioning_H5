@@ -27,10 +27,26 @@ function processData(data) {
 
 // --- 主流程 ---
 (function main() {
-  const inputFile = './dashboard_config.json';      // 原始 JSON
+  const inputFile = './dashboard_config.json.bk';      // 原始 JSON
   const outputFile = './data_processed.json'; // 处理后的 JSON
 
   const jsonObj = readJson(inputFile);
-  const processed = processData(jsonObj);
-  saveJson(outputFile, processed);
+  // const processed = processData(jsonObj);
+  // saveJson(outputFile, processed);
+
+    // 统计每个地图的 范围
+    for (let mapConfig of jsonObj.maps) {
+        let entities = mapConfig.map.entities
+        let Infinity = 50000
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (let pointConfig of entities) {
+            for (let point of pointConfig.points) {
+                minX = Math.min(minX, point[0]);
+                maxX = Math.max(maxX, point[0]);
+                minY = Math.min(minY, point[1]);
+                maxY = Math.max(maxY, point[1]);
+            }
+        }
+        console.log(`地图: ${mapConfig.map.name}, minX: ${minX}, maxX: ${maxX}, minY: ${minY}, maxY: ${maxY}`)
+    }
 })();

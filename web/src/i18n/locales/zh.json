@@ -158,6 +158,7 @@
     "showTrails": "显示轨迹",
     "hideTrails": "隐藏轨迹",
     "sosAlert": "🚨 SOS 警报",
+    "loadingTrackers": "设备加载中...",
     "sosRecovery": "报警恢复",
     "statusChange": "状态变更",
     "alarmRecords": "告警记录",

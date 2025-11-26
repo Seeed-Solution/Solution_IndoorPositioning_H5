@@ -897,6 +897,7 @@ onUnmounted(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
+  max-height: 100vh;
   background-color: rgba(0, 0, 0, 0.95);
   z-index: 9999;
   display: flex;
@@ -904,12 +905,14 @@ onUnmounted(() => {
   align-items: center;
   padding: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .fullscreen-container {
   position: relative;
   width: 100%;
   height: 100%;
+  max-height: 100vh;
   background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
@@ -1084,13 +1087,48 @@ onUnmounted(() => {
 
 .fullscreen-map-display {
   flex: 1;
+  min-height: 0;
+  max-height: 100%;
   background: #f9f9f9;
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .fullscreen-map-display :deep(.map-preview-container) {
   height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fullscreen-map-display :deep(.content-columns) {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.fullscreen-map-display :deep(.map-view-wrapper) {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fullscreen-map-display :deep(.map-container) {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.fullscreen-map-display :deep(canvas) {
+  max-width: none !important;
+  max-height: 100% !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
 }
 
 .no-map-placeholder {
