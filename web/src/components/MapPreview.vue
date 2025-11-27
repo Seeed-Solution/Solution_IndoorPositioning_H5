@@ -91,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, defineEmits, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import httpClient from '@/utils/httpClient.js';
 import { loadTrackers } from '@/services/configApiService.js';
@@ -612,10 +612,13 @@ onMounted(async () => {
   // 监听窗口大小变化
   resizeHandler = () => {
     updateCanvasSize();
-    const ctx = mapCanvas.value?.getContext('2d');
-    if (ctx) {
-      drawMap(ctx);
-    }
+    // 使用 nextTick 等待 Vue 更新 DOM（canvas 的 width/height 属性）后再绘制
+    nextTick(() => {
+      const ctx = mapCanvas.value?.getContext('2d');
+      if (ctx) {
+        drawMap(ctx);
+      }
+    });
   };
   window.addEventListener('resize', resizeHandler);
 });

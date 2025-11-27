@@ -2723,6 +2723,50 @@ const saveChanges = async () => {
   } else if (selectedMapConfig.value && !selectedMapConfig.value.isNewMap) {
     // 更新现有地图配置 - 这也必须在saveDashboardToServer之前完成
     const currentIndex = selectedMapIndex.value;
+    
+    // 检查背景图是否是 blob URL 或 dataURL，如果是则需要先上传
+    if (currentConfiguration.value.map && currentConfiguration.value.map.background) {
+      const background = currentConfiguration.value.map.background;
+      const isBlobUrl = background.startsWith('blob:');
+      const isDataUrl = background.startsWith('data:');
+      
+      if (isBlobUrl || isDataUrl) {
+        try {
+          configStatusMessage.value = '正在上传地图图片...';
+          
+          // 从 blob URL 或 dataURL 获取 Blob 对象
+          let imageBlob;
+          if (isBlobUrl) {
+            // 从 blob URL 获取 Blob
+            const response = await fetch(background);
+            imageBlob = await response.blob();
+          } else if (isDataUrl) {
+            // 从 dataURL 获取 Blob
+            const response = await fetch(background);
+            imageBlob = await response.blob();
+          }
+          
+          // 上传图片
+          const mapName = currentConfiguration.value.map.name || 'map';
+          const backgroundUrl = await uploadMapImage(imageBlob, mapName);
+          
+          // 更新背景 URL
+          currentConfiguration.value.map.background = backgroundUrl;
+          
+          // 清理 blob URL
+          if (isBlobUrl) {
+            URL.revokeObjectURL(background);
+          }
+          
+          configStatusMessage.value = '图片上传成功，正在保存配置...';
+        } catch (error) {
+          configStatusMessage.value = `图片上传失败: ${error.message}`;
+          setTimeout(() => { configStatusMessage.value = '' }, 5000);
+          return;
+        }
+      }
+    }
+    
     if (currentIndex >= 0 && currentIndex < availableMaps.value.length) {
       availableMaps.value[currentIndex] = {
         map: currentConfiguration.value.map,
