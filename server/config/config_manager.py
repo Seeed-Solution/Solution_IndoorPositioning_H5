@@ -139,7 +139,7 @@ def load_server_runtime_config() -> Optional[ServerRuntimeConfig]:
 def save_dashboard_config_to_file(config_data: DashboardConfig) -> bool:
     try:
         with open(DASHBOARD_CONFIG_FILE_PATH, 'w') as f:
-            json.dump(config_data.model_dump(mode='json'), f, indent=4)
+            json.dump(config_data.model_dump(mode='json'), f, indent=4, ensure_ascii=False)
         print(f"Dashboard configuration saved successfully to {DASHBOARD_CONFIG_FILE_PATH}.")
         return True
     except Exception as e:

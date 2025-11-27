@@ -257,7 +257,7 @@ const initializeMasterConfig = async () => {
         total + (mapConfig.beacons?.length || 0), 0)
       
       showStatus(t('mapOverview.status.masterConfigLoadedFromServer'), 'success')
-      console.log('[MapOverview] Loaded maps:', config.maps)
+      // console.log('[MapOverview] Loaded maps:', config.maps)
     } else {
       showStatus(t('mapOverview.status.noMasterConfigOnServer'), 'info')
       loadMasterConfigFromStorage()
@@ -312,7 +312,7 @@ const getTrackersForMap = (mapConfig) => {
 // 预加载 tracker 数据的函数
 const preloadTrackers = async () => {
   try {
-    console.log('[MapOverview] Preloading trackers data from /api/trackers...')
+    // console.log('[MapOverview] Preloading trackers data from /api/trackers...')
     const trackersData = await loadTrackers()
     
     // 处理返回的数据格式
@@ -332,7 +332,7 @@ const preloadTrackers = async () => {
         trackers.value = {}
       }
       
-      console.log(`[MapOverview] Successfully preloaded ${Object.keys(trackers.value).length} trackers`)
+      // console.log(`[MapOverview] Successfully preloaded ${Object.keys(trackers.value).length} trackers`)
       // 更新tracker统计
       totalTrackers.value = Object.keys(trackers.value).length
     } else {
@@ -897,25 +897,19 @@ onUnmounted(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  max-height: 100vh;
   background-color: rgba(0, 0, 0, 0.95);
   z-index: 9999;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0;
-  box-sizing: border-box;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .fullscreen-container {
   position: relative;
   width: 100%;
-  height: 100%;
-  max-height: 100vh;
+  height: 100vh;
   background-color: #f5f5f5;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 1fr;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -948,9 +942,9 @@ onUnmounted(() => {
 
 /* 全屏内容布局 */
 .fullscreen-content {
-  flex: 1;
-  display: flex;
-  height: 100%;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -1042,11 +1036,11 @@ onUnmounted(() => {
 
 /* 中间地图区域 */
 .fullscreen-map-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   background: white;
   overflow: hidden;
+  height: 100vh;
 }
 
 .fullscreen-map-header {
@@ -1056,6 +1050,7 @@ onUnmounted(() => {
   padding: 1rem 1.5rem;
   background: #f8f9fa;
   border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
 }
 
 .current-map-title {
@@ -1086,14 +1081,10 @@ onUnmounted(() => {
 }
 
 .fullscreen-map-display {
-  flex: 1;
-  min-height: 0;
-  max-height: 100%;
+  height: calc(100vh - 73px);
   background: #f9f9f9;
   overflow: hidden;
   position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
 .fullscreen-map-display :deep(.map-preview-container) {
@@ -1112,8 +1103,6 @@ onUnmounted(() => {
 
 .fullscreen-map-display :deep(.map-view-wrapper) {
   height: 100%;
-  max-height: 100%;
-  min-height: 0;
   overflow: hidden;
 }
 
@@ -1155,7 +1144,8 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .fullscreen-content {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-rows: 120px 1fr;
   }
   
   .fullscreen-map-list {
@@ -1176,6 +1166,14 @@ onUnmounted(() => {
   .map-list-item {
     min-width: 150px;
     margin-bottom: 0;
+  }
+  
+  .fullscreen-map-area {
+    grid-row: 2;
+  }
+  
+  .fullscreen-map-display {
+    height: calc(100vh - 73px - 120px);
   }
   
   .btn-close-floating {

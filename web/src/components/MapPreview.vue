@@ -239,7 +239,6 @@ const preloadTrackers = async () => {
 
   isLoadingTrackers.value = true;
   try {
-    console.log('[MapPreview] Preloading trackers data from /api/trackers...');
     const trackersData = await loadTrackers();
 
     // 处理返回的数据格式
@@ -259,7 +258,6 @@ const preloadTrackers = async () => {
         localTrackers.value = {};
       }
 
-      console.log(`[MapPreview] Successfully preloaded ${Object.keys(localTrackers.value).length} trackers`);
     } else {
       localTrackers.value = {};
       console.log('[MapPreview] No tracker data received from API');
@@ -573,7 +571,6 @@ const loadMapBackgroundImage = () => {
   
   img.onload = () => {
     mapImage.value = img;
-    console.log('[MapPreview] Background image loaded successfully:', props.config.map.background);
     // 图片加载完成后重新绘制
     const ctx = mapCanvas.value?.getContext('2d');
     if (ctx) {
