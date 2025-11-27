@@ -149,6 +149,28 @@ export function buildWsUrl(endpoint) {
   return `${baseUrl}${cleanEndpoint}`
 }
 
+/**
+ * 构建图片的完整访问URL
+ * 如果URL已经是完整URL（包含协议），则直接返回
+ * 如果是相对路径，则使用当前页面的协议+域名拼接
+ * @param {string} imageUrl - 图片URL（可能是相对路径或完整URL）
+ * @returns {string} 完整的图片URL
+ */
+export function buildImageUrl(imageUrl) {
+  if (!imageUrl) {
+    return imageUrl;
+  }
+  
+  // 如果已经是完整URL（包含协议），直接返回
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || 
+      imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')) {
+    return imageUrl;
+  }
+  
+  // 如果是相对路径，使用当前页面的协议+域名拼接
+  return `${window.location.protocol}//${window.location.host}${imageUrl}`;
+}
+
 // 导出配置常量
 export const API_ENDPOINTS = {
   // 认证相关

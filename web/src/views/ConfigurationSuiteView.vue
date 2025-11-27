@@ -252,16 +252,9 @@
                     {{ (currentConfiguration.map?.width || 0).toFixed(2) }}{{ t('config.mapInfo.meters') }} × {{ (currentConfiguration.map?.height || 0).toFixed(2) }}{{ t('config.mapInfo.meters') }}
                   </span>
                 </div>
-                <div v-if="currentConfiguration.map?.background" class="info-item map-background-display">
+                <div v-if="currentConfiguration.map?.background && !currentConfiguration.map.background.startsWith('blob:')" class="info-item map-background-display">
                   <label>背景图</label>
-                  <div class="map-image-container">
-                    <img 
-                      :src="currentConfiguration.map.background" 
-                      alt="地图背景图" 
-                      class="map-background-image"
-                      @error="handleMapImageError"
-                    />
-                  </div>
+                  <span class="info-value">{{ currentConfiguration.map.background }}</span>
                 </div>
                 <div v-if="currentConfiguration.map?.entities?.length > 0" class="info-item">
                   <label>{{ t('config.mapInfo.entities') }}</label>
@@ -328,7 +321,7 @@
                     @change="handleEditBackgroundFileSelect"
                   />
                   <div v-if="currentConfiguration.map?.background" class="background-preview">
-                    <img :src="currentConfiguration.map.background" alt="背景图预览" class="preview-image" />
+                    <img :src="currentMapBackgroundUrl" alt="背景图预览" class="preview-image" />
                     <button type="button" @click="clearEditBackgroundFile" class="clear-preview-btn">
                       <i class="fas fa-times"></i> 清除
                     </button>
@@ -1175,7 +1168,7 @@ import {
 import { apiRequest } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
 import httpClient from '@/utils/httpClient.js';
-import { getApiBaseUrl } from '@/config/api.js';
+import { getApiBaseUrl, buildImageUrl } from '@/config/api.js';
 import { getTokenFromLocalStorage } from '@/services/localStorageService.js';
 
 // i18n setup
@@ -1327,6 +1320,14 @@ const selectedMapConfig = computed(() => {
     return null;
   }
   return availableMaps.value[selectedMapIndex.value] || null;
+});
+
+// 计算当前配置的背景图完整URL
+const currentMapBackgroundUrl = computed(() => {
+  if (!currentConfiguration.value?.map?.background) {
+    return '';
+  }
+  return buildImageUrl(currentConfiguration.value.map.background);
 });
 
 const dashboardStats = computed(() => {
@@ -2215,9 +2216,9 @@ const uploadMapImage = async (blob, mapName) => {
     const response = await httpClient.post('/upload', formData, { headers });
     
     if (response.data && response.data.url) {
-      // 构建完整的访问URL（当前协议+host+路径）
-      const fullUrl = `${window.location.protocol}//${window.location.host}${response.data.url}`;
-      return fullUrl;
+      // 直接返回相对路径，不拼接完整URL
+      // 完整URL将在加载图片时动态构建
+      return response.data.url;
     } else {
       throw new Error('上传失败：服务器未返回URL');
     }
@@ -3373,7 +3374,8 @@ const loadMapPreviewBackgroundImage = () => {
     }
   };
   
-  img.src = currentConfiguration.value.map.background;
+  // 构建完整的图片URL（如果是相对路径，则拼接当前页面的协议+域名）
+  img.src = buildImageUrl(currentConfiguration.value.map.background);
 };
 
 // 绘制地图预览 - 与MapPreview.vue相同的逻辑

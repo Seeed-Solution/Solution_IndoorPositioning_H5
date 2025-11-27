@@ -13,7 +13,7 @@ import server.constant.message_constant as message_constant
 
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
-    MiniprogramConfig, WebUIConfig, DashboardConfig, MqttServerConfig,
+    DashboardConfig, MqttServerConfig,
     WebUISettings, PartialServerRuntimeConfig, PasswordChangeRequest, ServiceCredentialsRequest,
     LoginRequest,  # Import WebUISettings directly
     UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,

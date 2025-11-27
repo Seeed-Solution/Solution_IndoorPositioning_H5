@@ -35,7 +35,6 @@ from server.handler import event_trigger as event_trigger
 # from . import positioning
 # from .models import ( # Grouped imports for models
 #     DetectedBeacon, TrackerReport, TrackerState,
-#     MiniprogramConfig, WebUIConfig,
 #     WebUISettings # Import WebUISettings directly
 # )
 # from .positioning import KalmanFilter2D
@@ -44,7 +43,7 @@ from server.handler import event_trigger as event_trigger
 from server.config import config_manager
 from server.models import (  # Grouped imports for models
     DetectedBeacon, TrackerReport, TrackerState, WebUIBeaconConfig,
-    MiniprogramConfig, WebUIConfig, DashboardConfig, MqttServerConfig,
+    DashboardConfig, MqttServerConfig,
     PartialServerRuntimeConfig, PasswordChangeRequest,
     LoginRequest,  # Import WebUISettings directly
     UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,
@@ -75,12 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define the path for the web configuration file
-WEB_CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config/web_config.json")
-
-
 DEFAULT_TEST_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "config2.json")
-MAP_EXAMPLE_FORMAT_PATH = os.path.join(os.path.dirname(__file__), "config/map-example-format.json")  # Path to map example format in server directory
 
 # Define the path for uploaded static files
 UPLOAD_DIR = "uploads"
@@ -104,8 +98,6 @@ except RuntimeError:
     log.warning(f"Failed to mount uploads directory at {UPLOAD_DIR}")
 
 # --- Global State ---
-# Replace single current_config with two separate config holders
-miniprogram_cfg: Optional[MiniprogramConfig] = None
 dashboard_cfg: Optional[DashboardConfig] = None
 runtime_cfg: Optional[
     config_manager.ServerRuntimeConfig] = None  # Use qualified name to avoid circular import if ServerRuntimeConfig is also defined here
@@ -519,22 +511,11 @@ def on_message(client, userdata, msg):
 #     await event_consumer.message_handle(latest_state)
 
 
-def save_web_ui_config(config_data: WebUIConfig) -> bool:
-    try:
-        with open(WEB_CONFIG_FILE_PATH, 'w') as f:
-            json.dump(config_data.model_dump(mode='json'), f, indent=4)
-        log.info(f"Web UI configuration saved successfully to {WEB_CONFIG_FILE_PATH}.")
-        return True
-    except Exception as e:
-        log.error(f"Failed to save Web UI configuration to {WEB_CONFIG_FILE_PATH}: {e}", exc_info=True)
-        return False
-
-
 # --- FastAPI Event Handlers ---
 @app.on_event("startup")
 async def startup_event():
     """Runs on application startup. Loads both configurations and sets up MQTT."""
-    global miniprogram_cfg, runtime_cfg, main_event_loop, dashboard_cfg
+    global runtime_cfg, main_event_loop, dashboard_cfg
 
     # Capture the running event loop for thread-safe calls from MQTT callback
     main_event_loop = asyncio.get_running_loop()
@@ -543,7 +524,6 @@ async def startup_event():
 
     # Load server runtime configuration first as it might be needed by other components
     runtime_cfg = config_manager.load_server_runtime_config()
-    config_manager.load_miniprogram_config()
     dashboard_cfg = config_manager.get_dashboard_config()
     if not runtime_cfg:
         log.error(
@@ -551,15 +531,6 @@ async def startup_event():
         # Depending on desired behavior, could raise an exception or proceed with limited functionality
     else:
         log.info(f"Server runtime configuration loaded. MQTT enabled: {runtime_cfg}")
-
-    # Load miniprogram configuration
-    miniprogram_cfg = config_manager.load_miniprogram_config()
-    if not miniprogram_cfg:
-        log.warning(
-            "Miniprogram configuration (map_beacon_config.json) not found or failed to load. Positioning may be affected.")
-    else:
-        # log.info("Miniprogram configuration (map_beacon_config.json) loaded.") # Reduced verbosity
-        pass
 
     devices = device_dao.get_all_device()
 
@@ -681,42 +652,6 @@ async def read_root():
         # Return a simple message or raise 404
         # raise HTTPException(status_code=404, detail="Client frontend not found")
         return {"message": "Backend running. Client frontend not found."}
-
-
-@app.post("/api/config/upload", status_code=200)
-async def upload_miniprogram_config(config_content: MiniprogramConfig, response: Response, dep=Depends(check_authority)):
-    """Receives miniprogram config JSON, saves it, and reloads.
-       The request body should be the JSON content matching MiniprogramConfig model.
-    """
-    global miniprogram_cfg
-    # log.info("Received request to upload miniprogram configuration.") # Reduced verbosity
-    try:
-        # config_content is already parsed by FastAPI into MiniprogramConfig model
-        if config_manager.save_miniprogram_config(config_content):
-            miniprogram_cfg = config_manager.get_miniprogram_config()  # Reload and update global cache
-            log.info("Miniprogram configuration uploaded and reloaded successfully.")
-            # Broadcast update to WebSocket clients
-            await websocket_holder.broadcast(
-                {"type": "config_update", "data": miniprogram_cfg.model_dump() if miniprogram_cfg else {}})
-            return {"message": "Miniprogram configuration uploaded successfully."}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to save miniprogram configuration.")
-    except Exception as e:  # Catch any other unexpected errors
-        log.error(f"Error processing uploaded miniprogram config: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Invalid configuration data: {e}")
-
-
-@app.get("/api/config", response_model=Optional[MiniprogramConfig])
-async def get_api_miniprogram_config():
-    """Returns the current miniprogram-specific configuration (map, beacons, basic settings)."""
-    global miniprogram_cfg
-    if miniprogram_cfg:
-        return miniprogram_cfg
-    else:
-        # Consider if 503 is right, or if it should return an empty object or 404
-        # depending on whether a missing config is a server error or resource not found.
-        log.warning("/api/config called but miniprogram_cfg is not loaded.")
-        raise HTTPException(status_code=503, detail="Miniprogram configuration not loaded.")
 
 
 ## 接收任意dev_eui 仅用于debug
@@ -1316,8 +1251,8 @@ async def save_dashboard_config(config_content: DashboardConfig, response: Respo
     global dashboard_cfg
     try:
         if config_manager.save_dashboard_config_to_file(config_content):
-            dashboard_cfg = config_content
-            beacon_holder.update_by_dashboard_config(dashboard_cfg)
+            dashboard_cfg = config_content  # Update main.py's global variable
+            # Note: beacon_holder is already updated in config_manager.save_dashboard_config_to_file()
             log.info("Dashboard configuration successfully received and saved.")
             return {"message": "Dashboard configuration saved successfully."}
         else:
@@ -1387,20 +1322,6 @@ async def get_default_test_config():
     except Exception as e:
         log.error(f"Error reading default test config file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read default test configuration: {str(e)}")
-
-
-@app.get("/api/map-example-format")  # New endpoint
-async def get_map_example_format():
-    if not os.path.exists(MAP_EXAMPLE_FORMAT_PATH):
-        log.error(f"Map example format file not found at: {MAP_EXAMPLE_FORMAT_PATH}")
-        raise HTTPException(status_code=404, detail="Map example format file not found.")
-    try:
-        with open(MAP_EXAMPLE_FORMAT_PATH, 'r') as f:
-            config_content = f.read()
-        return PlainTextResponse(content=config_content)
-    except Exception as e:
-        log.error(f"Error reading map example format file: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to read map example format: {str(e)}")
 
 
 @app.post("/api/allow_tracker-list", status_code=200)

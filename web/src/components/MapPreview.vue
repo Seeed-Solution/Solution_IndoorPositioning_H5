@@ -95,7 +95,7 @@ import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } f
 import { useI18n } from 'vue-i18n';
 import httpClient from '@/utils/httpClient.js';
 import { loadTrackers } from '@/services/configApiService.js';
-import { API_ENDPOINTS } from '@/config/api.js';
+import { API_ENDPOINTS, buildImageUrl } from '@/config/api.js';
 import AlarmHistoryModal from '@/components/AlarmHistoryModal.vue';
 
 const { t } = useI18n();
@@ -588,7 +588,8 @@ const loadMapBackgroundImage = () => {
     }
   };
   
-  img.src = props.config.map.background;
+  // 构建完整的图片URL（如果是相对路径，则拼接当前页面的协议+域名）
+  img.src = buildImageUrl(props.config.map.background);
 };
 
 let resizeHandler;
