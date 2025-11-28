@@ -2,7 +2,7 @@
 <template>
   <div class="image-cropper-container">
     <div class="cropper-header">
-      <h3>{{ title || '图片裁剪' }}</h3>
+      <h3>{{ title || t('imageCropper.title') }}</h3>
       <button v-if="showClose" @click="handleClose" class="close-btn">×</button>
     </div>
     
@@ -10,14 +10,14 @@
       
       <!-- 操作按钮 -->
       <div class="control-group">
-        <button @click="resetCropper" class="action-btn" title="重置">
-          <span>↺</span> 重置
+        <button @click="resetCropper" class="action-btn" :title="t('imageCropper.reset')">
+          <span>↺</span> {{ t('imageCropper.reset') }}
         </button>
-        <button @click="zoomIn" class="action-btn" title="放大">
-          <span>+</span> 放大
+        <button @click="zoomIn" class="action-btn" :title="t('imageCropper.zoomIn')">
+          <span>+</span> {{ t('imageCropper.zoomIn') }}
         </button>
-        <button @click="zoomOut" class="action-btn" title="缩小">
-          <span>-</span> 缩小
+        <button @click="zoomOut" class="action-btn" :title="t('imageCropper.zoomOut')">
+          <span>-</span> {{ t('imageCropper.zoomOut') }}
         </button>
       </div>
     </div>
@@ -37,20 +37,23 @@
     
     <!-- 底部操作栏 -->
     <div class="cropper-footer">
-      <button @click="handleCancel" class="btn-cancel">取消</button>
-      <button @click="handleCrop" class="btn-confirm">确认裁剪</button>
+      <button @click="handleCancel" class="btn-cancel">{{ t('imageCropper.cancel') }}</button>
+      <button @click="handleCrop" class="btn-confirm">{{ t('imageCropper.confirm') }}</button>
     </div>
     
     <!-- 预览区域（可选） -->
     <div v-if="previewImage" class="preview-section">
-      <h4>裁剪预览：</h4>
-      <img :src="previewImage" alt="裁剪预览" class="preview-img" />
+      <h4>{{ t('imageCropper.preview') }}</h4>
+      <img :src="previewImage" :alt="t('imageCropper.previewAlt')" class="preview-img" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   // 图片源（URL 或 base64）
@@ -61,7 +64,7 @@ const props = defineProps({
   // 标题
   title: {
     type: String,
-    default: '图片裁剪'
+    default: null
   },
   // 是否显示关闭按钮
   showClose: {
@@ -204,7 +207,7 @@ const loadImage = () => {
     draw();
   };
   img.onerror = () => {
-    console.error('图片加载失败');
+    console.error(t('imageCropper.imageLoadFailed'));
   };
   img.src = props.imageSrc;
 };
@@ -868,7 +871,7 @@ const handleCrop = () => {
   
   // 如果裁剪框完全在图片外，不进行裁剪
   if (sourceX >= img.width || sourceY >= img.height || sourceEndX <= 0 || sourceEndY <= 0) {
-    console.warn('裁剪框不在图片范围内');
+    console.warn(t('imageCropper.cropBoxOutOfRange'));
     return;
   }
   

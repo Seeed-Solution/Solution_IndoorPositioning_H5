@@ -62,12 +62,31 @@
     "exportConfig": "Export Configuration",
     "createNewMap": "Create New Map",
     "loadFromFile": "Load from File",
+    "backgroundImage": "Background Image",
+    "backgroundImageLabel": "Background Image",
+    "clear": "Clear",
+    "selectImageHint": "Please select a local image file (supports JPG, PNG, GIF, etc.)",
+    "selectImageRequired": "Please select a background image file from local (required)",
+    "selectImageRequiredWithCrop": "Please select a background image file from local (required), the crop page will open automatically after selection",
+    "cropMapBackground": "Crop Map Background",
+    "enterMapInfoFirst": "Please enter map name, width and height first, then you can select an image",
+    "backgroundImageRequired": "Background image cannot be empty",
+    "backgroundImageInvalidFormat": "Background image format is invalid, should be URL format",
+    "backgroundImageInvalidUrl": "Background image URL format is invalid",
     "validation": {
       "mapObjectRequired": "Map object cannot be empty",
       "mapNameRequired": "Map name cannot be empty",
       "mapWidthInvalid": "Map width must be a number greater than 0",
       "mapHeightInvalid": "Map height must be a number greater than 0",
-      "mapEntitiesInvalid": "Map entities must be an array"
+      "mapEntitiesInvalid": "Map entities must be an array",
+      "beaconsMustBeArray": "Beacons configuration must be an array",
+      "beaconUuidRequired": "Beacon {index}: UUID cannot be empty and must be a string",
+      "beaconMajorInvalid": "Beacon {index}: Major must be a number between 0-65535",
+      "beaconMinorInvalid": "Beacon {index}: Minor must be a number between 0-65535",
+      "beaconXInvalid": "Beacon {index}: X coordinate must be a number",
+      "beaconYInvalid": "Beacon {index}: Y coordinate must be a number",
+      "settingsObjectRequired": "Settings object cannot be empty",
+      "signalPropagationFactorInvalid": "Signal propagation factor must be a number between 1-6"
     },
     "management": {
       "title": "Configuration Management",
@@ -650,5 +669,17 @@
       "total": "Total",
       "alarms": "alarms"
     }
+  },
+  "imageCropper": {
+    "title": "Image Cropper",
+    "reset": "Reset",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "cancel": "Cancel",
+    "confirm": "Confirm Crop",
+    "preview": "Crop Preview:",
+    "previewAlt": "Crop Preview",
+    "imageLoadFailed": "Failed to load image",
+    "cropBoxOutOfRange": "Crop box is out of image range"
   }
 }

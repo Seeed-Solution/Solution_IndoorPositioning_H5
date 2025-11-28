@@ -253,7 +253,7 @@
                   </span>
                 </div>
                 <div v-if="currentConfiguration.map?.background && !currentConfiguration.map.background.startsWith('blob:')" class="info-item map-background-display">
-                  <label>背景图</label>
+                  <label>{{ t('config.backgroundImage') }}</label>
                   <span class="info-value">{{ buildImageUrl(currentConfiguration.map.background) }}</span>
                 </div>
                 <div v-if="currentConfiguration.map?.entities?.length > 0" class="info-item">
@@ -312,7 +312,7 @@
                 </div>
                 
                 <div class="edit-item">
-                  <label for="mapBackground">背景图片 <span class="required-indicator">*</span></label>
+                  <label for="mapBackground">{{ t('config.backgroundImageLabel') }} <span class="required-indicator">*</span></label>
                   <input 
                     type="file" 
                     id="mapBackground"
@@ -323,15 +323,15 @@
                   <div v-if="currentConfiguration.map?.background" class="background-preview">
 <!--                    <img :src="currentMapBackgroundUrl" alt="背景图预览" class="preview-image" />-->
                     <button type="button" @click="clearEditBackgroundFile" class="clear-preview-btn">
-                      <i class="fas fa-times"></i> 清除
+                      <i class="fas fa-times"></i> {{ t('config.clear') }}
                     </button>
                   </div>
                   <div v-else class="file-input-hint">
                     <i class="fas fa-image"></i>
-                    <span>请选择本地图片文件（支持 JPG、PNG、GIF 等格式）</span>
+                    <span>{{ t('config.selectImageHint') }}</span>
                   </div>
                   <div class="input-help-small">
-                    <span>请从本地选择背景图片文件（必填）</span>
+                    <span>{{ t('config.selectImageRequired') }}</span>
                   </div>
                 </div>
               </div>
@@ -1233,7 +1233,7 @@ const canSelectImage = computed(() => {
 const showImageCropper = ref(false);
 const cropperImageSrc = ref('');
 const cropperAspectRatio = ref(null);
-const cropperTitle = ref('裁剪地图背景图');
+const cropperTitle = ref(null);
 const isCroppingForNewMap = ref(true); // true: 创建新地图, false: 编辑现有地图
 const editMapBackgroundFile = ref(null); // 编辑模式下的文件对象
 const mapNameInputRef = ref(null);
@@ -1607,7 +1607,7 @@ const validateMapConfig = (mapConfig) => {
     }
     // 验证背景图（必填）
     if (!mapConfig.map.background || typeof mapConfig.map.background !== 'string' || mapConfig.map.background.trim() === '') {
-      errors.push('背景图不能为空');
+      errors.push(t('config.backgroundImageRequired'));
     } else {
       // 验证是否为有效的 URL（blob URL 或 http/https URL）
       const background = mapConfig.map.background.trim();
@@ -1616,13 +1616,13 @@ const validateMapConfig = (mapConfig) => {
       const isUrl = background.startsWith('/uploads')
       
       if (!isBlobUrl && !isUrl) {
-        errors.push('背景图格式无效，应为 URL 格式');
+        errors.push(t('config.backgroundImageInvalidFormat'));
       } else if (isUrl && !isBlobUrl) {
         // 如果是普通 URL，验证 URL 格式
         try {
           new URL(buildImageUrl(background));
         } catch (e) {
-          errors.push('背景图 URL 格式无效');
+          errors.push(t('config.backgroundImageInvalidUrl'));
         }
       }
     }
@@ -1631,35 +1631,35 @@ const validateMapConfig = (mapConfig) => {
   
   // 验证信标配置
   if (!Array.isArray(mapConfig.beacons)) {
-    errors.push('信标配置必须是数组');
+    errors.push(t('config.validation.beaconsMustBeArray'));
   } else {
     mapConfig.beacons.forEach((beacon, index) => {
       if (!beacon.uuid || typeof beacon.uuid !== 'string') {
-        errors.push(`信标 ${index + 1}: UUID不能为空且必须是字符串`);
+        errors.push(t('config.validation.beaconUuidRequired', { index: index + 1 }));
       }
       if (typeof beacon.major !== 'number' || beacon.major < 0 || beacon.major > 65535) {
-        errors.push(`信标 ${index + 1}: Major必须是0-65535之间的数字`);
+        errors.push(t('config.validation.beaconMajorInvalid', { index: index + 1 }));
       }
       if (typeof beacon.minor !== 'number' || beacon.minor < 0 || beacon.minor > 65535) {
-        errors.push(`信标 ${index + 1}: Minor必须是0-65535之间的数字`);
+        errors.push(t('config.validation.beaconMinorInvalid', { index: index + 1 }));
       }
       if (typeof beacon.x !== 'number') {
-        errors.push(`信标 ${index + 1}: X坐标必须是数字`);
+        errors.push(t('config.validation.beaconXInvalid', { index: index + 1 }));
       }
       if (typeof beacon.y !== 'number') {
-        errors.push(`信标 ${index + 1}: Y坐标必须是数字`);
+        errors.push(t('config.validation.beaconYInvalid', { index: index + 1 }));
       }
     });
   }
   
   // 验证设置
   if (!mapConfig.settings) {
-    errors.push('设置对象不能为空');
+    errors.push(t('config.validation.settingsObjectRequired'));
   } else {
     if (typeof mapConfig.settings.signalPropagationFactor !== 'number' || 
         mapConfig.settings.signalPropagationFactor < 1 || 
         mapConfig.settings.signalPropagationFactor > 6) {
-      errors.push('信号传播因子必须是1-6之间的数字');
+      errors.push(t('config.validation.signalPropagationFactorInvalid'));
     }
   }
   
@@ -2056,9 +2056,9 @@ const openImageCropper = (imageSrc, width, height, isForNewMap) => {
   isCroppingForNewMap.value = isForNewMap;
   // 设置裁剪器标题，显示宽高信息
   if (isForNewMap) {
-    cropperTitle.value = `裁剪地图背景图 (${width}米 × ${height}米)`;
+    cropperTitle.value = `${t('config.cropMapBackground')} (${width}${t('config.mapInfo.meters')} × ${height}${t('config.mapInfo.meters')})`;
   } else {
-    cropperTitle.value = '裁剪地图背景图';
+    cropperTitle.value = t('config.cropMapBackground');
   }
   showImageCropper.value = true;
 };

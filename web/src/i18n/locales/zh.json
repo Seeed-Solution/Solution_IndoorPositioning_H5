@@ -62,12 +62,31 @@
     "exportConfig": "导出配置",
     "createNewMap": "创建新地图",
     "loadFromFile": "从文件加载",
+    "backgroundImage": "背景图",
+    "backgroundImageLabel": "背景图片",
+    "clear": "清除",
+    "selectImageHint": "请选择本地图片文件（支持 JPG、PNG、GIF 等格式）",
+    "selectImageRequired": "请从本地选择背景图片文件（必填）",
+    "selectImageRequiredWithCrop": "请从本地选择背景图片文件（必填），选择后将自动打开裁剪页面",
+    "cropMapBackground": "裁剪地图背景图",
+    "enterMapInfoFirst": "请先输入地图名称和宽高，然后才能选择图片",
+    "backgroundImageRequired": "背景图不能为空",
+    "backgroundImageInvalidFormat": "背景图格式无效，应为 URL 格式",
+    "backgroundImageInvalidUrl": "背景图 URL 格式无效",
     "validation": {
       "mapObjectRequired": "地图对象不能为空",
       "mapNameRequired": "地图名称不能为空",
       "mapWidthInvalid": "地图宽度必须是大于0的数字",
       "mapHeightInvalid": "地图高度必须是大于0的数字",
-      "mapEntitiesInvalid": "地图实体必须是数组"
+      "mapEntitiesInvalid": "地图实体必须是数组",
+      "beaconsMustBeArray": "信标配置必须是数组",
+      "beaconUuidRequired": "信标 {index}: UUID不能为空且必须是字符串",
+      "beaconMajorInvalid": "信标 {index}: Major必须是0-65535之间的数字",
+      "beaconMinorInvalid": "信标 {index}: Minor必须是0-65535之间的数字",
+      "beaconXInvalid": "信标 {index}: X坐标必须是数字",
+      "beaconYInvalid": "信标 {index}: Y坐标必须是数字",
+      "settingsObjectRequired": "设置对象不能为空",
+      "signalPropagationFactorInvalid": "信号传播因子必须是1-6之间的数字"
     },
     "management": {
       "title": "配置管理",
@@ -645,5 +664,17 @@
       "total": "共",
       "alarms": "个告警"
     }
+  },
+  "imageCropper": {
+    "title": "图片裁剪",
+    "reset": "重置",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "cancel": "取消",
+    "confirm": "确认裁剪",
+    "preview": "裁剪预览：",
+    "previewAlt": "裁剪预览",
+    "imageLoadFailed": "图片加载失败",
+    "cropBoxOutOfRange": "裁剪框不在图片范围内"
   }
 }
