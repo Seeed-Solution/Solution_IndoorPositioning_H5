@@ -1970,6 +1970,9 @@ const handleBackgroundFileSelect = (event) => {
   
   // 自动打开裁剪器（此时已经验证了宽高）
   openImageCropper(previewUrl, newMapWidth.value, newMapHeight.value, true);
+  
+  // 清空文件选择，允许重复选择相同文件
+  event.target.value = '';
 };
 
 // 清除创建地图时的背景图文件
@@ -2028,6 +2031,9 @@ const handleEditBackgroundFileSelect = (event) => {
       hasUnsavedChanges.value = true;
     }
   }
+  
+  // 清空文件选择，允许重复选择相同文件
+  event.target.value = '';
 };
 
 // 清除编辑地图时的背景图文件
