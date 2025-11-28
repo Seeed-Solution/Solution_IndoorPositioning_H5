@@ -1262,13 +1262,13 @@ const loadDashboardConfigurationData = async () => {
 // 导出仪表板配置
 const exportDashboardConfiguration = async () => {
   try {
-    configStatusMessage.value = $t('config.actions.exporting');
+    configStatusMessage.value = t('config.actions.exporting');
     
     // 从后端获取最新的配置数据
     const dashboardData = await loadDashboardConfiguration();
     
     if (!dashboardData) {
-      configStatusMessage.value = $t('config.actions.noDataToExport');
+      configStatusMessage.value = t('config.actions.noDataToExport');
       setTimeout(() => { configStatusMessage.value = '' }, 3000);
       return;
     }
