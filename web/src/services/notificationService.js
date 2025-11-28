@@ -145,18 +145,23 @@ class NotificationService {
    * 实际显示通知的方法
    * @param {string} message - 消息内容
    * @param {string} type - 通知类型
+   * @param {number} duration - 显示时长（毫秒），0 表示不自动关闭
    */
-  show(message, type = NOTIFICATION_TYPES.INFO) {
-    // 目前使用简单的alert，后续可以替换为更美观的通知组件
-    const typeIcons = {
-      [NOTIFICATION_TYPES.SUCCESS]: '✅',
-      [NOTIFICATION_TYPES.ERROR]: '❌',
-      [NOTIFICATION_TYPES.WARNING]: '⚠️',
-      [NOTIFICATION_TYPES.INFO]: 'ℹ️'
+  show(message, type = NOTIFICATION_TYPES.INFO, duration = 4000) {
+    // 使用 Toast 组件显示通知
+    if (window.toastService) {
+      window.toastService.show(message, type, duration)
+    } else {
+      // 如果 Toast 服务未初始化，降级使用 alert
+      const typeIcons = {
+        [NOTIFICATION_TYPES.SUCCESS]: '✅',
+        [NOTIFICATION_TYPES.ERROR]: '❌',
+        [NOTIFICATION_TYPES.WARNING]: '⚠️',
+        [NOTIFICATION_TYPES.INFO]: 'ℹ️'
+      }
+      const icon = typeIcons[type] || typeIcons[NOTIFICATION_TYPES.INFO]
+      alert(`${icon} ${message}`)
     }
-
-    const icon = typeIcons[type] || typeIcons[NOTIFICATION_TYPES.INFO]
-    alert(`${icon} ${message}`)
 
     // 也在控制台记录，便于调试
     const consoleMethod = type === NOTIFICATION_TYPES.ERROR ? 'error' : 

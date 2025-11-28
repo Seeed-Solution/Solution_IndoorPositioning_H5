@@ -130,6 +130,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount, defineExpose } from 'vue';
+import { notificationService } from '@/services/notificationService.js';
 // import localBeaconService from '@/services/webBluetoothService'; // DELETED FILE
 
 const props = defineProps({
@@ -233,7 +234,7 @@ onBeforeUnmount(() => {
 
 const showAddBeaconModal = () => {
   if (!props.currentMapLayout) {
-    alert("A map is required to add beacons. Please go to the 'Map Editor' tab to define a map first.");
+    notificationService.warning("A map is required to add beacons. Please go to the 'Map Editor' tab to define a map first.");
     return;
   }
   beaconModalMode.value = 'add';
@@ -299,7 +300,7 @@ const saveBeacon = () => {
   }
 
   if (!beaconDataToSave.displayName || !beaconDataToSave.uuid) {
-      alert("Display Name and UUID are required.");
+      notificationService.error("Display Name and UUID are required.");
       return;
   }
 
@@ -314,7 +315,7 @@ const saveBeacon = () => {
     );
 
     if (alreadyExists) {
-        alert("Error: A beacon with the same Device ID (MAC address) already exists.");
+        notificationService.error("Error: A beacon with the same Device ID (MAC address) already exists.");
         return; 
     }
 
@@ -341,7 +342,7 @@ const saveBeacon = () => {
         }
       );
       if (alreadyExistsOnEdit) {
-        alert("Error: Editing this beacon would create a duplicate (same Device ID/MAC address) of another existing beacon.");
+        notificationService.error("Error: Editing this beacon would create a duplicate (same Device ID/MAC address) of another existing beacon.");
         return;
       }
       configuredBeacons.value.splice(editingBeaconIndex.value, 1, beaconDataToSave);
@@ -349,7 +350,7 @@ const saveBeacon = () => {
       console.log('  Emitting beacons-updated with this list (length '+ configuredBeacons.value.length + ').');
       emit('beacons-updated', JSON.parse(JSON.stringify(configuredBeacons.value)));
     } else {
-      alert("Error: Could not update beacon. Index out of bounds.");
+      notificationService.error("Error: Could not update beacon. Index out of bounds.");
     }
     hideBeaconModal();
   }
@@ -365,7 +366,7 @@ const deleteBeacon = (index) => {
 
 const requestPlacementFromMapForEditingBeacon = () => {
   if (!props.currentMapLayout) {
-    alert("A map is required to place beacons. Please go to the 'Map Editor' tab to define a map first.");
+    notificationService.warning("A map is required to place beacons. Please go to the 'Map Editor' tab to define a map first.");
     return;
   }
   // 隐藏模态框，让用户能看到地图

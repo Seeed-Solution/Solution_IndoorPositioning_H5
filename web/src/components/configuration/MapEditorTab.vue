@@ -51,6 +51,7 @@
 import { ref, watch, onMounted, computed, nextTick } from 'vue';
 import { fetchApi } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
+import { notificationService } from '@/services/notificationService.js';
 
 const padding = 20; // Define padding here
 const mapPixelWidth = ref(0); // Define as ref
@@ -165,17 +166,17 @@ const handleFullConfigFileUpload = (event) => {
         if (props.processUploadedMapConfig) {
           console.log("[MapEditorTab] Calling props.processUploadedMapConfig...");
           props.processUploadedMapConfig(JSON.parse(JSON.stringify(jsonData)));
-          alert('Configuration file has been successfully uploaded and sent to the main configuration for processing (via prop function).');
+          notificationService.success('Configuration file has been successfully uploaded and sent to the main configuration for processing (via prop function).');
         } else {
           console.warn("[MapEditorTab] processUploadedMapConfig prop not provided. Falling back to $emit mapLoaded (if active).");
           emit('mapLoaded', JSON.parse(JSON.stringify(jsonData))); 
-          alert('Configuration file has been successfully uploaded and sent to the main configuration for processing (via event).');
+          notificationService.success('Configuration file has been successfully uploaded and sent to the main configuration for processing (via event).');
         }
       } else {
-        alert('The uploaded configuration file format is invalid. Please ensure it includes valid "map", "beacons", and "settings" objects.');
+        notificationService.error('The uploaded configuration file format is invalid. Please ensure it includes valid "map", "beacons", and "settings" objects.');
       }
     } catch (error) {
-      alert('Failed to parse JSON file: ' + error.message);
+      notificationService.error('Failed to parse JSON file: ' + error.message);
       console.error("MapEditorTab: JSON file parse error during upload:", error);
     }
   };

@@ -83,7 +83,7 @@ const getDefaultRoute = async () => {
 router.beforeEach(async (to, from, next) => {
   // 检查路由是否需要认证
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth !== false)
-  
+
   if (requiresAuth) {
     try {
       // 检查用户是否已登录
@@ -91,7 +91,7 @@ router.beforeEach(async (to, from, next) => {
       
       if (isAuthenticated) {
         // 如果访问的是根路径 "/"，使用智能路由决策
-        if (to.path === '/') {
+        if (to.path === '/' || to.path === '/web/') {
           const defaultRoute = await getDefaultRoute()
           if (defaultRoute !== '/') {
             next(defaultRoute)
@@ -121,7 +121,19 @@ router.beforeEach(async (to, from, next) => {
       })
     }
   } else {
-    // 不需要认证的路由（如登录页面），直接放行
+    // 不需要认证的路由（如登录页面）
+    // 如果访问的是登录页面，直接放行
+    if (to.path === '/login') {
+      next()
+      return
+    }
+    // 如果访问的是根路径，跳转到默认页面
+    if (to.path === '/' || to.path === '/web/') {
+      const defaultPath = await getDefaultRoute()
+      next(defaultPath)
+      return
+    }
+    // 其他不需要认证的路由，直接放行
     next()
   }
 });

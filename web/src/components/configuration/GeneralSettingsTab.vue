@@ -33,6 +33,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue';
+import { notificationService } from '@/services/notificationService.js';
 
 const props = defineProps({
   initialSettings: {
@@ -75,18 +76,18 @@ const saveSettings = () => {
   if (editableSettings.value.signalPropagationFactor === null || 
       editableSettings.value.signalPropagationFactor < 1 || 
       editableSettings.value.signalPropagationFactor > 6) {
-    alert("Signal Propagation Factor must be between 1.0 and 6.0.");
+    notificationService.error("Signal Propagation Factor must be between 1.0 and 6.0.");
     return;
   }
   // Emit the updated settings object (a deep copy)
   emit('settings-updated', JSON.parse(JSON.stringify(editableSettings.value)));
-  alert('设置已更新，请在地图选择器区域点击"保存更改"按钮保存到服务器');
+  notificationService.success('设置已更新，请在地图选择器区域点击"保存更改"按钮保存到服务器');
 };
 
 const resetToOriginals = () => {
     // Reload from the prop, effectively resetting any local changes
     loadSettings(props.initialSettings);
-    alert("Settings have been reset to their initially loaded values.");
+    notificationService.success("Settings have been reset to their initially loaded values.");
 }
 
 // Expose method to parent component

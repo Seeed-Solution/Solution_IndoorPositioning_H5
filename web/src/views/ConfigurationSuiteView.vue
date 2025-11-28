@@ -254,7 +254,7 @@
                 </div>
                 <div v-if="currentConfiguration.map?.background && !currentConfiguration.map.background.startsWith('blob:')" class="info-item map-background-display">
                   <label>背景图</label>
-                  <span class="info-value">{{ currentConfiguration.map.background }}</span>
+                  <span class="info-value">{{ buildImageUrl(currentConfiguration.map.background) }}</span>
                 </div>
                 <div v-if="currentConfiguration.map?.entities?.length > 0" class="info-item">
                   <label>{{ t('config.mapInfo.entities') }}</label>
@@ -321,7 +321,7 @@
                     @change="handleEditBackgroundFileSelect"
                   />
                   <div v-if="currentConfiguration.map?.background" class="background-preview">
-                    <img :src="currentMapBackgroundUrl" alt="背景图预览" class="preview-image" />
+<!--                    <img :src="currentMapBackgroundUrl" alt="背景图预览" class="preview-image" />-->
                     <button type="button" @click="clearEditBackgroundFile" class="clear-preview-btn">
                       <i class="fas fa-times"></i> 清除
                     </button>
@@ -333,11 +333,6 @@
                   <div class="input-help-small">
                     <span>请从本地选择背景图片文件（必填）</span>
                   </div>
-                </div>
-                
-                <div v-if="currentConfiguration.map?.entities?.length > 0" class="edit-item">
-                  <label>{{ t('config.mapInfo.entities') }}</label>
-                  <span class="info-value readonly">{{ currentConfiguration.map?.entities?.length }} {{ t('config.mapInfo.entitiesUnit') }}</span>
                 </div>
               </div>
             </div>
@@ -960,7 +955,7 @@
               <span>请先输入地图名称和宽高，然后才能选择图片</span>
             </div>
             <div v-else-if="newMapBackgroundPreview" class="background-preview">
-              <img :src="newMapBackgroundPreview" alt="背景图预览" class="preview-image" />
+<!--              <img :src="newMapBackgroundPreview" alt="背景图预览" class="preview-image" />-->
               <button type="button" @click="clearBackgroundFile" class="clear-preview-btn">
                 <i class="fas fa-times"></i> 清除
               </button>
@@ -1170,6 +1165,7 @@ import { API_ENDPOINTS } from '@/config/api.js';
 import httpClient from '@/utils/httpClient.js';
 import { getApiBaseUrl, buildImageUrl } from '@/config/api.js';
 import { getTokenFromLocalStorage } from '@/services/localStorageService.js';
+import { notificationService } from '@/services/notificationService.js';
 
 // i18n setup
 const { t } = useI18n();
@@ -1616,14 +1612,15 @@ const validateMapConfig = (mapConfig) => {
       // 验证是否为有效的 URL（blob URL 或 http/https URL）
       const background = mapConfig.map.background.trim();
       const isBlobUrl = background.startsWith('blob:');
-      const isUrl = background.startsWith('http://') || background.startsWith('https://');
+      // const isUrl = background.startsWith('http://') || background.startsWith('https://');
+      const isUrl = background.startsWith('/uploads')
       
       if (!isBlobUrl && !isUrl) {
         errors.push('背景图格式无效，应为 URL 格式');
       } else if (isUrl && !isBlobUrl) {
         // 如果是普通 URL，验证 URL 格式
         try {
-          new URL(background);
+          new URL(buildImageUrl(background));
         } catch (e) {
           errors.push('背景图 URL 格式无效');
         }
@@ -1759,7 +1756,7 @@ const saveDashboardToServer = async () => {
     if (totalErrors.length > 0) {
       const errorMessage = '配置验证失败:\n' + totalErrors.join('\n');
       configStatusMessage.value = '配置验证失败，请检查数据格式';
-      alert(errorMessage);
+      notificationService.error(errorMessage);
       setTimeout(() => { configStatusMessage.value = '' }, 5000);
       return false;
     }
@@ -2000,7 +1997,7 @@ const handleEditBackgroundFileSelect = (event) => {
   
   // 验证文件类型
   if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件');
+    notificationService.error('请选择图片文件');
     event.target.value = '';
     return;
   }
@@ -2008,7 +2005,7 @@ const handleEditBackgroundFileSelect = (event) => {
   // 验证文件大小（限制为 10MB）
   const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
-    alert('图片文件大小不能超过 10MB');
+    notificationService.error('图片文件大小不能超过 10MB');
     event.target.value = '';
     return;
   }
@@ -2366,18 +2363,18 @@ const handleMapJsonFileImport = (event) => {
         // 旧的地图格式：直接包含 width, height, entities
         handleLegacyMapImport(jsonData);
       } else {
-        alert(`不支持的JSON格式。\n\n支持的格式：\n1. WebUIConfig格式（包含map、beacons、settings字段）\n2. 地图格式（包含width、height、entities字段）`);
+        notificationService.error(`不支持的JSON格式。\n\n支持的格式：\n1. WebUIConfig格式（包含map、beacons、settings字段）\n2. 地图格式（包含width、height、entities字段）`);
         return;
       }
       
     } catch (error) {
       console.error('JSON文件解析失败:', error);
-      alert(`JSON文件解析失败: ${error.message}\n\n请确保文件格式正确。`);
+      notificationService.error(`JSON文件解析失败: ${error.message}\n\n请确保文件格式正确。`);
     }
   };
   
   reader.onerror = () => {
-    alert('文件读取失败，请重试。');
+    notificationService.error('文件读取失败，请重试。');
   };
   
   reader.readAsText(file);
@@ -2484,19 +2481,19 @@ const handleWebUIConfigImport = (webUIConfig) => {
       setTimeout(() => { configStatusMessage.value = '' }, 5000);
       console.log('WebUIConfig数据导入成功:', webUIConfig);
     } else {
-      alert('导入的WebUIConfig文件中没有找到有效的配置数据');
+      notificationService.error('导入的WebUIConfig文件中没有找到有效的配置数据');
     }
 
   } catch (error) {
     console.error('WebUIConfig导入处理失败:', error);
-    alert(`WebUIConfig导入失败: ${error.message}`);
+    notificationService.error(`WebUIConfig导入失败: ${error.message}`);
   }
 };
 
 // 处理旧格式地图导入
 const handleLegacyMapImport = (jsonData) => {
   if (!currentConfiguration.value.map) {
-    alert('导入失败：当前没有可用的地图配置');
+    notificationService.error('导入失败：当前没有可用的地图配置');
     return;
   }
 
@@ -2940,19 +2937,19 @@ const handleImportFullConfigurationFile = (event) => {
 
 const exportFullConfiguration = () => {
   if (!currentConfiguration.value.map) {
-    alert('没有配置数据可导出。请先导入或创建配置。');
+    notificationService.error('没有配置数据可导出。请先导入或创建配置。');
     return;
   }
   try {
     const jsonString = JSON.stringify(currentConfiguration.value, null, 2);
     navigator.clipboard.writeText(jsonString).then(() => {
-      alert('完整配置已复制到剪贴板。');
+      notificationService.success('完整配置已复制到剪贴板。');
     }).catch(err => {
       console.error('复制到剪贴板失败: ', err);
-      alert('复制失败。请查看控制台，并可手动复制。' + jsonString);
+      notificationService.error('复制失败。请查看控制台，并可手动复制。' + jsonString);
     });
   } catch (e) {
-    alert('导出配置失败: JSON序列化错误。');
+    notificationService.error('导出配置失败: JSON序列化错误。');
     console.error('JSON序列化错误:', e);
   }
 };
@@ -3204,7 +3201,7 @@ const handleBeaconCoordinatesUpdated = (updatedBeacon) => {
 };
 
 const handleRequestBeaconSelection = () => {
-  alert("请先从'信标管理'标签页选择一个信标，然后才能在地图上放置。");
+  notificationService.warning("请先从'信标管理'标签页选择一个信标，然后才能在地图上放置。");
   activeTab.value = 'beacons';
 };
 
@@ -3334,7 +3331,7 @@ const handleMapPreviewClick = (event) => {
     console.log('=== 地图预览点击结束 ===');
   } else {
     console.log('❌ 点击位置在地图区域外');
-    alert('请点击地图区域内的位置');
+    notificationService.warning('请点击地图区域内的位置');
   }
 };
 
@@ -3538,19 +3535,19 @@ const drawMapPreview = (ctx) => {
 const addTrackerToList = () => {
   const trimmedEui = newTrackerEui.value.trim().toUpperCase();
   if (!trimmedEui) {
-    alert('请输入有效的Tracker EUI');
+    notificationService.error('请输入有效的Tracker EUI');
     return;
   }
   
   // 检查是否已存在
   if (allowTrackerList.value.includes(trimmedEui)) {
-    alert('此Tracker已存在于列表中');
+    notificationService.warning('此Tracker已存在于列表中');
     return;
   }
   
   // 简单的EUI格式验证（16位十六进制）
   if (!/^[0-9A-F]{16}$/.test(trimmedEui)) {
-    alert('EUI格式不正确，应为16位十六进制字符');
+    notificationService.error('EUI格式不正确，应为16位十六进制字符');
     return;
   }
   

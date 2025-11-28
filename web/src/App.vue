@@ -20,6 +20,7 @@
     <div class="main-content" :class="{ 'fullscreen-content': isFullscreenMode }">
       <router-view />
     </div>
+    <Toast />
   </div>
 </template>
 
@@ -28,6 +29,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import Toast from './components/Toast.vue'
 import { authService } from './services/authService.js'
 
 const route = useRoute()
@@ -75,10 +77,9 @@ const handleLogout = async () => {
   try {
     const success = await authService.logout()
     if (success) {
-      // 登出成功，跳转到登录页面
       router.push('/login')
     } else {
-      console.error('Logout failed')
+      console.log("Logout failed")
       // 即使后端登出失败，也跳转到登录页面
       router.push('/login')
     }
