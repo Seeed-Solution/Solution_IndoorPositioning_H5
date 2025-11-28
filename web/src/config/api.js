@@ -62,32 +62,33 @@ const WS_CONFIG = {
  * @returns {string} API基础URL
  */
 export function getApiBaseUrl() {
-  // 实时获取环境变量，支持动态切换
-  const currentIsDev = typeof import.meta !== 'undefined' && import.meta.env 
-    ? import.meta.env.DEV 
-    : process.env.NODE_ENV !== 'production'
-    
-  const currentUseRemote = typeof import.meta !== 'undefined' && import.meta.env
-    ? import.meta.env.VITE_USE_REMOTE === 'true'
-    : process.env.VITE_USE_REMOTE === 'true'
-
-  const currentIsLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
-    ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
-    : process.env.VITE_LOCAL_CONTAINER === 'true'
-    
-  if (currentIsDev) {
-    // 开发环境：根据环境变量决定使用本地代理还是直接访问远程
-    return currentUseRemote ? API_CONFIG.development.remote : API_CONFIG.development.local
-  } else {
-    // 生产环境：根据部署模式选择配置
-    if (currentIsLocalContainer) {
-      // 本地容器模式：web和后端在同一个服务中，使用相对路径
-      return API_CONFIG.production.local
-    } else {
-      // 远程模式：访问远程服务器
-      return API_CONFIG.production.remote
-    }
-  }
+  // // 实时获取环境变量，支持动态切换
+  // const currentIsDev = typeof import.meta !== 'undefined' && import.meta.env
+  //   ? import.meta.env.DEV
+  //   : process.env.NODE_ENV !== 'production'
+  //
+  // const currentUseRemote = typeof import.meta !== 'undefined' && import.meta.env
+  //   ? import.meta.env.VITE_USE_REMOTE === 'true'
+  //   : process.env.VITE_USE_REMOTE === 'true'
+  //
+  // const currentIsLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
+  //   ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
+  //   : process.env.VITE_LOCAL_CONTAINER === 'true'
+  //
+  // if (currentIsDev) {
+  //   // 开发环境：根据环境变量决定使用本地代理还是直接访问远程
+  //   return currentUseRemote ? API_CONFIG.development.remote : API_CONFIG.development.local
+  // } else {
+  //   // 生产环境：根据部署模式选择配置
+  //   if (currentIsLocalContainer) {
+  //     // 本地容器模式：web和后端在同一个服务中，使用相对路径
+  //     return API_CONFIG.production.local
+  //   } else {
+  //     // 远程模式：访问远程服务器
+  //     return API_CONFIG.production.remote
+  //   }
+  // }
+  return `${window.location.protocol}//${window.location.host}/api`;
 }
 
 /**
@@ -95,31 +96,33 @@ export function getApiBaseUrl() {
  * @returns {string} WebSocket基础URL
  */
 export function getWsBaseUrl() {
-  const currentIsDev = typeof import.meta !== 'undefined' && import.meta.env 
-    ? import.meta.env.DEV 
-    : process.env.NODE_ENV !== 'production'
-    
-  const currentUseRemote = typeof import.meta !== 'undefined' && import.meta.env
-    ? import.meta.env.VITE_USE_REMOTE === 'true'
-    : process.env.VITE_USE_REMOTE === 'true'
-
-  const currentIsLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
-    ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
-    : process.env.VITE_LOCAL_CONTAINER === 'true'
-    
-  if (currentIsDev) {
-    return currentUseRemote ? WS_CONFIG.development.remote : WS_CONFIG.development.local
-  } else {
-    // 生产环境：根据部署模式选择配置
-    if (currentIsLocalContainer) {
-      // 本地容器模式：动态构建WebSocket URL
-      const wsConfig = WS_CONFIG.production.local
-      return typeof wsConfig === 'function' ? wsConfig() : wsConfig
-    } else {
-      // 远程模式：访问远程服务器
-      return WS_CONFIG.production.remote
-    }
-  }
+  // const currentIsDev = typeof import.meta !== 'undefined' && import.meta.env
+  //   ? import.meta.env.DEV
+  //   : process.env.NODE_ENV !== 'production'
+  //
+  // const currentUseRemote = typeof import.meta !== 'undefined' && import.meta.env
+  //   ? import.meta.env.VITE_USE_REMOTE === 'true'
+  //   : process.env.VITE_USE_REMOTE === 'true'
+  //
+  // const currentIsLocalContainer = typeof import.meta !== 'undefined' && import.meta.env
+  //   ? import.meta.env.VITE_LOCAL_CONTAINER === 'true'
+  //   : process.env.VITE_LOCAL_CONTAINER === 'true'
+  //
+  // if (currentIsDev) {
+  //   return currentUseRemote ? WS_CONFIG.development.remote : WS_CONFIG.development.local
+  // } else {
+  //   // 生产环境：根据部署模式选择配置
+  //   if (currentIsLocalContainer) {
+  //     // 本地容器模式：动态构建WebSocket URL
+  //     const wsConfig = WS_CONFIG.production.local
+  //     return typeof wsConfig === 'function' ? wsConfig() : wsConfig
+  //   } else {
+  //     // 远程模式：访问远程服务器
+  //     return WS_CONFIG.production.remote
+  //   }
+  // }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.hostname}:5173`
 }
 
 /**

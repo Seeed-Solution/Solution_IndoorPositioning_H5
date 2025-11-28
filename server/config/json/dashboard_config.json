@@ -9,7 +9,7 @@
                 "maxX": 35.06,
                 "minY": 0.86,
                 "maxY": 33.81,
-                "background": "/uploads/10.5 楼_219003.png"
+                "background": "/uploads/10_5_Floor.png"
             },
             "beacons": [
                 {
@@ -131,7 +131,7 @@
                 "maxX": 34.76,
                 "minY": 1.72,
                 "maxY": 35.14,
-                "background": "/uploads/10 Floor_61516.png"
+                "background": "/uploads/10_Floor.png"
             },
             "beacons": [
                 {
@@ -370,7 +370,7 @@
                 "maxX": 38.68,
                 "minY": 4.93,
                 "maxY": 37.34,
-                "background": "/uploads/9 Floor, A Area_587525.png"
+                "background": "/uploads/9_Floor__A_Area.png"
             },
             "beacons": [
                 {
@@ -544,7 +544,7 @@
                 "maxX": 56.59,
                 "minY": 38.94,
                 "maxY": 71.48,
-                "background": "/uploads/9 Floor, B Area_80800.png"
+                "background": "/uploads/9_Floor__B_Area.png"
             },
             "beacons": [
                 {
@@ -704,23 +704,6 @@
                     "is_darwin": false
                 }
             ],
-            "settings": {
-                "signalPropagationFactor": 2.5
-            },
-            "is_darwin": false
-        },
-        {
-            "map": {
-                "name": "啊啊啊",
-                "width": 50.0,
-                "height": 50.0,
-                "minX": 0.0,
-                "maxX": 50.0,
-                "minY": 0.0,
-                "maxY": 50.0,
-                "background": "/uploads/啊啊啊_886032.png"
-            },
-            "beacons": [],
             "settings": {
                 "signalPropagationFactor": 2.5
             },
