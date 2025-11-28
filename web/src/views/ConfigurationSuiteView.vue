@@ -900,7 +900,7 @@
           </div>
           
           <div class="form-group">
-            <label for="newMapWidth">{{ t('config.mapInfo.width') }} (米) <span class="required-indicator">*</span></label>
+            <label for="newMapWidth">{{ t('config.mapInfo.width') }} <span class="required-indicator">*</span></label>
             <input 
               type="number" 
               id="newMapWidth"
@@ -920,7 +920,7 @@
           </div>
           
           <div class="form-group">
-            <label for="newMapHeight">{{ t('config.mapInfo.height') }} (米) <span class="required-indicator">*</span></label>
+            <label for="newMapHeight">{{ t('config.mapInfo.height') }} <span class="required-indicator">*</span></label>
             <input 
               type="number" 
               id="newMapHeight"
@@ -940,7 +940,7 @@
           </div>
           
           <div class="form-group">
-            <label for="newMapBackground">背景图片 <span class="required-indicator">*</span></label>
+            <label for="newMapBackground">{{ t('config.backgroundImageLabel') }} <span class="required-indicator">*</span></label>
             <input 
               type="file" 
               id="newMapBackground"
@@ -952,20 +952,20 @@
             />
             <div v-if="!canSelectImage" class="file-input-hint disabled-hint">
               <i class="fas fa-info-circle"></i>
-              <span>请先输入地图名称和宽高，然后才能选择图片</span>
+              <span>{{ t('config.enterMapInfoFirst') }}</span>
             </div>
             <div v-else-if="newMapBackgroundPreview" class="background-preview">
 <!--              <img :src="newMapBackgroundPreview" alt="背景图预览" class="preview-image" />-->
               <button type="button" @click="clearBackgroundFile" class="clear-preview-btn">
-                <i class="fas fa-times"></i> 清除
+                <i class="fas fa-times"></i> {{ t('config.clear') }}
               </button>
             </div>
             <div v-else class="file-input-hint">
               <i class="fas fa-image"></i>
-              <span>请选择本地图片文件（支持 JPG、PNG、GIF 等格式）</span>
+              <span>{{ t('config.selectImageHint') }}</span>
             </div>
             <div class="input-help">
-              <span>请从本地选择背景图片文件（必填），选择后将自动打开裁剪页面</span>
+              <span>{{ t('config.selectImageRequiredWithCrop') }}</span>
             </div>
             <div v-if="mapBackgroundError" class="error-message">
               <i class="fas fa-exclamation-triangle"></i>
