@@ -495,18 +495,22 @@ const handleWheel = (e) => {
   if (!image.value) return;
   
   const point = getCanvasPoint(e);
-  const delta = e.deltaY > 0 ? -0.1 : 0.1;
-  
-  // 计算缩放前的坐标相对于图片的位置
-  const imagePointX = (point.x - imageX.value) / imageScale.value;
-  const imagePointY = (point.y - imageY.value) / imageScale.value;
   
   // 计算最小缩放比例
   const minScale = getMinScale();
   
-  // 应用缩放，限制在最小缩放比例和最大缩放比例之间
-  const newScale = Math.max(minScale, Math.min(5, imageScale.value + delta));
+  // 使用指数缩放，根据实际滚动量计算缩放增量
+  // deltaY 的绝对值越大，缩放幅度越大；但整体幅度更小，便于精确控制
+  const zoomSensitivity = 0.0008; // 缩放敏感度，可以调整（值越小越慢）
+  const zoomFactor = 1 + (-e.deltaY * zoomSensitivity);
+  
+  // 应用指数缩放，限制在最小缩放比例和最大缩放比例之间
+  const newScale = Math.max(minScale, Math.min(5, imageScale.value * zoomFactor));
   imageScale.value = newScale;
+  
+  // 计算缩放前的坐标相对于图片的位置
+  const imagePointX = (point.x - imageX.value) / imageScale.value;
+  const imagePointY = (point.y - imageY.value) / imageScale.value;
   
   // 调整图片位置，使缩放点保持在鼠标位置
   imageX.value = point.x - imagePointX * imageScale.value;
