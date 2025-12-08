@@ -10,11 +10,6 @@
           <input type="file" id="mapFile" @change="handleFullConfigFileUpload" accept=".json" />
           <!-- <p class="info">When you upload a full configuration file here, it will update the application's current master configuration.</p> -->
         </div>
-        
-        <div class="map-format-example-section">
-          <label for="mapFormatExample">Example Map Object Format (read-only):</label>
-          <textarea id="mapFormatExample" :value="mapFormatExampleText" rows="10" readonly class="example-textarea"></textarea>
-        </div>
 
       </div>
     </div>
@@ -49,8 +44,6 @@
 
 <script setup>
 import { ref, watch, onMounted, computed, nextTick } from 'vue';
-import { fetchApi } from '@/utils/httpClient.js';
-import { API_ENDPOINTS } from '@/config/api.js';
 import { notificationService } from '@/services/notificationService.js';
 
 const padding = 20; // Define padding here
@@ -501,24 +494,7 @@ watch(() => props.initialSettings, (newSettings) => {
   console.log("MapEditorTab: initialSettings prop changed.", newSettings);
 }, { deep: true });
 
-const mapFormatExampleText = ref('Loading map format example...');
-
-const fetchMapFormatExample = async () => {
-  try {
-    const response = await fetchApi(API_ENDPOINTS.MAP_EXAMPLE_FORMAT);
-    if (!response.ok) {
-      throw new Error(`Server responded with ${response.status}`);
-    }
-    const text = await response.text();
-    mapFormatExampleText.value = text;
-  } catch (error) {
-    console.error('Failed to fetch map format example:', error);
-    mapFormatExampleText.value = 'Could not load map format example. Please ensure server is running and endpoint is correct.';
-  }
-};
-
 onMounted(async () => { 
-  fetchMapFormatExample(); // Fetch the example on mount
   await nextTick(); 
   if (mapCanvasRef.value) { // Also ensure canvas is available
     if (currentMapLayout.value) {

@@ -2,7 +2,6 @@
   <div class="configuration-suite page-container">
     <h1 class="page-title">{{ t('config.management.title') }}</h1>
     
-    <p class="info-banner status-display success" v-if="configStatusMessage">{{ configStatusMessage }}</p>
     
     <!-- 统一配置概览 -->
     <div class="unified-stats-overview card">
@@ -910,7 +909,6 @@
               step="0.01"
               class="map-name-input"
               :placeholder="t('config.mapInfo.widthPlaceholder')"
-              :readonly="isMapCropped"
               @input="handleWidthHeightChange"
             />
             <div v-if="mapWidthError" class="error-message">
@@ -930,46 +928,11 @@
               step="0.01"
               class="map-name-input"
               :placeholder="t('config.mapInfo.heightPlaceholder')"
-              :readonly="isMapCropped"
               @input="handleWidthHeightChange"
             />
             <div v-if="mapHeightError" class="error-message">
               <i class="fas fa-exclamation-triangle"></i>
               {{ mapHeightError }}
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="newMapBackground">{{ t('config.backgroundImageLabel') }} <span class="required-indicator">*</span></label>
-            <input 
-              type="file" 
-              id="newMapBackground"
-              ref="mapBackgroundFileInputRef"
-              accept="image/*"
-              class="map-background-file-input"
-              :disabled="!canSelectImage"
-              @change="handleBackgroundFileSelect"
-            />
-            <div v-if="!canSelectImage" class="file-input-hint disabled-hint">
-              <i class="fas fa-info-circle"></i>
-              <span>{{ t('config.enterMapInfoFirst') }}</span>
-            </div>
-            <div v-else-if="newMapBackgroundPreview" class="background-preview">
-<!--              <img :src="newMapBackgroundPreview" alt="背景图预览" class="preview-image" />-->
-              <button type="button" @click="clearBackgroundFile" class="clear-preview-btn">
-                <i class="fas fa-times"></i> {{ t('config.clear') }}
-              </button>
-            </div>
-            <div v-else class="file-input-hint">
-              <i class="fas fa-image"></i>
-              <span>{{ t('config.selectImageHint') }}</span>
-            </div>
-            <div class="input-help">
-              <span>{{ t('config.selectImageRequiredWithCrop') }}</span>
-            </div>
-            <div v-if="mapBackgroundError" class="error-message">
-              <i class="fas fa-exclamation-triangle"></i>
-              {{ mapBackgroundError }}
             </div>
           </div>
           
@@ -1185,7 +1148,6 @@ const mapPreviewCardRef = ref(null);
 const mapPreviewImage = ref(null);
 
 const isLoadingConfig = ref(false);
-const configStatusMessage = ref('');
 
 // Dashboard configuration data
 const dashboardConfig = ref(null);
@@ -1412,7 +1374,7 @@ const recentActiveTrackersCount = computed(() => {
 const loadDashboardConfigurationData = async () => {
   try {
     isLoadingConfig.value = true;
-    configStatusMessage.value = t('common.loading') + '...';
+    notificationService.info(t('config.actions.loading'));
     
     const dashboardData = await loadDashboardConfiguration();
     console.log('[ConfigurationSuiteView] Dashboard data loaded:', dashboardData);
@@ -1423,35 +1385,33 @@ const loadDashboardConfigurationData = async () => {
       
       // 加载地图后不默认选择，让用户主动选择
       if (dashboardData.maps.length > 0) {
-        configStatusMessage.value = `${t('config.mapSelector.refresh')} ${dashboardData.maps.length} ${t('config.management.totalMaps')}`;
+        // notificationService.success(`${t('config.mapSelector.refresh')} ${dashboardData.maps.length} ${t('config.management.totalMaps')}`);
       } else {
-        configStatusMessage.value = t('config.mapSelector.noMaps');
+        // notificationService.warning(t('config.mapSelector.noMaps'));
       }
     } else {
       availableMaps.value = [];
-      configStatusMessage.value = t('common.error');
+      notificationService.error(t('config.actions.loadFailed'));
     }
   } catch (error) {
     console.error('[ConfigurationSuiteView] Failed to load dashboard configuration:', error);
-    configStatusMessage.value = `${t('common.error')}: ${error.message}`;
+    notificationService.error(t('config.actions.loadFailed') + ': ' + error.message);
     availableMaps.value = [];
   } finally {
     isLoadingConfig.value = false;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
   }
 };
 
 // 导出仪表板配置
 const exportDashboardConfiguration = async () => {
   try {
-    configStatusMessage.value = t('config.actions.exporting');
+    notificationService.info(t('config.actions.exporting'));
     
     // 从后端获取最新的配置数据
     const dashboardData = await loadDashboardConfiguration();
     
     if (!dashboardData) {
-      configStatusMessage.value = t('config.actions.noDataToExport');
-      setTimeout(() => { configStatusMessage.value = '' }, 3000);
+      notificationService.warning(t('config.actions.noDataToExport'));
       return;
     }
     
@@ -1481,14 +1441,12 @@ const exportDashboardConfiguration = async () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    configStatusMessage.value = $t('config.actions.exportSuccess', { filename });
+    notificationService.success(t('config.actions.exportSuccess', { filename }));
     console.log('[ConfigurationSuiteView] Dashboard configuration exported:', filename);
     
   } catch (error) {
     console.error('[ConfigurationSuiteView] Failed to export dashboard configuration:', error);
-    configStatusMessage.value = `${$t('config.actions.exportFailed')}: ${error.message}`;
-  } finally {
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.exportFailed') + ': ' + error.message);
   }
 };
 
@@ -1505,16 +1463,15 @@ const selectMap = (index) => {
       beacons: [],
       settings: { signalPropagationFactor: 2.5 }
     };
-    configStatusMessage.value = t('config.emptyState.noMapSelected');
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.info(t('config.emptyState.noMapSelected'));
     return;
   }
   
   if (index >= 0 && index < availableMaps.value.length) {
     selectedMapIndex.value = index;
     updateCurrentConfiguration();
-    configStatusMessage.value = `${t('config.mapSelector.selectLabel')} ${availableMaps.value[index].map?.name || `${t('tracker.unnamedMap')} ${index + 1}`}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    const mapName = availableMaps.value[index].map?.name || `${t('tracker.unnamedMap')} ${index + 1}`;
+    notificationService.success(t('config.actions.mapSelected', { name: mapName }));
   }
 };
 
@@ -1695,9 +1652,10 @@ const formatMapConfig = (mapConfig) => {
   };
   
   // 背景图链接必填，如果为空则使用默认值或抛出错误
-  if (!mapObj.background) {
-    console.warn('警告：地图背景图链接为空，这可能导致保存失败');
-  }
+  // if (!mapObj.background) {
+  //   console.warn(t('config.messages.backgroundImageEmpty'));
+  //   notificationService.warning(t('config.messages.backgroundImageEmpty'));
+  // }
   
   return {
     map: mapObj,
@@ -1726,7 +1684,9 @@ const generateDashboardConfig = () => {
     const errors = validateMapConfig(formatted);
     
     if (errors.length > 0) {
-      console.warn(`地图 "${formatted.map.name}" 验证失败:`, errors);
+      const errorMsg = t('config.messages.mapValidationFailed', { name: formatted.map.name });
+      console.warn(errorMsg, errors);
+      notificationService.warning(errorMsg);
     }
     
     return formatted;
@@ -1740,7 +1700,7 @@ const generateDashboardConfig = () => {
 // 保存配置到后端
 const saveDashboardToServer = async () => {
   try {
-    configStatusMessage.value = '正在保存配置到服务器...';
+    notificationService.info(t('config.actions.saving'));
     
     const dashboardConfig = generateDashboardConfig();
     
@@ -1749,15 +1709,13 @@ const saveDashboardToServer = async () => {
     dashboardConfig.maps.forEach((mapConfig, index) => {
       const errors = validateMapConfig(mapConfig);
       if (errors.length > 0) {
-        totalErrors.push(`地图 ${index + 1} (${mapConfig.map.name}): ${errors.join(', ')}`);
+        totalErrors.push(t('config.messages.mapValidationFailed', { name: mapConfig.map.name }) + ': ' + errors.join(', '));
       }
     });
     
     if (totalErrors.length > 0) {
-      const errorMessage = '配置验证失败:\n' + totalErrors.join('\n');
-      configStatusMessage.value = '配置验证失败，请检查数据格式';
+      const errorMessage = t('config.actions.validationErrors') + ':\n' + totalErrors.join('\n');
       notificationService.error(errorMessage);
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
       return false;
     }
     
@@ -1770,8 +1728,7 @@ const saveDashboardToServer = async () => {
     // 调用后端API保存
     const response = await saveDashboardConfiguration(dashboardConfig);
     
-    configStatusMessage.value = '配置已成功保存到服务器';
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.success(t('config.actions.saveSuccess'));
     
     return true;
     
@@ -1779,12 +1736,11 @@ const saveDashboardToServer = async () => {
     console.error('保存Dashboard配置失败:', error);
     
     if (error.message.includes('404') || error.message.includes('Not Found')) {
-      configStatusMessage.value = '后端暂不支持Dashboard配置保存，数据已在本地更新';
+      notificationService.warning(t('config.actions.saveNotSupported'));
     } else {
-      configStatusMessage.value = `保存失败: ${error.message}`;
+      notificationService.error(t('config.actions.saveFailed') + ': ' + error.message);
     }
     
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
     return false;
   }
 };
@@ -1970,9 +1926,6 @@ const handleBackgroundFileSelect = (event) => {
   
   // 自动打开裁剪器（此时已经验证了宽高）
   openImageCropper(previewUrl, newMapWidth.value, newMapHeight.value, true);
-  
-  // 清空文件选择，允许重复选择相同文件
-  event.target.value = '';
 };
 
 // 清除创建地图时的背景图文件
@@ -2031,9 +1984,6 @@ const handleEditBackgroundFileSelect = (event) => {
       hasUnsavedChanges.value = true;
     }
   }
-  
-  // 清空文件选择，允许重复选择相同文件
-  event.target.value = '';
 };
 
 // 清除编辑地图时的背景图文件
@@ -2164,14 +2114,8 @@ const handleEditWidthHeightChange = () => {
 
 // 验证背景图（现在验证是否已完成裁剪）
 const validateMapBackground = () => {
+  // 创建地图时不再要求背景图，背景图将在编辑模式下选择
   mapBackgroundError.value = '';
-  
-  // 必填验证 - 检查是否已完成裁剪
-  if (!isMapCropped.value || !newMapBackgroundCropped.value) {
-    mapBackgroundError.value = '请选择并裁剪背景图片';
-    return false;
-  }
-  
   return true;
 };
 
@@ -2187,11 +2131,8 @@ const isNewMapFormValid = computed(() => {
   return isMapNameValid.value && 
          newMapWidth.value > 0 && 
          newMapHeight.value > 0 &&
-         isMapCropped.value && // 必须完成裁剪
-         newMapBackgroundCropped.value !== null && // 必须有裁剪后的图片
          !mapWidthError.value &&
-         !mapHeightError.value &&
-         !mapBackgroundError.value;
+         !mapHeightError.value;
 });
 
 // 上传图片到服务器
@@ -2241,32 +2182,18 @@ const confirmCreateMap = async () => {
     return;
   }
   
-  if (!validateMapBackground()) {
-    return;
-  }
-  
   const trimmedName = newMapName.value.trim();
   
   // 保存临时地图名称
   tempMapName.value = trimmedName;
   
-  // 创建临时地图配置用于编辑界面（此时使用裁剪后的图片预览，稍后提交时再上传）
-  let backgroundValue = null;
-  if (newMapBackgroundCropped.value) {
-    // 如果裁剪后的图片是 blob，创建 URL；如果是 dataURL，直接使用
-    if (newMapBackgroundCropped.value instanceof Blob) {
-      backgroundValue = URL.createObjectURL(newMapBackgroundCropped.value);
-    } else {
-      backgroundValue = newMapBackgroundCropped.value;
-    }
-  }
-  
+  // 创建临时地图配置用于编辑界面（背景图将在编辑模式下选择）
   const tempMapConfig = {
     map: {
       name: trimmedName,
       width: newMapWidth.value,
       height: newMapHeight.value,
-      background: backgroundValue, // 临时使用预览URL，提交时再上传
+      background: '', // 背景图将在编辑模式下选择
       entities: []
     },
     beacons: [],
@@ -2291,8 +2218,7 @@ const confirmCreateMap = async () => {
   // 自动进入编辑模式
   isEditMode.value = true;
   
-  configStatusMessage.value = `新地图 "${trimmedName}" 已创建，请开始编辑地图内容`;
-  setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  // notificationService.success(t('config.actions.mapCreated', { name: trimmedName }));
   
   console.log('进入新地图创建界面:', tempMapConfig);
 };
@@ -2369,18 +2295,18 @@ const handleMapJsonFileImport = (event) => {
         // 旧的地图格式：直接包含 width, height, entities
         handleLegacyMapImport(jsonData);
       } else {
-        notificationService.error(`不支持的JSON格式。\n\n支持的格式：\n1. WebUIConfig格式（包含map、beacons、settings字段）\n2. 地图格式（包含width、height、entities字段）`);
+        notificationService.error(t('config.actions.importJsonFormatError'));
         return;
       }
       
     } catch (error) {
       console.error('JSON文件解析失败:', error);
-      notificationService.error(`JSON文件解析失败: ${error.message}\n\n请确保文件格式正确。`);
+      notificationService.error(t('config.actions.importJsonFailed', { error: error.message }));
     }
   };
   
   reader.onerror = () => {
-    notificationService.error('文件读取失败，请重试。');
+    notificationService.error(t('config.actions.importReadError'));
   };
   
   reader.readAsText(file);
@@ -2425,9 +2351,9 @@ const handleWebUIConfigImport = (webUIConfig) => {
           currentConfiguration.value.map.name = webUIConfig.map.name.trim();
         }
         
-        importedItems.push(`地图 (${webUIConfig.map.width}m×${webUIConfig.map.height}m, ${webUIConfig.map.entities.length}个实体)`);
+        importedItems.push(t('config.actions.importSuccess', { items: `${webUIConfig.map.width}m×${webUIConfig.map.height}m, ${webUIConfig.map.entities.length}${t('tracker.entities')}` }));
       } else {
-        console.warn('地图数据格式不完整，跳过地图导入');
+        console.warn(t('config.messages.mapValidationFailed', { name: 'map' }));
       }
     }
 
@@ -2464,7 +2390,9 @@ const handleWebUIConfigImport = (webUIConfig) => {
       }
 
       if (invalidBeacons.length > 0) {
-        console.warn(`信标 ${invalidBeacons.join(', ')} 的数据格式无效，已跳过`);
+        const warningMsg = t('config.messages.invalidBeaconData', { indices: invalidBeacons.join(', ') });
+        console.warn(warningMsg);
+        notificationService.warning(warningMsg);
       }
     }
 
@@ -2483,23 +2411,22 @@ const handleWebUIConfigImport = (webUIConfig) => {
     }
 
     if (importedItems.length > 0) {
-      configStatusMessage.value = `WebUIConfig 导入成功：${importedItems.join('、')}`;
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      // notificationService.success(t('config.actions.importSuccess', { items: importedItems.join('、') }));
       console.log('WebUIConfig数据导入成功:', webUIConfig);
     } else {
-      notificationService.error('导入的WebUIConfig文件中没有找到有效的配置数据');
+      notificationService.error(t('config.actions.importNoData'));
     }
 
   } catch (error) {
     console.error('WebUIConfig导入处理失败:', error);
-    notificationService.error(`WebUIConfig导入失败: ${error.message}`);
+    notificationService.error(t('config.actions.importFailed') + ': ' + error.message);
   }
 };
 
 // 处理旧格式地图导入
 const handleLegacyMapImport = (jsonData) => {
   if (!currentConfiguration.value.map) {
-    notificationService.error('导入失败：当前没有可用的地图配置');
+    notificationService.error(t('config.actions.importFailed'));
     return;
   }
 
@@ -2512,8 +2439,11 @@ const handleLegacyMapImport = (jsonData) => {
     currentConfiguration.value.map.name = jsonData.name.trim();
   }
   
-  configStatusMessage.value = `地图数据已导入 (宽度: ${jsonData.width}m, 高度: ${jsonData.height}m, 实体数量: ${jsonData.entities.length})`;
-  setTimeout(() => { configStatusMessage.value = '' }, 5000);
+  // notificationService.success(t('config.actions.legacyMapImported', {
+  //   width: jsonData.width,
+  //   height: jsonData.height,
+  //   entities: jsonData.entities.length
+  // }));
   
   console.log('地图JSON数据导入成功:', jsonData);
 };
@@ -2529,12 +2459,9 @@ const validateBeaconData = (beacon) => {
 
 // 切换编辑模式
 const toggleEditMode = () => {
-  // 如果正在创建新地图且要退出编辑模式，需要确认
+  // 如果正在创建新地图且要退出编辑模式，显示警告并取消创建
   if (isCreatingNewMap.value && isEditMode.value) {
-    const confirmed = confirm(`您正在创建新地图 "${tempMapName.value}"，退出编辑模式将丢失未保存的更改。是否确认退出？`);
-    if (!confirmed) {
-      return;
-    }
+    notificationService.warning(t('config.messages.confirmExitCreating', { name: tempMapName.value }));
     
     // 取消创建新地图
     isCreatingNewMap.value = false;
@@ -2547,62 +2474,56 @@ const toggleEditMode = () => {
       beacons: [],
       settings: { signalPropagationFactor: 2.5 }
     };
+    return;
   }
   
   isEditMode.value = !isEditMode.value;
   
   if (isEditMode.value) {
-    configStatusMessage.value = '已进入编辑模式 - 可以修改地图和信标配置';
+    notificationService.info(t('config.status.editModeEnabled'));
   } else {
-    configStatusMessage.value = '已退出编辑模式 - 地图和信标配置为只读状态';
+    notificationService.info(t('config.status.editModeDisabled'));
   }
-  
-  setTimeout(() => { configStatusMessage.value = '' }, 3000);
 };
 
 // 删除当前地图
 const deleteCurrentMap = async () => {
   if (isCreatingNewMap.value || !selectedMapConfig.value || availableMaps.value.length <= 1) {
-    configStatusMessage.value = '无法删除地图：至少需要保留一个地图';
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.warning(t('config.actions.cannotDeleteLastMap'));
     return;
   }
   
-  const mapName = selectedMapConfig.value.map?.name || `地图 ${selectedMapIndex.value + 1}`;
-  const confirmed = confirm(`确定要删除地图 "${mapName}" 吗？\n\n此操作将删除该地图及其所有信标配置，且不可恢复。`);
+  const mapName = selectedMapConfig.value.map?.name || `${t('tracker.unnamedMap')} ${selectedMapIndex.value + 1}`;
+  notificationService.warning(t('config.messages.confirmDeleteMap', { name: mapName }) + ' ' + t('config.messages.confirmDeleteMapWarning'));
   
-  if (confirmed) {
-    // 保存要删除的地图索引和信息，以便在保存失败时能够恢复
-    const deletedMapIndex = selectedMapIndex.value;
-    const deletedMapConfig = JSON.parse(JSON.stringify(availableMaps.value[deletedMapIndex]));
-    
-    // 从数组中移除地图
-    availableMaps.value.splice(selectedMapIndex.value, 1);
-    
-    // 调整选中的地图索引
-    if (selectedMapIndex.value >= availableMaps.value.length) {
-      selectedMapIndex.value = availableMaps.value.length - 1;
-    }
-    
-    // 更新当前配置以反映新的选择
+  // 保存要删除的地图索引和信息，以便在保存失败时能够恢复
+  const deletedMapIndex = selectedMapIndex.value;
+  const deletedMapConfig = JSON.parse(JSON.stringify(availableMaps.value[deletedMapIndex]));
+  
+  // 从数组中移除地图
+  availableMaps.value.splice(selectedMapIndex.value, 1);
+  
+  // 调整选中的地图索引
+  if (selectedMapIndex.value >= availableMaps.value.length) {
+    selectedMapIndex.value = availableMaps.value.length - 1;
+  }
+  
+  // 更新当前配置以反映新的选择
+  updateCurrentConfiguration();
+  isEditMode.value = false; // 删除后退出编辑模式
+  
+  // 保存到服务器
+  const success = await saveDashboardToServer();
+  
+  if (success) {
+    notificationService.success(t('config.actions.mapDeleted', { name: mapName }));
+  } else {
+    // 保存失败，恢复删除的地图
+    availableMaps.value.splice(deletedMapIndex, 0, deletedMapConfig);
+    selectedMapIndex.value = deletedMapIndex;
     updateCurrentConfiguration();
-    isEditMode.value = false; // 删除后退出编辑模式
     
-    // 保存到服务器
-    const success = await saveDashboardToServer();
-    
-    if (success) {
-      configStatusMessage.value = `地图 "${mapName}" 已删除并同步到服务器`;
-      setTimeout(() => { configStatusMessage.value = '' }, 3000);
-    } else {
-      // 保存失败，恢复删除的地图
-      availableMaps.value.splice(deletedMapIndex, 0, deletedMapConfig);
-      selectedMapIndex.value = deletedMapIndex;
-      updateCurrentConfiguration();
-      
-      configStatusMessage.value = `删除地图失败：无法同步到服务器，已恢复地图 "${mapName}"`;
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
-    }
+    notificationService.error(t('config.actions.mapDeleteFailed', { name: mapName }));
   }
 };
 
@@ -2610,8 +2531,7 @@ const deleteCurrentMap = async () => {
 const cancelAllChanges = () => {
   if (isCreatingNewMap.value) {
     // 取消创建新地图
-    const confirmed = confirm(`确定要取消创建新地图 "${tempMapName.value}" 吗？所有未保存的更改将丢失。`);
-    if (!confirmed) return;
+    notificationService.warning(t('config.messages.confirmCancelNewMap', { name: tempMapName.value }) + ' ' + t('config.messages.confirmCancelNewMapWarning'));
     
     // 重置创建状态
     isCreatingNewMap.value = false;
@@ -2627,11 +2547,10 @@ const cancelAllChanges = () => {
       settings: { signalPropagationFactor: 2.5 }
     };
     
-    configStatusMessage.value = '已取消创建新地图';
+    notificationService.info(t('config.status.newMapCancelled'));
   } else if (isEditMode.value || hasUnsavedChanges.value) {
     // 取消编辑或beacon更改
-    const confirmed = confirm('确定要取消所有更改吗？所有未保存的更改将丢失。');
-    if (!confirmed) return;
+    // notificationService.warning(t('server.messages.confirmCancelChanges') + ' ' + t('server.messages.confirmCancelChangesWarning'));
     
     // 重置编辑状态
     isEditMode.value = false;
@@ -2642,10 +2561,8 @@ const cancelAllChanges = () => {
       updateCurrentConfiguration();
     }
     
-    configStatusMessage.value = '已取消所有更改';
+    notificationService.info(t('config.status.changesCancelled'));
   }
-  
-  setTimeout(() => { configStatusMessage.value = '' }, 3000);
 };
 
 // 保存更改
@@ -2660,9 +2577,8 @@ const saveChanges = async () => {
     // 验证新地图配置
     const errors = validateMapConfig(currentConfiguration.value);
     if (errors.length > 0) {
-      configStatusMessage.value = '保存失败：配置验证错误';
-      console.error('地图配置验证失败:', errors);
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      // notificationService.error(t('config.actions.validationFailed'));
+      notificationService.error(errors[0]);
       return;
     }
     
@@ -2672,41 +2588,53 @@ const saveChanges = async () => {
     );
     
     if (nameExists) {
-      configStatusMessage.value = `保存失败：地图名称 "${tempMapName.value}" 已存在`;
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      notificationService.error(t('config.actions.mapNameExists', { name: tempMapName.value }));
       return;
     }
     
-    // 先上传裁剪后的图片
-    let backgroundUrl = null;
-    if (newMapBackgroundCropped.value) {
-      try {
-        configStatusMessage.value = '正在上传地图图片...';
-        
-        // 如果是 dataURL，转换为 Blob
-        let imageBlob = newMapBackgroundCropped.value;
-        if (typeof newMapBackgroundCropped.value === 'string' && newMapBackgroundCropped.value.startsWith('data:')) {
-          const response = await fetch(newMapBackgroundCropped.value);
-          imageBlob = await response.blob();
+    // 检查并上传背景图（在编辑模式下选择的）
+    if (currentConfiguration.value.map && currentConfiguration.value.map.background) {
+      const background = currentConfiguration.value.map.background;
+      const isBlobUrl = background.startsWith('blob:');
+      const isDataUrl = background.startsWith('data:');
+      
+      if (isBlobUrl || isDataUrl) {
+        try {
+          notificationService.info(t('config.actions.imageUploading'));
+          
+          // 从 blob URL 或 dataURL 获取 Blob 对象
+          let imageBlob;
+          if (isBlobUrl) {
+            const response = await fetch(background);
+            imageBlob = await response.blob();
+          } else if (isDataUrl) {
+            const response = await fetch(background);
+            imageBlob = await response.blob();
+          }
+          
+          // 上传图片
+          const backgroundUrl = await uploadMapImage(imageBlob, tempMapName.value);
+          
+          // 更新背景 URL
+          currentConfiguration.value.map.background = backgroundUrl;
+          
+          // 清理 blob URL
+          if (isBlobUrl) {
+            URL.revokeObjectURL(background);
+          }
+          
+          notificationService.info(t('config.actions.imageUploadSuccess'));
+        } catch (error) {
+          notificationService.error(t('config.actions.imageUploadFailed', { error: error.message }));
+          return;
         }
-        
-        // 上传图片
-        backgroundUrl = await uploadMapImage(imageBlob, tempMapName.value);
-        
-        configStatusMessage.value = '图片上传成功，正在保存配置...';
-      } catch (error) {
-        configStatusMessage.value = `图片上传失败: ${error.message}`;
-        setTimeout(() => { configStatusMessage.value = '' }, 5000);
-        return;
       }
+      // 如果已经是服务器URL，不需要上传
     } else {
-      configStatusMessage.value = '错误：未找到裁剪后的图片';
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      // 如果没有背景图，提示用户
+      notificationService.error(t('config.actions.imageCropRequired'));
       return;
     }
-    
-    // 更新地图配置中的背景URL
-    currentConfiguration.value.map.background = backgroundUrl;
     
     // 添加到地图列表 - 这必须在saveDashboardToServer之前完成，这样服务器才能收到完整配置
     availableMaps.value.push({
@@ -2736,7 +2664,7 @@ const saveChanges = async () => {
       
       if (isBlobUrl || isDataUrl) {
         try {
-          configStatusMessage.value = '正在上传地图图片...';
+          notificationService.info(t('config.actions.imageUploading'));
           
           // 从 blob URL 或 dataURL 获取 Blob 对象
           let imageBlob;
@@ -2762,10 +2690,9 @@ const saveChanges = async () => {
             URL.revokeObjectURL(background);
           }
           
-          configStatusMessage.value = '图片上传成功，正在保存配置...';
+          notificationService.info(t('config.actions.imageUploadSuccess'));
         } catch (error) {
-          configStatusMessage.value = `图片上传失败: ${error.message}`;
-          setTimeout(() => { configStatusMessage.value = '' }, 5000);
+          notificationService.error(t('config.actions.imageUploadFailed', { error: error.message }));
           return;
         }
       }
@@ -2790,15 +2717,13 @@ const saveChanges = async () => {
     isEditMode.value = false;
     hasUnsavedChanges.value = false;
     
-    if (wasCreatingNewMap) {
-      configStatusMessage.value = `新地图 "${mapNameForDisplay}" 已创建并保存到服务器`;
-    } else if (hadUnsavedChanges) {
-      configStatusMessage.value = '配置更改已保存到服务器';
-    } else {
-      configStatusMessage.value = '更改已保存到服务器并退出编辑模式';
-    }
-    
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    // if (wasCreatingNewMap) {
+    //   notificationService.success(t('config.actions.mapCreated', { name: mapNameForDisplay }) + ' ' + t('config.actions.saveSuccess'));
+    // } else if (hadUnsavedChanges) {
+    //   notificationService.success(t('config.actions.saveSuccess'));
+    // } else {
+    //   notificationService.success(t('config.actions.saveSuccess'));
+    // }
   } else {
     // 保存失败，如果是新建地图，需要回滚操作
     if (wasCreatingNewMap) {
@@ -2849,8 +2774,7 @@ const handleBeaconsUpdated = (newBeacons) => {
 const handleBeaconSelectedForPlacement = (beacon) => {
   selectedBeaconForPlacement.value = beacon;
   if (beacon) {
-    configStatusMessage.value = `信标 "${beacon.displayName}" 已选定。请向下滑动到地图预览区域，然后在地图上点击以放置该信标。`;
-    setTimeout(() => { configStatusMessage.value = '' }, 7000);
+    notificationService.info(t('config.actions.beaconSelected', { name: beacon.displayName }));
     
     // 滚动到地图预览位置
     nextTick(() => {
@@ -2887,12 +2811,10 @@ const updateConfigFromMapEditor = (configData) => {
       }
     });
 
-    configStatusMessage.value = '配置已成功从地图编辑器加载并应用 (via prop function).';
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    // notificationService.success(t('config.actions.configLoaded'));
   } else {
     console.error("[ConfigurationSuiteView] updateConfigFromMapEditor: Invalid config.", configData);
-    configStatusMessage.value = '错误：从地图编辑器加载的配置数据格式无效 (via prop function)。';
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.configInvalid'));
   }
 };
 
@@ -2918,50 +2840,26 @@ const handleImportFullConfigurationFile = (event) => {
   const file = event.target.files[0];
   if (!file) return;
   isLoadingConfig.value = true;
-  configStatusMessage.value = '正在导入配置文件...';
+  notificationService.info(t('config.actions.importing') || '正在导入配置文件...');
 
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const jsonData = JSON.parse(e.target.result);
-      processAndApplyFullConfig(jsonData, '配置文件已成功从本地文件导入并应用。');
+      processAndApplyFullConfig(jsonData, t('config.actions.importSuccess', { items: '配置文件' }));
     } catch (error) {
       console.error("Configuration import error:", error);
-      configStatusMessage.value = `导入JSON文件失败: ${error.message}`;
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      notificationService.error(t('config.actions.importJsonFailed', { error: error.message }));
     }
     isLoadingConfig.value = false;
   };
   reader.onerror = () => {
-      configStatusMessage.value = '读取文件时发生错误。';
+      notificationService.error(t('config.actions.importReadError'));
       isLoadingConfig.value = false;
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
   };
   reader.readAsText(file);
   event.target.value = null; // Reset file input
 };
-
-const exportFullConfiguration = () => {
-  if (!currentConfiguration.value.map) {
-    notificationService.error('没有配置数据可导出。请先导入或创建配置。');
-    return;
-  }
-  try {
-    const jsonString = JSON.stringify(currentConfiguration.value, null, 2);
-    navigator.clipboard.writeText(jsonString).then(() => {
-      notificationService.success('完整配置已复制到剪贴板。');
-    }).catch(err => {
-      console.error('复制到剪贴板失败: ', err);
-      notificationService.error('复制失败。请查看控制台，并可手动复制。' + jsonString);
-    });
-  } catch (e) {
-    notificationService.error('导出配置失败: JSON序列化错误。');
-    console.error('JSON序列化错误:', e);
-  }
-};
-
-
-
 
 // Lifecycle Hooks
 onMounted(async () => {
@@ -3114,15 +3012,10 @@ const applyFullConfiguration = (configData) => {
 // This is called by file upload in MapEditorTab or by global file import, or by loading from server.
 const processAndApplyFullConfig = (loadedConfig, sourceMessage = '配置已成功加载并应用。') => {
   if (applyFullConfiguration(loadedConfig)) {
-    configStatusMessage.value = sourceMessage;
+    notificationService.success(sourceMessage);
   } else {
-    configStatusMessage.value = '错误：加载的配置数据格式无效。';
-    // Optionally, reset to a known good state or initial state
-    // currentConfiguration.value = initialConfiguration();
-    // applyFullConfiguration(currentConfiguration.value); // to update children
+    notificationService.error(t('config.actions.configLoadInvalid'));
   }
-  // Clear message after a few seconds
-  setTimeout(() => { configStatusMessage.value = '' }, 5000);
 };
 
 const handleBeaconCoordinatesUpdated = (updatedBeacon) => {
@@ -3193,16 +3086,15 @@ const handleBeaconCoordinatesUpdated = (updatedBeacon) => {
     selectedBeaconForPlacement.value = null; 
     // 不自动切换标签页，让用户看到更新结果
     // activeTab.value = 'beacons'; 
-    configStatusMessage.value = `信标 '${currentConfiguration.value.beacons[beaconIndex].displayName || updatedBeacon.deviceId || updatedBeacon.uuid}' 位置已更新。`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    const beaconName = currentConfiguration.value.beacons[beaconIndex].displayName || updatedBeacon.deviceId || updatedBeacon.uuid;
+    notificationService.success(t('config.actions.beaconUpdated', { name: beaconName }));
   } else {
     console.warn(
         "[CSV] Beacon to update coordinates for NOT FOUND in the list.",
         "Target Beacon (from map click):", JSON.parse(JSON.stringify(updatedBeacon)),
         "Searched List (currentConfiguration.beacons at time of search):", JSON.parse(JSON.stringify(currentConfiguration.value.beacons))
     );
-    configStatusMessage.value = "错误：尝试更新位置的信标未找到。请检查控制台中的 '[CSV - findIndex]' 日志以获取详细比较步骤。";
-    setTimeout(() => { configStatusMessage.value = '' }, 7000); // Slightly longer timeout for this more detailed error message
+    notificationService.error(t('config.actions.beaconNotFound'));
   }
 };
 
@@ -3565,9 +3457,8 @@ const addTrackerToList = () => {
 const removeTrackerFromList = (index) => {
   if (index >= 0 && index < allowTrackerList.value.length) {
     const eui = allowTrackerList.value[index];
-    if (confirm(`确定要移除Tracker "${eui}" 吗？`)) {
-      allowTrackerList.value.splice(index, 1);
-    }
+    notificationService.warning(t('config.messages.confirmRemoveTracker', { eui }));
+    allowTrackerList.value.splice(index, 1);
   }
 };
 
@@ -3576,12 +3467,10 @@ const saveTrackerList = async () => {
   try {
     isSavingTrackers.value = true;
     await saveAllowTrackerList(allowTrackerList.value);
-    configStatusMessage.value = 'Tracker列表已成功保存';
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.success(t('tracker.configuration.allowList.save') || 'Tracker列表已成功保存');
   } catch (error) {
     console.error('保存Tracker列表失败:', error);
-    configStatusMessage.value = `保存失败: ${error.message}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.saveFailed') + ': ' + error.message);
   } finally {
     isSavingTrackers.value = false;
   }
@@ -3592,12 +3481,10 @@ const loadTrackerList = async () => {
   try {
     const response = await loadAllowTrackerList();
     allowTrackerList.value = response.tracker_list || [];
-    configStatusMessage.value = `已加载 ${allowTrackerList.value.length} 个Tracker配置`;
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    // notificationService.success(t('tracker.configuration.allowList.reload') || `已加载 ${allowTrackerList.value.length} 个Tracker配置`);
   } catch (error) {
     console.error('加载Tracker列表失败:', error);
-    configStatusMessage.value = `加载失败: ${error.message}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.loadFailed') + ': ' + error.message);
   }
 };
 
@@ -3648,12 +3535,10 @@ const loadServerConfig = async () => {
       updateChirpstackDefaultValues();
     }
     
-    configStatusMessage.value = t('server.loadSuccess');
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.success(t('server.loadSuccess'));
   } catch (error) {
     console.error('加载服务器配置失败:', error);
-    configStatusMessage.value = `Failed to load server configuration: ${error.message}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.loadFailed') + ': ' + error.message);
   } finally {
     isLoadingServerConfig.value = false;
   }
@@ -3722,12 +3607,10 @@ const saveServerConfig = async () => {
     }
     
     await saveServerConfiguration(configToSave);
-    configStatusMessage.value = t('server.saveSuccess');
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.success(t('server.saveSuccess'));
   } catch (error) {
     console.error('保存服务器配置失败:', error);
-    configStatusMessage.value = `Failed to save server configuration: ${error.message}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.saveFailed') + ': ' + error.message);
   } finally {
     isSavingServerConfig.value = false;
   }
@@ -3805,8 +3688,7 @@ const enterEditMode = () => {
   }
   
   isServerConfigEditMode.value = true;
-  configStatusMessage.value = t('server.editModeEnabled');
-  setTimeout(() => { configStatusMessage.value = '' }, 3000);
+  notificationService.info(t('server.editModeEnabled'));
 };
 
 const cancelEditMode = () => {
@@ -3817,8 +3699,7 @@ const cancelEditMode = () => {
   }
   isServerConfigEditMode.value = false;
   originalServerConfig.value = null;
-  configStatusMessage.value = t('server.changesCancelled');
-  setTimeout(() => { configStatusMessage.value = '' }, 3000);
+  notificationService.info(t('server.changesCancelled'));
 };
 
 const saveServerConfigChanges = async () => {
@@ -3827,15 +3708,13 @@ const saveServerConfigChanges = async () => {
     
     // 如果SenseCap OpenStream启用，验证必填字段
     if (serverConfig.value.sensecapOpenStream?.enabled && !validateSensecapConfig()) {
-      configStatusMessage.value = 'Please fill in all required fields for SenseCap OpenStream';
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      notificationService.warning(t('server.sensecap.required') || 'Please fill in all required fields for SenseCap OpenStream');
       return;
     }
     
     // 如果ChirpStack MQTT启用，验证必填字段
     if (serverConfig.value.chirpStackMqtt?.enabled && !validateChirpstackConfig()) {
-      configStatusMessage.value = 'Please fill in all required fields for ChirpStack MQTT';
-      setTimeout(() => { configStatusMessage.value = '' }, 5000);
+      notificationService.warning(t('server.chirpstack.required') || 'Please fill in all required fields for ChirpStack MQTT');
       return;
     }
     
@@ -3901,12 +3780,10 @@ const saveServerConfigChanges = async () => {
     isServerConfigEditMode.value = false;
     originalServerConfig.value = null;
     
-    configStatusMessage.value = t('server.saveSuccess');
-    setTimeout(() => { configStatusMessage.value = '' }, 3000);
+    notificationService.success(t('server.saveSuccess'));
   } catch (error) {
     console.error('保存服务器配置失败:', error);
-    configStatusMessage.value = `Failed to save server configuration: ${error.message}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('config.actions.saveFailed') + ': ' + error.message);
   } finally {
     isSavingServerConfig.value = false;
   }
@@ -4016,13 +3893,8 @@ const changePassword = async () => {
     // 显示成功提示弹窗（密码修改弹窗暂时保持打开）
     showPasswordSuccessModal.value = true;
     
-    // 显示横幅提示
-    configStatusMessage.value = t('server.password.changed');
-    
-    // 5秒后清除消息
-    setTimeout(() => { 
-      configStatusMessage.value = ''; 
-    }, 5000);
+    // 显示成功提示
+    notificationService.success(t('server.password.changed'));
     
   } catch (error) {
     console.error('修改密码失败:', error);
@@ -4260,10 +4132,7 @@ const saveCredentials = async () => {
     console.log('Credentials saved successfully:', result);
     
     // 显示成功消息
-    configStatusMessage.value = `${getServiceTypeName(currentServiceType.value)} credentials saved successfully!`;
-    setTimeout(() => {
-      configStatusMessage.value = '';
-    }, 3000);
+    notificationService.success(`${getServiceTypeName(currentServiceType.value)} credentials saved successfully!`);
     
     closeCredentialsModal();
     
@@ -4277,35 +4146,27 @@ const saveCredentials = async () => {
 
 // 重启服务相关方法
 const confirmRestartService = () => {
-  const confirmed = confirm(t('server.restart.confirmMessage'));
-  if (confirmed) {
-    restartService();
-  }
+  notificationService.warning(t('server.restart.confirmMessage'));
+  restartService();
 };
 
 const restartService = async () => {
   try {
     isRestartingService.value = true;
-    configStatusMessage.value = t('server.restart.restarting');
+    notificationService.info(t('server.restart.restarting'));
     
     // 调用后端关闭接口
     const response = await apiRequest.post(API_ENDPOINTS.SHUTDOWN);
     
     if (response.status === 200) {
-      configStatusMessage.value = t('server.restart.restartInitiated');
-      // 显示消息后稍等片刻，让用户看到反馈
-      setTimeout(() => {
-        // 可以选择在这里做一些清理工作，比如断开WebSocket连接等
-        configStatusMessage.value = '';
-      }, 3000);
+      notificationService.success(t('server.restart.restartInitiated'));
     } else {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
   } catch (error) {
     console.error('重启服务失败:', error);
-    configStatusMessage.value = `重启服务失败: ${error.message}`;
-    setTimeout(() => { configStatusMessage.value = '' }, 5000);
+    notificationService.error(t('server.restart.restartFailed') || `重启服务失败: ${error.message}`);
   } finally {
     // 无论成功失败，都要重置状态
     isRestartingService.value = false;
@@ -4314,8 +4175,7 @@ const restartService = async () => {
 
 // Alarm组件状态更新处理
 const handleAlarmStatusUpdate = (message) => {
-  configStatusMessage.value = message;
-  setTimeout(() => { configStatusMessage.value = '' }, 3000);
+  // notificationService.info(message);
 };
 
 

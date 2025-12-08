@@ -1,30 +1,30 @@
 <template>
   <div class="general-settings-tab">
-    <h3><i class="fas fa-cog"></i> General Settings</h3>
+    <h3><i class="fas fa-cog"></i> {{ t('config.generalSettings.title') }}</h3>
     
     <!-- 只读模式 - 只显示设置值 -->
     <div v-if="readOnly" class="settings-display">
       <div class="setting-item">
-        <label>Signal Propagation Factor (n):</label>
+        <label>{{ t('config.generalSettings.signalPropagationFactor') }}</label>
         <span class="setting-value">{{ editableSettings.signalPropagationFactor }}</span>
-        <p class="info">This value affects RSSI to distance conversion. Common range: Free space approx. 2.0, indoor environments may range from 1.8 to 4.0.</p>
+        <p class="info">{{ t('config.generalSettings.signalPropagationFactorInfo') }}</p>
       </div>
     </div>
     
     <!-- 编辑模式 - 显示表单和按钮 -->
     <form v-else @submit.prevent="saveSettings">
       <div class="setting-item">
-        <label for="signalFactor">Signal Propagation Factor (n):</label>
+        <label for="signalFactor">{{ t('config.generalSettings.signalPropagationFactor') }}</label>
         <input type="number" id="signalFactor" v-model.number="editableSettings.signalPropagationFactor" step="0.01" min="1" max="6" required />
-        <p class="info">This value affects RSSI to distance conversion. Common range: Free space approx. 2.0, indoor environments may range from 1.8 to 4.0.</p>
+        <p class="info">{{ t('config.generalSettings.signalPropagationFactorInfo') }}</p>
       </div>
       <!-- More general settings can be added here -->
       <div class="form-actions">
         <button type="submit" class="action-btn primary-btn">
-          <i class="fas fa-check"></i> Apply & Update Settings
+          <i class="fas fa-check"></i> {{ t('config.generalSettings.applySettings') }}
         </button>
         <button type="button" @click="resetToOriginals" class="action-btn secondary-btn">
-          <i class="fas fa-undo"></i> Reset to Initially Loaded Values
+          <i class="fas fa-undo"></i> {{ t('config.generalSettings.resetSettings') }}
         </button>
       </div>
     </form>
@@ -33,7 +33,10 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { notificationService } from '@/services/notificationService.js';
+
+const { t } = useI18n();
 
 const props = defineProps({
   initialSettings: {
@@ -76,18 +79,18 @@ const saveSettings = () => {
   if (editableSettings.value.signalPropagationFactor === null || 
       editableSettings.value.signalPropagationFactor < 1 || 
       editableSettings.value.signalPropagationFactor > 6) {
-    notificationService.error("Signal Propagation Factor must be between 1.0 and 6.0.");
+    notificationService.error(t('config.generalSettings.validationError'));
     return;
   }
   // Emit the updated settings object (a deep copy)
   emit('settings-updated', JSON.parse(JSON.stringify(editableSettings.value)));
-  notificationService.success('设置已更新，请在地图选择器区域点击"保存更改"按钮保存到服务器');
+  notificationService.success(t('config.generalSettings.settingsUpdated'));
 };
 
 const resetToOriginals = () => {
     // Reload from the prop, effectively resetting any local changes
     loadSettings(props.initialSettings);
-    notificationService.success("Settings have been reset to their initially loaded values.");
+    notificationService.success(t('config.generalSettings.settingsReset'));
 }
 
 // Expose method to parent component
