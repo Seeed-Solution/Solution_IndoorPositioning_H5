@@ -829,7 +829,7 @@ class TrackerState(BaseModel):
     x: Optional[float] = None
     y: Optional[float] = None
     last_update_time: Optional[int] = 0 # Unix ms timestamp in ms (server time of this update)
-    last_known_measurement_time: Optional[int] = None # Unix ms timestamp (from original report)
+    timestamp: Optional[int] = None # Unix ms timestamp (from original report)
     last_detected_beacons: List[DetectedBeacon] = []
     position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
     used_beacons: List[DetectedBeacon] = []  # MAC addresses of beacons used in position calculation
@@ -849,7 +849,7 @@ class TrackerState(BaseModel):
             x=self.x,
             y=self.y,
             last_update_time=self.last_update_time,
-            last_known_measurement_time=self.last_known_measurement_time,
+            timestamp=self.timestamp,
             last_detected_beacons=self.last_detected_beacons,
             position_history=self.position_history,
             used_beacons=self.used_beacons,
@@ -892,7 +892,7 @@ class TrackerInfo(BaseModel):
     x: Optional[float] = None
     y: Optional[float] = None
     last_update_time: int
-    last_known_measurement_time: Optional[int] = None
+    timestamp: Optional[int] = None
     last_detected_beacons: List[DetectedBeacon] = []
     position_history: List[Tuple[float, float, int]] = []
     used_beacons: List[DetectedBeacon] = []

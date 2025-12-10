@@ -317,7 +317,7 @@ const trackerListData = computed(() => {
             result[tracker.trackerId] = {
                 trackerId: tracker.trackerId,
                 device_name: tracker.device_name, // 传递设备名
-                timestamp: tracker.last_update_time,
+                timestamp: tracker.timestamp,
                 sos: tracker.sos,
                 last_detected_beacons: tracker.last_detected_beacons || [],
                 starred: tracker.is_favorite || false,
@@ -331,7 +331,6 @@ const trackerListData = computed(() => {
                 x: tracker.x, // X坐标
                 y: tracker.y, // Y坐标
                 radius: tracker.radius, // 区域半径
-                last_known_measurement_time: tracker.last_known_measurement_time, // 最后一次定位时间（毫秒时间戳）
                 position: (tracker.x !== null && tracker.y !== null) ? {
                     x: tracker.x,
                     y: tracker.y,
@@ -534,7 +533,7 @@ const convertTrackerDataFormat = (backendData) => {
         y: trackerInfo.y,
         accuracy: 1.0 // 默认精度
       } : null,
-      timestamp: trackerInfo.last_update_time || Date.now(), // 最近设备上报的时间
+      timestamp: trackerInfo.timestamp || Date.now(), // 最近设备上报的时间
       sos: trackerInfo.sos !== undefined ? trackerInfo.sos : 2, // 0=恢复, 1=触发, 2=未知
       sos_happen: trackerInfo.sos_happen, // 设备上次触发sos告警的时间
       last_detected_beacons: trackerInfo.last_detected_beacons || [],
@@ -545,8 +544,6 @@ const convertTrackerDataFormat = (backendData) => {
       device_name: trackerInfo.device_name,
       group_id: trackerInfo.group_id,
       is_favorite: trackerInfo.is_favorite || false,
-      // 正确传递后端的last_known_measurement_time字段
-      last_known_measurement_time: trackerInfo.last_known_measurement_time, // 设备上次定位成功的时间（毫秒时间戳）
       // 其他位置相关字段
       type: trackerInfo.type, // 定位类型：'calculation' 或 'approximate'
       x: trackerInfo.x,

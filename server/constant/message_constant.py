@@ -38,7 +38,7 @@ def get_sos_message(state: TrackerState) -> dict:
     return {
             "type": MESSAGE_TYPE_TRACKER_SOS,
             "data": {state.trackerId: {
-                "timestamp": state.last_known_measurement_time,
+                "timestamp": state.timestamp,
                 "sos": state.sos
             }}
         }
@@ -48,7 +48,7 @@ def get_checkin_message(state: TrackerState) -> dict:
     return {
         "type": MESSAGE_TYPE_TRACKER_CHECKIN,
         "data": {state.trackerId: {
-            "timestamp": state.last_known_measurement_time,
+            "timestamp": state.timestamp,
             "map": state.map,
             "last_detected_beacons": [
                 {
@@ -65,7 +65,7 @@ def get_leaving_message(state: TrackerState) -> dict:
     return {
         "type": MESSAGE_TYPE_TRACKER_POSITION_DETECTION,
         "data": {state.trackerId: {
-            "timestamp": state.last_known_measurement_time,
+            "timestamp": state.timestamp,
             "map": state.map,
             "last_detected_beacons": [
                 {
@@ -83,7 +83,7 @@ def get_tracker_update(state: TrackerState) -> dict:
         position_payload = {"x": state.x, "y": state.y}
     tracker_data_payload = {
         "trackerId": state.trackerId,
-        "timestamp": state.last_known_measurement_time,
+        "timestamp": state.timestamp,
         "position": position_payload,
         "last_detected_beacons": [
             {
@@ -106,7 +106,7 @@ def get_tracker_update(state: TrackerState) -> dict:
 def get_tracker_loc_appr(state: TrackerState) -> dict:
     tracker_data_payload = {
         "trackerId": state.trackerId,
-        "timestamp": state.last_known_measurement_time,
+        "timestamp": state.timestamp,
         "radius": state.radius,
         "last_detected_beacons": [
             {

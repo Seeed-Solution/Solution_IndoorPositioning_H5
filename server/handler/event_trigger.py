@@ -73,7 +73,7 @@ async def leaving_event_action(event_setting: EventTriggerRecord, state: Tracker
             dev_eui=state.trackerId,
             loc=loc,
             pos_type=state.type,
-            alarm_time=datetime.datetime.fromtimestamp(int(state.last_known_measurement_time / 1000)),
+            alarm_time=datetime.datetime.fromtimestamp(int(state.timestamp / 1000)),
             beacons=state.used_beacons,
             status=event_constant.SOS_STATUS_TRIGGERED,
             event_type=event_setting.event_type,
@@ -86,7 +86,7 @@ async def leaving_event_action(event_setting: EventTriggerRecord, state: Tracker
         device_event_holder.set_device_event_timestamp(
             dev_eui=state.trackerId,
             event_id=event_setting.id,
-            timestamp=int(state.last_known_measurement_time)
+            timestamp=int(state.timestamp)
         )
         await websocket_holder.broadcast(message_constant.get_leaving_message(state))
     except Exception as err:
@@ -107,7 +107,7 @@ async def device_leaving_event_checker(state: TrackerState, event_setting: Event
     if event_setting.time_range == 0:
         await leaving_event_action(event_setting=event_setting, state=state)
         return
-    timestamp = state.last_known_measurement_time
+    timestamp = state.timestamp
 
     target_time = timestamp + event_setting.time_range * MINUTE_IN_MS
     if now < target_time:

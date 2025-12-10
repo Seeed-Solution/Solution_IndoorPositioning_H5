@@ -317,6 +317,7 @@
                     id="mapBackground"
                     accept="image/*"
                     class="map-background-file-input"
+                    @click="handleFileInputClick"
                     @change="handleEditBackgroundFileSelect"
                   />
                   <div v-if="currentConfiguration.map?.background" class="background-preview">
@@ -811,29 +812,12 @@
                         <button 
                           @click="removeTrackerFromList(index)"
                           class="remove-button"
+                          :disabled="!isServerConfigEditMode"
                           :title="t('tracker.configuration.allowList.remove')"
                         >
                           <i class="fas fa-trash"></i>
                         </button>
                       </div>
-                    </div>
-                    
-                    <div class="tracker-actions">
-                      <button 
-                        @click="saveTrackerList"
-                        class="save-button"
-                        :disabled="isSavingTrackers || !isServerConfigEditMode"
-                      >
-                        <i class="fas fa-save"></i> 
-                        {{ isSavingTrackers ? t('tracker.configuration.allowList.saving') : t('tracker.configuration.allowList.save') }}
-                      </button>
-                      <button 
-                        @click="loadTrackerList"
-                        :disabled="!isServerConfigEditMode"
-                        class="reload-button"
-                      >
-                        <i class="fas fa-sync-alt"></i> {{ t('tracker.configuration.allowList.reload') }}
-                      </button>
                     </div>
                   </div>
                   
@@ -1653,8 +1637,8 @@ const formatMapConfig = (mapConfig) => {
   
   // 背景图链接必填，如果为空则使用默认值或抛出错误
   // if (!mapObj.background) {
-  //   console.warn(t('config.messages.backgroundImageEmpty'));
-  //   notificationService.warning(t('config.messages.backgroundImageEmpty'));
+  //   console.warn(t('server.messages.backgroundImageEmpty'));
+  //   notificationService.warning(t('server.messages.backgroundImageEmpty'));
   // }
   
   return {
@@ -1684,7 +1668,7 @@ const generateDashboardConfig = () => {
     const errors = validateMapConfig(formatted);
     
     if (errors.length > 0) {
-      const errorMsg = t('config.messages.mapValidationFailed', { name: formatted.map.name });
+      const errorMsg = t('server.messages.mapValidationFailed', { name: formatted.map.name });
       console.warn(errorMsg, errors);
       notificationService.warning(errorMsg);
     }
@@ -1709,7 +1693,7 @@ const saveDashboardToServer = async () => {
     dashboardConfig.maps.forEach((mapConfig, index) => {
       const errors = validateMapConfig(mapConfig);
       if (errors.length > 0) {
-        totalErrors.push(t('config.messages.mapValidationFailed', { name: mapConfig.map.name }) + ': ' + errors.join(', '));
+        totalErrors.push(t('server.messages.mapValidationFailed', { name: mapConfig.map.name }) + ': ' + errors.join(', '));
       }
     });
     
@@ -1942,6 +1926,14 @@ const clearBackgroundFile = () => {
   if (mapBackgroundFileInputRef.value) {
     mapBackgroundFileInputRef.value.value = '';
   }
+};
+
+// 处理文件输入框点击事件，清空 value 以确保选择同一个文件时也能触发 change 事件
+const handleFileInputClick = (event) => {
+  // 使用 setTimeout 确保在文件选择对话框打开之前清空 value
+  setTimeout(() => {
+    event.target.value = '';
+  }, 0);
 };
 
 // 处理编辑地图时的背景图文件选择
@@ -2353,7 +2345,7 @@ const handleWebUIConfigImport = (webUIConfig) => {
         
         importedItems.push(t('config.actions.importSuccess', { items: `${webUIConfig.map.width}m×${webUIConfig.map.height}m, ${webUIConfig.map.entities.length}${t('tracker.entities')}` }));
       } else {
-        console.warn(t('config.messages.mapValidationFailed', { name: 'map' }));
+        console.warn(t('server.messages.mapValidationFailed', { name: 'map' }));
       }
     }
 
@@ -2390,7 +2382,7 @@ const handleWebUIConfigImport = (webUIConfig) => {
       }
 
       if (invalidBeacons.length > 0) {
-        const warningMsg = t('config.messages.invalidBeaconData', { indices: invalidBeacons.join(', ') });
+        const warningMsg = t('server.messages.invalidBeaconData', { indices: invalidBeacons.join(', ') });
         console.warn(warningMsg);
         notificationService.warning(warningMsg);
       }
@@ -2461,7 +2453,7 @@ const validateBeaconData = (beacon) => {
 const toggleEditMode = () => {
   // 如果正在创建新地图且要退出编辑模式，显示警告并取消创建
   if (isCreatingNewMap.value && isEditMode.value) {
-    notificationService.warning(t('config.messages.confirmExitCreating', { name: tempMapName.value }));
+    notificationService.warning(t('server.messages.confirmExitCreating', { name: tempMapName.value }));
     
     // 取消创建新地图
     isCreatingNewMap.value = false;
@@ -2494,7 +2486,7 @@ const deleteCurrentMap = async () => {
   }
   
   const mapName = selectedMapConfig.value.map?.name || `${t('tracker.unnamedMap')} ${selectedMapIndex.value + 1}`;
-  notificationService.warning(t('config.messages.confirmDeleteMap', { name: mapName }) + ' ' + t('config.messages.confirmDeleteMapWarning'));
+  notificationService.warning(t('server.messages.confirmDeleteMap', { name: mapName }) + ' ' + t('server.messages.confirmDeleteMapWarning'));
   
   // 保存要删除的地图索引和信息，以便在保存失败时能够恢复
   const deletedMapIndex = selectedMapIndex.value;
@@ -2531,7 +2523,7 @@ const deleteCurrentMap = async () => {
 const cancelAllChanges = () => {
   if (isCreatingNewMap.value) {
     // 取消创建新地图
-    notificationService.warning(t('config.messages.confirmCancelNewMap', { name: tempMapName.value }) + ' ' + t('config.messages.confirmCancelNewMapWarning'));
+    notificationService.warning(t('server.messages.confirmCancelNewMap', { name: tempMapName.value }) + ' ' + t('server.messages.confirmCancelNewMapWarning'));
     
     // 重置创建状态
     isCreatingNewMap.value = false;
@@ -2872,19 +2864,20 @@ onMounted(async () => {
   await Promise.all([
     loadDashboardConfigurationData(),
     loadTrackersData(), // 加载tracker状态数据用于统计
-    loadTrackerList(),   // 加载tracker配置列表
-    loadServerConfig()   // 加载服务器配置
+    loadServerConfig()   // 加载服务器配置（会自动同步 allowTrackerList）
   ]);
 });
 
 // 监听主标签变化，切换到tracker标签时加载数据
 watch(() => activeMainTab.value, async (newTab) => {
   if (newTab === 'tracker') {
-    await loadTrackerList();
-    await loadTrackersData(); // 刷新tracker状态
     if (!serverConfig.value) {
-      await loadServerConfig(); // 如果还没加载服务器配置，则加载
+      await loadServerConfig(); // 如果还没加载服务器配置，则加载（会自动同步 allowTrackerList）
+    } else {
+      // 如果已经加载了 serverConfig，只需要同步 trackerList
+      loadTrackerList();
     }
+    await loadTrackersData(); // 刷新tracker状态
   }
 });
 
@@ -3437,8 +3430,10 @@ const addTrackerToList = () => {
     return;
   }
   
-  // 检查是否已存在
-  if (allowTrackerList.value.includes(trimmedEui)) {
+  // 检查是否已存在（同时检查 allowTrackerList 和 serverConfig.tracker_list）
+  const existingInList = allowTrackerList.value.includes(trimmedEui);
+  const existingInConfig = serverConfig.value?.tracker_list?.includes(trimmedEui);
+  if (existingInList || existingInConfig) {
     notificationService.warning('此Tracker已存在于列表中');
     return;
   }
@@ -3449,7 +3444,17 @@ const addTrackerToList = () => {
     return;
   }
   
+  // 更新 allowTrackerList（用于UI显示）
   allowTrackerList.value.push(trimmedEui);
+  
+  // 在编辑模式下，同步更新 serverConfig.tracker_list
+  if (isServerConfigEditMode.value && serverConfig.value) {
+    if (!serverConfig.value.tracker_list) {
+      serverConfig.value.tracker_list = [];
+    }
+    serverConfig.value.tracker_list.push(trimmedEui);
+  }
+  
   newTrackerEui.value = '';
 };
 
@@ -3457,8 +3462,18 @@ const addTrackerToList = () => {
 const removeTrackerFromList = (index) => {
   if (index >= 0 && index < allowTrackerList.value.length) {
     const eui = allowTrackerList.value[index];
-    notificationService.warning(t('config.messages.confirmRemoveTracker', { eui }));
+    // notificationService.warning(t('server.messages.confirmRemoveTracker', { eui }));
+    
+    // 更新 allowTrackerList（用于UI显示）
     allowTrackerList.value.splice(index, 1);
+    
+    // 在编辑模式下，同步更新 serverConfig.tracker_list
+    if (isServerConfigEditMode.value && serverConfig.value?.tracker_list) {
+      const configIndex = serverConfig.value.tracker_list.indexOf(eui);
+      if (configIndex >= 0) {
+        serverConfig.value.tracker_list.splice(configIndex, 1);
+      }
+    }
   }
 };
 
@@ -3476,11 +3491,15 @@ const saveTrackerList = async () => {
   }
 };
 
-// 从服务器加载Tracker列表
+// 从serverConfig加载Tracker列表（不再调用单独的API）
 const loadTrackerList = async () => {
   try {
-    const response = await loadAllowTrackerList();
-    allowTrackerList.value = response.tracker_list || [];
+    // 从 serverConfig 中读取 tracker_list
+    if (serverConfig.value && serverConfig.value.tracker_list) {
+      allowTrackerList.value = [...serverConfig.value.tracker_list];
+    } else {
+      allowTrackerList.value = [];
+    }
     // notificationService.success(t('tracker.configuration.allowList.reload') || `已加载 ${allowTrackerList.value.length} 个Tracker配置`);
   } catch (error) {
     console.error('加载Tracker列表失败:', error);
@@ -3519,6 +3538,13 @@ const loadServerConfig = async () => {
     isLoadingServerConfig.value = true;
     const response = await loadServerConfiguration();
     serverConfig.value = response;
+    
+    // 同步 allowTrackerList 从 serverConfig.tracker_list
+    if (response && response.tracker_list) {
+      allowTrackerList.value = [...response.tracker_list];
+    } else {
+      allowTrackerList.value = [];
+    }
     
     // 加载webhook headers到列表管理
     loadWebhookHeadersFromConfig();
@@ -3696,6 +3722,12 @@ const cancelEditMode = () => {
   if (originalServerConfig.value) {
     serverConfig.value = JSON.parse(JSON.stringify(originalServerConfig.value));
     loadWebhookHeadersFromConfig(); // 重新加载webhook headers
+    // 同步恢复 allowTrackerList
+    if (serverConfig.value && serverConfig.value.tracker_list) {
+      allowTrackerList.value = [...serverConfig.value.tracker_list];
+    } else {
+      allowTrackerList.value = [];
+    }
   }
   isServerConfigEditMode.value = false;
   originalServerConfig.value = null;

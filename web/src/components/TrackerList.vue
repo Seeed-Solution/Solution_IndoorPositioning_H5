@@ -150,7 +150,7 @@
                   </div>
                   <!-- 时间和定位类型 -->
                   <div class="position-time">
-                    {{ formatLastKnownTime(tracker.last_known_measurement_time) }}
+                    {{ formatLastKnownTime(tracker.timestamp) }}
                     <span class="position-type">
                       <span v-if="tracker.type === 'calculation' && tracker.x !== null && tracker.y !== null" class="precise-label">
                         {{ $t('tracker.trackerList.precise') }}
@@ -808,7 +808,7 @@ const formatTime = (timestamp) => {
 const formatLastKnownTime = (timestamp) => {
   if (!timestamp) return t('tracker.trackerList.never')
   
-  // last_known_measurement_time 是毫秒时间戳
+  // timestamp 是毫秒时间戳
   const date = new Date(timestamp)
   
   // 显示具体时间 HH:mm:ss 格式

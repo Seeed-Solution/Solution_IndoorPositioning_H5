@@ -74,7 +74,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         loc["radius"] = state.radius
                     alarm_record_dao.create_record(
                         dev_eui=state.trackerId,
-                        alarm_time=datetime.datetime.fromtimestamp(state.last_known_measurement_time / 1000),
+                        alarm_time=datetime.datetime.fromtimestamp(state.timestamp / 1000),
                         pos_type=state.type,
                         loc=loc,
                         beacons=state.used_beacons,
@@ -129,7 +129,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                     loc["radius"] = state.radius
                 alarm_record_dao.create_record(
                     dev_eui=state.trackerId,
-                    alarm_time=datetime.datetime.fromtimestamp(state.last_known_measurement_time / 1000),
+                    alarm_time=datetime.datetime.fromtimestamp(state.timestamp / 1000),
                     pos_type=state.type,
                     loc=loc,
                     beacons=state.used_beacons,
@@ -143,7 +143,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                 device_event_holder.set_device_event_timestamp(
                     dev_eui=state.trackerId,
                     event_id=alarm_setting.id,
-                    timestamp=state.last_known_measurement_time
+                    timestamp=state.timestamp
                 )
                 log.info(f'the tracker: {state.trackerId} check-in event: {closest_beacon} with dis: {closest_dis} M')
             case event_constant.ALARM_TYPE_POSITION_DETECTION:

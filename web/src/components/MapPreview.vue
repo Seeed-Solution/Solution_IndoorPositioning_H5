@@ -43,15 +43,16 @@
               </div>
               
               <!-- Position Data -->
-              <div v-if="tracker.position && typeof tracker.position.x === 'number' && typeof tracker.position.y === 'number'" class="tracker-pos">
-                X: {{ tracker.position.x.toFixed(2) }}, Y: {{ tracker.position.y.toFixed(2) }}
-                <span v-if="tracker.position.accuracy && typeof tracker.position.accuracy === 'number'">, {{ t('tracker.accuracy') }}: {{ tracker.position.accuracy.toFixed(2) }}m</span>
+<!--              <div v-if="tracker && typeof tracker.x === 'number' && typeof tracker.y === 'number'" class="tracker-pos">-->
+              <div v-if="tracker && typeof tracker.x === 'number' && typeof tracker.y === 'number' && tracker.type === 'calculation'" class="tracker-pos">
+                X: {{ tracker.x.toFixed(2) }}, Y: {{ tracker.y.toFixed(2) }}
+                <span v-if="tracker.accuracy && typeof tracker.accuracy === 'number'">, {{ t('tracker.accuracy') }}: {{ tracker.accuracy.toFixed(2) }}m</span>
               </div>
-              <div v-else-if="tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-pos tracker-pos-area">
+              <div v-else-if="tracker.radius && tracker.used_beacons && tracker.used_beacons.length > 0" class="tracker-pos tracker-pos-area">
                 {{ t('tracker.areaPositioning') }}: {{ t('tracker.radius') }} {{ tracker.radius.toFixed(2) }}m
                 <div class="tracker-beacon-info">
-                  {{ t('tracker.nearBeacon') }}: {{ tracker.last_detected_beacons[0].name || 'Unknown' }}
-                  (X: {{ tracker.last_detected_beacons[0].configured_x?.toFixed(2) }}, Y: {{ tracker.last_detected_beacons[0].configured_y?.toFixed(2) }})
+                  {{ t('tracker.nearBeacon') }}: {{ tracker.used_beacons[0].name || 'Unknown' }}
+                  (X: {{ tracker.used_beacons[0].configured_x?.toFixed(2) }}, Y: {{ tracker.used_beacons[0].configured_y?.toFixed(2) }})
                 </div>
               </div>
               <div v-else class="tracker-pos-na">
@@ -63,13 +64,13 @@
                 <div v-if="tracker.timestamp" class="tracker-meta-item">
                    {{ t('tracker.lastSeen') }}: {{ new Date(tracker.timestamp).toLocaleTimeString() }}
                 </div>
-                <div v-if="tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0" class="tracker-meta-item">
-                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm
-<!--                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi).filter(v => !isNaN(v))) }} dBm-->
-<!--                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.last_detected_beacons.map(b => b.rssi)) }} dBm-->
-                  ({{ t('tracker.detected') }} {{ tracker.last_detected_beacons.length }} {{ t('tracker.beacons') }})
+                <div v-if="tracker.used_beacons && tracker.used_beacons.length > 0" class="tracker-meta-item">
+                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.used_beacons.map(b => b.rssi)) }} dBm
+<!--                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.used_beacons.map(b => b.rssi).filter(v => !isNaN(v))) }} dBm-->
+<!--                  {{ t('tracker.strongestRssi') }}: {{ Math.max(...tracker.used_beacons.map(b => b.rssi)) }} dBm-->
+                  ({{ t('tracker.detected') }} {{ tracker.used_beacons.length }} {{ t('tracker.beacons') }})
                 </div>
-                <div v-else-if="tracker.last_detected_beacons" class="tracker-meta-item">
+                <div v-else-if="tracker.used_beacons" class="tracker-meta-item">
                   {{ t('tracker.noBeaconsDetected') }}
                 </div>
               </div>
@@ -93,7 +94,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
-import httpClient from '@/utils/httpClient.js';
 import { loadTrackers } from '@/services/configApiService.js';
 import { API_ENDPOINTS, buildImageUrl } from '@/config/api.js';
 import AlarmHistoryModal from '@/components/AlarmHistoryModal.vue';
@@ -167,7 +167,7 @@ const filteredTrackers = computed(() => {
             return false;
         }
     });
-
+    console.log("当前地图设备", result)
     return result;
 });
 
@@ -278,13 +278,13 @@ const isTrackerInCurrentMap = (tracker) => {
     return true; // 临时改为 true，先让所有通过第一层过滤的 tracker 都显示
   }
 
-  if (!tracker.last_detected_beacons) {
-    console.log(`[Beacon检测] tracker ${tracker.trackerId} 没有 last_detected_beacons 数据`);
+  if (!tracker.used_beacons) {
+    console.log(`[Beacon检测] tracker ${tracker.trackerId} 没有 used_beacons 数据`);
     return true; // 临时改为 true，如果没有 beacon 数据就直接显示
   }
 
   const mapBeacons = props.config.beacons;
-  const trackerBeacons = tracker.last_detected_beacons;
+  const trackerBeacons = tracker.used_beacons;
 
   const result = trackerBeacons.some(trackerBeacon => {
     return mapBeacons.some(mapBeacon => {
@@ -439,11 +439,11 @@ const drawMap = (ctx) => {
 
    // --- Draw Trackers ---
    filteredTrackers.value.forEach(tracker => {
-       console.log(`[DEBUG] 处理tracker: ${tracker.trackerId}, position:`, tracker.position, ', radius:', tracker.radius, ', last_detected_beacons:', tracker.last_detected_beacons?.length);
-       if (tracker.position && tracker.position.x !== null && tracker.position.y !== null) {
+       console.log(`[DEBUG] 处理tracker: ${tracker.trackerId}, info:`, tracker);
+       if (tracker && tracker.x !== null && tracker.y !== null && tracker.type === "calculation") {
            // 精确定位绘制
-           const trackerX = (tracker.position.x - minX) * currentScale;
-           const trackerY = (tracker.position.y - minY) * currentScale;
+           const trackerX = (tracker.x - minX) * currentScale;
+           const trackerY = (tracker.y - minY) * currentScale;
 
            // Draw tracker circle with transparency
            ctx.beginPath();
@@ -482,9 +482,9 @@ const drawMap = (ctx) => {
 
            console.log(`tracker(${tracker.trackerId}) 绘制成功`)
          return
-       } else if (tracker.radius && tracker.last_detected_beacons && tracker.last_detected_beacons.length > 0) {
+       } else if (tracker.radius && tracker.used_beacons && tracker.used_beacons.length > 0) {
            // 区域定位绘制
-           const beacon = tracker.last_detected_beacons[0]; // 使用第一个检测到的beacon
+           const beacon = tracker.used_beacons[0]; // 使用第一个检测到的beacon
            if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
              const centerX = (beacon.configured_x - minX) * currentScale;
              const centerY = (beacon.configured_y - minY) * currentScale;

@@ -34,7 +34,7 @@ def do(report: TrackerReport) -> TrackerState:
             return TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 last_detected_beacons=[],
                 map="",
                 sos=report.sos,
@@ -48,7 +48,7 @@ def do(report: TrackerReport) -> TrackerState:
             return TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_UNKNOWN,
@@ -59,7 +59,7 @@ def do(report: TrackerReport) -> TrackerState:
             return TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_UNKNOWN,
@@ -106,7 +106,7 @@ def do(report: TrackerReport) -> TrackerState:
             return TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
@@ -122,7 +122,7 @@ def do(report: TrackerReport) -> TrackerState:
             return TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
@@ -143,7 +143,7 @@ def do(report: TrackerReport) -> TrackerState:
             return TrackerState(
                 trackerId=report.trackerId,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 sos=report.sos,
                 battery=report.battery,
                 type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
@@ -172,7 +172,7 @@ def do(report: TrackerReport) -> TrackerState:
                 return TrackerState(
                     trackerId=report.trackerId,
                     last_update_time=current_time_ms,
-                    last_known_measurement_time=report.timestamp,
+                    timestamp=report.timestamp,
                     sos=report.sos,
                     battery=report.battery,
                     type=message_constant.TRACKER_STATE_TYPE_BLE_FAILED,
@@ -188,7 +188,7 @@ def do(report: TrackerReport) -> TrackerState:
             new_state = TrackerState(
                 trackerId=tracker_id,
                 last_update_time=current_time_ms,
-                last_known_measurement_time=report.timestamp,
+                timestamp=report.timestamp,
                 last_detected_beacons=report.detectedBeacons,
                 x=beacon_config.x,
                 y=beacon_config.y,
@@ -253,7 +253,7 @@ def do(report: TrackerReport) -> TrackerState:
             x=filtered_position[0] if filtered_position else (last_state.x if last_state else None),
             y=filtered_position[1] if filtered_position else (last_state.y if last_state else None),
             last_update_time=current_time_ms,
-            last_known_measurement_time=report.timestamp,
+            timestamp=report.timestamp,
             last_detected_beacons=report.detectedBeacons,
             used_beacons=[
                 DetectedBeacon(

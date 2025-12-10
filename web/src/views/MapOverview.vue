@@ -375,20 +375,24 @@ const connectWebSocket = () => {
           const trackerInstanceData = {
             trackerId: newTrackerData.trackerId,
             device_name: newTrackerData.device_name,
-            position: newTrackerData.position ? {
-              x: newTrackerData.position.x,
-              y: newTrackerData.position.y,
-              accuracy: newTrackerData.position.accuracy
-            } : null,
+            x: newTrackerData.position.x,
+            y: newTrackerData.position.y,
+            // position: newTrackerData.position ? {
+            //   x: newTrackerData.position.x,
+            //   y: newTrackerData.position.y,
+            //   accuracy: newTrackerData.position.accuracy
+            // } : null,
             timestamp: newTrackerData.timestamp,
             sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
             sos_happen: newTrackerData.sos_happen,
             last_detected_beacons: newTrackerData.last_detected_beacons
               ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
               : [],
+            used_beacons: newTrackerData.last_detected_beacons,
             position_history: newTrackerData.position_history
               ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry)
               : [],
+            type: "calculation",
             map: newTrackerData.map
           };
 
@@ -397,7 +401,7 @@ const connectWebSocket = () => {
           } else {
             trackers.value[updatedTrackerId] = trackerInstanceData;
           }
-          
+
           // 更新tracker统计
           totalTrackers.value = Object.keys(trackers.value).length;
         }
@@ -414,9 +418,10 @@ const connectWebSocket = () => {
             timestamp: newTrackerData.timestamp,
             sos: newTrackerData.sos !== undefined ? newTrackerData.sos : 2,
             sos_happen: newTrackerData.sos_happen,
-            last_detected_beacons: newTrackerData.last_detected_beacons
+            used_beacons: newTrackerData.last_detected_beacons
               ? newTrackerData.last_detected_beacons.map(b => ({ ...b }))
               : [],
+            type: "approximate",
             map: newTrackerData.map
           };
 
@@ -427,7 +432,7 @@ const connectWebSocket = () => {
           } else {
             trackers.value[updatedTrackerId] = trackerInstanceData;
           }
-          
+
           // 更新tracker统计
           totalTrackers.value = Object.keys(trackers.value).length;
         }
