@@ -524,10 +524,21 @@
       "changeTitle": "修改密码",
       "changing": "修改中...",
       "changed": "密码修改成功",
-      "successMessage": "您的密码已成功更新"
+      "successMessage": "您的密码已成功更新",
+      "errors": {
+        "currentRequired": "请输入当前密码",
+        "newRequired": "请输入新密码",
+        "minLength": "密码长度至少为6个字符",
+        "mustBeDifferent": "新密码必须与当前密码不同",
+        "confirmRequired": "请确认新密码",
+        "passwordsNotMatch": "两次输入的密码不一致",
+        "currentIncorrect": "当前密码不正确",
+        "changeFailed": "修改密码失败: {error}"
+      }
     },
     "messages": {
       "confirmExitCreating": "您正在创建新地图 \"{name}\"，退出编辑模式将丢失未保存的更改。是否确认退出？",
+      "confirmSwitchTab": "当前有未保存的修改，切换标签后这些修改将丢失。确定要切换吗？",
       "confirmDeleteMap": "确定要删除地图 \"{name}\" 吗？",
       "confirmDeleteMapWarning": "此操作将删除该地图及其所有信标配置，且不可恢复。",
       "confirmCancelNewMap": "确定要取消创建新地图 \"{name}\" 吗？",

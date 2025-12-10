@@ -20,9 +20,9 @@
       </div>
       <!-- More general settings can be added here -->
       <div class="form-actions">
-        <button type="submit" class="action-btn primary-btn">
-          <i class="fas fa-check"></i> {{ t('config.generalSettings.applySettings') }}
-        </button>
+<!--        <button type="submit" class="action-btn primary-btn">-->
+<!--          <i class="fas fa-check"></i> {{ t('config.generalSettings.applySettings') }}-->
+<!--        </button>-->
         <button type="button" @click="resetToOriginals" class="action-btn secondary-btn">
           <i class="fas fa-undo"></i> {{ t('config.generalSettings.resetSettings') }}
         </button>

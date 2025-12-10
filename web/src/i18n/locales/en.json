@@ -524,10 +524,21 @@
       "changeTitle": "Change Password",
       "changing": "Changing...",
       "changed": "Password changed successfully",
-      "successMessage": "Your password has been successfully updated"
+      "successMessage": "Your password has been successfully updated",
+      "errors": {
+        "currentRequired": "Current password is required",
+        "newRequired": "New password is required",
+        "minLength": "Password must be at least 6 characters long",
+        "mustBeDifferent": "New password must be different from current password",
+        "confirmRequired": "Please confirm your new password",
+        "passwordsNotMatch": "Passwords do not match",
+        "currentIncorrect": "Current password is incorrect",
+        "changeFailed": "Failed to change password: {error}"
+      }
     },
     "messages": {
       "confirmExitCreating": "You are creating a new map \"{name}\". Exiting edit mode will lose unsaved changes. Are you sure you want to exit?",
+      "confirmSwitchTab": "You have unsaved changes. Switching tabs will lose these changes. Are you sure you want to switch?",
       "confirmDeleteMap": "Are you sure you want to delete map \"{name}\"?",
       "confirmDeleteMapWarning": "This operation will delete the map and all its beacon configurations, and cannot be undone.",
       "confirmCancelNewMap": "Are you sure you want to cancel creating new map \"{name}\"?",

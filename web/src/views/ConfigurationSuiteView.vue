@@ -34,21 +34,21 @@
     <!-- 配置项切换标签 -->
     <div class="config-tabs-navigation">
       <button 
-        @click="activeMainTab = 'map-beacon'" 
+        @click="handleMainTabChange('map-beacon')" 
         :class="{ active: activeMainTab === 'map-beacon' }"
         class="config-tab-button"
       >
         <i class="fas fa-map-marked-alt"></i> {{ t('config.management.mapBeaconConfig') }}
       </button>
       <button 
-        @click="activeMainTab = 'tracker'" 
+        @click="handleMainTabChange('tracker')" 
         :class="{ active: activeMainTab === 'tracker' }"
         class="config-tab-button"
       >
         <i class="fas fa-satellite-dish"></i> {{ t('config.management.trackerConfig') }}
       </button>
       <button 
-        @click="activeMainTab = 'alarm'" 
+        @click="handleMainTabChange('alarm')" 
         :class="{ active: activeMainTab === 'alarm' }"
         class="config-tab-button"
       >
@@ -1150,6 +1150,10 @@ const selectedBeaconForPlacement = ref(null);
 const isEditMode = ref(false);
 // 是否有未保存的更改（beacon或设置）
 const hasUnsavedChanges = ref(false);
+// 保存原始配置用于取消操作
+const originalConfiguration = ref(null);
+// 保存原始地图配置对象用于取消操作
+const originalMapConfig = ref(null);
 
 // 新地图创建相关
 const showNewMapModal = ref(false);
@@ -1311,15 +1315,16 @@ const onlineTrackersCount = computed(() => {
 
 // 密码表单验证计算属性
 const isPasswordFormValid = computed(() => {
-  return passwordForm.value.currentPassword.trim() !== '' &&
-         passwordForm.value.newPassword.trim() !== '' &&
-         passwordForm.value.confirmPassword.trim() !== '' &&
-         passwordForm.value.newPassword === passwordForm.value.confirmPassword &&
-         passwordForm.value.newPassword.length >= 6 &&
-         passwordForm.value.currentPassword !== passwordForm.value.newPassword &&
-         !passwordErrors.value.currentPassword &&
-         !passwordErrors.value.newPassword &&
-         !passwordErrors.value.confirmPassword;
+  const current = passwordForm.value.currentPassword.trim();
+  const newPwd = passwordForm.value.newPassword.trim();
+  const confirm = passwordForm.value.confirmPassword.trim();
+  
+  return current !== '' &&
+         newPwd !== '' &&
+         confirm !== '' &&
+         newPwd === confirm &&
+         newPwd.length >= 6 &&
+         current !== newPwd;
 });
 
 
@@ -2466,14 +2471,29 @@ const toggleEditMode = () => {
       beacons: [],
       settings: { signalPropagationFactor: 2.5 }
     };
+    // 清除原始配置
+    originalConfiguration.value = null;
+    originalMapConfig.value = null;
     return;
   }
   
   isEditMode.value = !isEditMode.value;
   
   if (isEditMode.value) {
+    // 进入编辑模式时，保存原始配置
+    if (selectedMapConfig.value && !selectedMapConfig.value.isNewMap) {
+      const currentIndex = selectedMapIndex.value;
+      originalConfiguration.value = JSON.parse(JSON.stringify(currentConfiguration.value));
+      // 同时保存整个地图配置对象
+      if (currentIndex >= 0 && currentIndex < availableMaps.value.length) {
+        originalMapConfig.value = JSON.parse(JSON.stringify(availableMaps.value[currentIndex]));
+      }
+    }
     notificationService.info(t('config.status.editModeEnabled'));
   } else {
+    // 退出编辑模式时，清除原始配置（如果用户主动退出，说明不需要恢复）
+    originalConfiguration.value = null;
+    originalMapConfig.value = null;
     notificationService.info(t('config.status.editModeDisabled'));
   }
 };
@@ -2523,7 +2543,7 @@ const deleteCurrentMap = async () => {
 const cancelAllChanges = () => {
   if (isCreatingNewMap.value) {
     // 取消创建新地图
-    notificationService.warning(t('server.messages.confirmCancelNewMap', { name: tempMapName.value }) + ' ' + t('server.messages.confirmCancelNewMapWarning'));
+    // notificationService.warning(t('server.messages.confirmCancelNewMap', { name: tempMapName.value }) + ' ' + t('server.messages.confirmCancelNewMapWarning'));
     
     // 重置创建状态
     isCreatingNewMap.value = false;
@@ -2538,20 +2558,48 @@ const cancelAllChanges = () => {
       beacons: [],
       settings: { signalPropagationFactor: 2.5 }
     };
-    
-    notificationService.info(t('config.status.newMapCancelled'));
+
   } else if (isEditMode.value || hasUnsavedChanges.value) {
     // 取消编辑或beacon更改
     // notificationService.warning(t('server.messages.confirmCancelChanges') + ' ' + t('server.messages.confirmCancelChangesWarning'));
     
+    // 如果有保存的原始配置，恢复它
+    if (originalConfiguration.value && originalMapConfig.value) {
+      const currentIndex = selectedMapIndex.value;
+      // 恢复当前配置
+      currentConfiguration.value = JSON.parse(JSON.stringify(originalConfiguration.value));
+      // 恢复地图配置对象到availableMaps
+      if (currentIndex >= 0 && currentIndex < availableMaps.value.length) {
+        availableMaps.value[currentIndex] = JSON.parse(JSON.stringify(originalMapConfig.value));
+      }
+      // 通知子组件更新
+      nextTick(() => {
+        if (beaconManagerTabRef.value?.loadConfiguredBeacons) {
+          beaconManagerTabRef.value.loadConfiguredBeacons(currentConfiguration.value.beacons);
+        }
+        if (mapEditorTabRef.value?.loadConfiguration) {
+          mapEditorTabRef.value.loadConfiguration(currentConfiguration.value);
+        }
+        if (generalSettingsTabRef.value?.loadSettings) {
+          generalSettingsTabRef.value.loadSettings(currentConfiguration.value.settings);
+        }
+        // 加载地图背景图
+        loadMapPreviewBackgroundImage();
+      });
+      // 清除原始配置
+      originalConfiguration.value = null;
+      originalMapConfig.value = null;
+    } else {
+      // 如果没有原始配置，使用updateCurrentConfiguration重新加载
+      if (selectedMapConfig.value && !selectedMapConfig.value.isNewMap) {
+        updateCurrentConfiguration();
+      }
+    }
+    
     // 重置编辑状态
     isEditMode.value = false;
     hasUnsavedChanges.value = false;
-    
-    // 重新加载当前地图配置
-    if (selectedMapConfig.value && !selectedMapConfig.value.isNewMap) {
-      updateCurrentConfiguration();
-    }
+    isCreatingNewMap.value = false
     
     notificationService.info(t('config.status.changesCancelled'));
   }
@@ -2708,6 +2756,9 @@ const saveChanges = async () => {
     // 保存成功后退出编辑模式并清除未保存标记
     isEditMode.value = false;
     hasUnsavedChanges.value = false;
+    // 清除原始配置（因为已经保存，不需要恢复了）
+    originalConfiguration.value = null;
+    originalMapConfig.value = null;
     
     // if (wasCreatingNewMap) {
     //   notificationService.success(t('config.actions.mapCreated', { name: mapNameForDisplay }) + ' ' + t('config.actions.saveSuccess'));
@@ -2868,8 +2919,83 @@ onMounted(async () => {
   ]);
 });
 
+// 处理主标签切换，检查是否有未保存的更改
+const handleMainTabChange = (newTab) => {
+  // 如果切换到相同的标签，直接返回
+  if (activeMainTab.value === newTab) {
+    return;
+  }
+  
+  // 检查是否有未保存的更改
+  const hasUnsavedChangesInMapBeacon = isEditMode.value || hasUnsavedChanges.value;
+  const hasUnsavedChangesInTracker = isServerConfigEditMode.value;
+  
+  // 如果当前在"地图与信标"或"App Configuration"标签下，且有未保存的更改
+  if ((activeMainTab.value === 'map-beacon' && hasUnsavedChangesInMapBeacon) ||
+      (activeMainTab.value === 'tracker' && hasUnsavedChangesInTracker)) {
+    // 显示确认对话框
+    const confirmMessage = t('server.messages.confirmSwitchTab') || 
+      '当前有未保存的修改，切换标签后这些修改将丢失。确定要切换吗？';
+    const userConfirmed = window.confirm(confirmMessage);
+    
+    if (!userConfirmed) {
+      // 用户取消，不切换标签
+      return;
+    }
+  }
+  
+  // 用户确认或没有未保存的更改，执行切换
+  activeMainTab.value = newTab;
+};
+
 // 监听主标签变化，切换到tracker标签时加载数据
-watch(() => activeMainTab.value, async (newTab) => {
+watch(() => activeMainTab.value, async (newTab, oldTab) => {
+  // 当切换主标签时，退出所有编辑模式并恢复原始数据
+  if (oldTab !== undefined && newTab !== oldTab) {
+    selectedMapIndex.value = '';
+    // 退出地图与信标标签的编辑模式并恢复原始配置
+    if (isEditMode.value || isCreatingNewMap.value) {
+      // 如果有保存的原始配置，恢复它
+      if (originalConfiguration.value && originalMapConfig.value) {
+        const currentIndex = selectedMapIndex.value;
+        // 恢复当前配置
+        currentConfiguration.value = JSON.parse(JSON.stringify(originalConfiguration.value));
+        // 恢复地图配置对象到availableMaps
+        if (currentIndex >= 0 && currentIndex < availableMaps.value.length) {
+          availableMaps.value[currentIndex] = JSON.parse(JSON.stringify(originalMapConfig.value));
+        }
+        // 通知子组件更新
+        nextTick(() => {
+          if (beaconManagerTabRef.value?.loadConfiguredBeacons) {
+            beaconManagerTabRef.value.loadConfiguredBeacons(currentConfiguration.value.beacons);
+          }
+          if (mapEditorTabRef.value?.loadConfiguration) {
+            mapEditorTabRef.value.loadConfiguration(currentConfiguration.value);
+          }
+          if (generalSettingsTabRef.value?.loadSettings) {
+            generalSettingsTabRef.value.loadSettings(currentConfiguration.value.settings);
+          }
+          // 加载地图背景图
+          loadMapPreviewBackgroundImage();
+        });
+        // 清除原始配置
+        originalConfiguration.value = null;
+        originalMapConfig.value = null;
+      } else {
+        // 如果没有原始配置，使用updateCurrentConfiguration重新加载
+        updateCurrentConfiguration();
+      }
+      isEditMode.value = false;
+      isCreatingNewMap.value = false;
+    }
+    // 退出App Configuration标签的编辑模式并恢复原始配置
+    if (isServerConfigEditMode.value) {
+      // 调用cancelEditMode来恢复原始配置
+      cancelEditMode();
+    }
+  }
+  
+  // 切换到tracker标签时加载数据
   if (newTab === 'tracker') {
     if (!serverConfig.value) {
       await loadServerConfig(); // 如果还没加载服务器配置，则加载（会自动同步 allowTrackerList）
@@ -3875,28 +4001,28 @@ const validatePasswordForm = () => {
 
   // 验证当前密码
   if (!passwordForm.value.currentPassword.trim()) {
-    passwordErrors.value.currentPassword = 'Current password is required';
+    passwordErrors.value.currentPassword = t('server.password.errors.currentRequired');
     isValid = false;
   }
 
   // 验证新密码
   if (!passwordForm.value.newPassword.trim()) {
-    passwordErrors.value.newPassword = 'New password is required';
+    passwordErrors.value.newPassword = t('server.password.errors.newRequired');
     isValid = false;
   } else if (passwordForm.value.newPassword.length < 6) {
-    passwordErrors.value.newPassword = 'Password must be at least 6 characters long';
+    passwordErrors.value.newPassword = t('server.password.errors.minLength');
     isValid = false;
   } else if (passwordForm.value.newPassword === passwordForm.value.currentPassword) {
-    passwordErrors.value.newPassword = 'New password must be different from current password';
+    passwordErrors.value.newPassword = t('server.password.errors.mustBeDifferent');
     isValid = false;
   }
 
   // 验证确认密码
   if (!passwordForm.value.confirmPassword.trim()) {
-    passwordErrors.value.confirmPassword = 'Please confirm your new password';
+    passwordErrors.value.confirmPassword = t('server.password.errors.confirmRequired');
     isValid = false;
   } else if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    passwordErrors.value.confirmPassword = 'Passwords do not match';
+    passwordErrors.value.confirmPassword = t('server.password.errors.passwordsNotMatch');
     isValid = false;
   }
 
@@ -3929,17 +4055,16 @@ const changePassword = async () => {
     notificationService.success(t('server.password.changed'));
     
   } catch (error) {
-    console.error('修改密码失败:', error);
-    
+    // console.error('修改密码失败:', error);
     // 根据错误类型设置具体的错误信息
     if (error.message.includes('Current password is incorrect')) {
-      passwordErrors.value.currentPassword = 'Current password is incorrect';
+      passwordErrors.value.currentPassword = t('server.password.errors.currentIncorrect');
     } else if (error.message.includes('New password must be different')) {
-      passwordErrors.value.newPassword = 'New password must be different from current password';
+      passwordErrors.value.newPassword = t('server.password.errors.mustBeDifferent');
     } else if (error.message.includes('at least 6 characters')) {
-      passwordErrors.value.newPassword = 'Password must be at least 6 characters long';
+      passwordErrors.value.newPassword = t('server.password.errors.minLength');
     } else {
-      passwordErrors.value.currentPassword = `Failed to change password: ${error.message}`;
+      passwordErrors.value.currentPassword = t('server.password.errors.changeFailed', { error: error.message });
     }
   } finally {
     isChangingPassword.value = false;
