@@ -122,7 +122,7 @@ export function getWsBaseUrl() {
   //   }
   // }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.hostname}:5173`
+  return `${protocol}//${window.location.host}`
 }
 
 /**

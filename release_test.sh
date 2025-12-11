@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=0.3.13-test
+version=0.3.16-test
 
 rm -rf ./web/dist/
 
