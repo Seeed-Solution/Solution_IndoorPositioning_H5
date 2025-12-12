@@ -190,3 +190,25 @@ apt install python3.10-venv
 
 虚拟环境下安装 uvicorn
 pip install uvicorn[standard]
+
+## 代码维护
+
+### 未使用文件分析
+
+项目包含一个自动分析工具，用于识别未使用的文件。分析报告位于 `web/UNUSED_FILES_REPORT.md`。
+
+**运行分析：**
+```bash
+cd web
+node analyze_unused_files_v2.js
+```
+
+**当前发现的未使用文件（8个）：**
+- `src/components/HelloWorld.vue` - Vue 示例组件
+- `src/services/localPositioningService.js` - 个人模式定位服务（功能未启用）
+- `src/services/dashboardService.js` - 仪表板服务
+- `src/utils/platformUtils.js` - 平台兼容工具
+- `src/assets/9-a.png`, `9-b.png`, `beacon_icon.svg` - 未使用的资源文件
+- `public/canvas-test.html`, `generate-high-res-map.html` - 开发工具页面
+
+详细说明和删除建议请查看 `web/UNUSED_FILES_REPORT.md`。

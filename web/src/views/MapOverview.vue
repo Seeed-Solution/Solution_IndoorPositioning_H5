@@ -97,7 +97,7 @@
     </div>
 
     <!-- 全屏模式 -->
-    <div v-if="isFullscreen" class="fullscreen-overlay">
+    <div v-show="isFullscreen" class="fullscreen-overlay">
       <div class="fullscreen-container">
         <!-- 右上角关闭按钮 -->
         <button @click="exitFullscreen" class="btn-close-floating" :title="$t('mapOverview.exitFullscreen')">

@@ -167,7 +167,6 @@ const filteredTrackers = computed(() => {
             return false;
         }
     });
-    console.log("当前地图设备", result)
     return result;
 });
 
