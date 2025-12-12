@@ -708,6 +708,23 @@
                 "signalPropagationFactor": 2.5
             },
             "is_darwin": false
+        },
+        {
+            "map": {
+                "name": "111",
+                "width": 33.0,
+                "height": 32.95,
+                "minX": 0.0,
+                "maxX": 33.0,
+                "minY": 0.0,
+                "maxY": 32.95,
+                "background": "/uploads/111_818408.png"
+            },
+            "beacons": [],
+            "settings": {
+                "signalPropagationFactor": 2.5
+            },
+            "is_darwin": false
         }
     ]
 }

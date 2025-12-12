@@ -97,7 +97,7 @@
     </div>
 
     <!-- 全屏模式 -->
-    <div v-show="isFullscreen" class="fullscreen-overlay">
+    <div v-if="isFullscreen" class="fullscreen-overlay">
       <div class="fullscreen-container">
         <!-- 右上角关闭按钮 -->
         <button @click="exitFullscreen" class="btn-close-floating" :title="$t('mapOverview.exitFullscreen')">
@@ -149,6 +149,7 @@
             <div class="fullscreen-map-display">
               <MapPreview 
                 v-if="selectedMap"
+                ref="fullscreenMapPreviewRef"
                 :config="selectedMap"
                 :trackers="getTrackersForMap(selectedMap)"
                 :initialShowTrails="false"
@@ -167,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { 
@@ -196,6 +197,7 @@ const statusMessage = ref('')
 
 // 全屏模式状态
 const isFullscreen = ref(false)
+const fullscreenMapPreviewRef = ref(null)
 
 // 地图配置数据
 const availableMaps = ref([])
@@ -478,10 +480,19 @@ const toggleTrails = () => {
   // 这里后续会添加轨迹显示/隐藏的逻辑
 }
 
-const toggleFullscreen = () => {
+const toggleFullscreen = async () => {
   isFullscreen.value = true
   // 阻止body滚动
   document.body.style.overflow = 'hidden'
+  
+  // 等待 Vue 完成 DOM 更新
+  await nextTick()
+  
+  // 等待 MapPreview 组件初始化完成（包括布局计算）
+  if (fullscreenMapPreviewRef.value && typeof fullscreenMapPreviewRef.value.waitForReady === 'function') {
+    await fullscreenMapPreviewRef.value.waitForReady()
+  }
+  
   console.log('Entered fullscreen mode')
 }
 

@@ -593,6 +593,38 @@ const loadMapBackgroundImage = () => {
 
 let resizeHandler;
 
+// 等待组件初始化完成的方法（用于父组件等待布局计算完成）
+const waitForReady = async () => {
+  // 等待 Vue DOM 更新
+  await nextTick();
+  
+  // 等待浏览器布局计算完成（使用双重 requestAnimationFrame 确保布局计算完成）
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // 强制触发布局计算，确保容器尺寸已计算
+        const mapContainer = mapCanvas.value?.parentElement;
+        if (mapContainer) {
+          void mapContainer.offsetHeight; // 强制 reflow
+        }
+        resolve();
+      });
+    });
+  });
+  
+  // 确保 updateCanvasSize 能获取到正确的容器尺寸
+  updateCanvasSize();
+  
+  // 再次等待布局计算完成，确保 canvas 尺寸已更新
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+};
+
 onMounted(async () => {
   // 加载地图背景图
   loadMapBackgroundImage();
@@ -600,7 +632,9 @@ onMounted(async () => {
   // 预加载 tracker 数据
   await preloadTrackers();
 
-  updateCanvasSize();
+  // 等待布局计算完成后再更新 canvas 尺寸
+  await waitForReady();
+  
   const ctx = mapCanvas.value?.getContext('2d');
   if (ctx) {
     drawMap(ctx);
@@ -646,7 +680,8 @@ watch([() => props.config, () => props.trackers, mergedTrackers, localShowTrails
 
 // 暴露方法给父组件使用
 defineExpose({
-  isTrackerInCurrentMap
+  isTrackerInCurrentMap,
+  waitForReady
 });
 
 </script>
