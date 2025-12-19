@@ -2612,6 +2612,13 @@ const saveChanges = async () => {
   const hadUnsavedChanges = hasUnsavedChanges.value;
   const mapNameForDisplay = currentConfiguration.value.map?.name || '';
   
+  // 在保存前，先从子组件获取最新的设置值（确保获取到用户最新输入的值）
+  if (generalSettingsTabRef.value?.getCurrentSettings) {
+    const latestSettings = generalSettingsTabRef.value.getCurrentSettings();
+    currentConfiguration.value.settings = latestSettings;
+    console.log('从 GeneralSettingsTab 获取最新设置值:', latestSettings);
+  }
+  
   // 检查是否在创建新地图
   if (wasCreatingNewMap) {
     // 验证新地图配置

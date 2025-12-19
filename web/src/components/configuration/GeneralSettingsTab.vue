@@ -88,13 +88,18 @@ const saveSettings = () => {
 };
 
 const resetToOriginals = () => {
-    // Reload from the prop, effectively resetting any local changes
-    loadSettings(props.initialSettings);
+    // Reset to default value 2.5 instead of props value
+    editableSettings.value = { signalPropagationFactor: 2.5 };
     notificationService.success(t('config.generalSettings.settingsReset'));
 }
 
+// Get current settings (for parent component to read latest values)
+const getCurrentSettings = () => {
+  return JSON.parse(JSON.stringify(editableSettings.value));
+};
+
 // Expose method to parent component
-defineExpose({ loadSettings });
+defineExpose({ loadSettings, getCurrentSettings });
 
 </script>
 
