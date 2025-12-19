@@ -10,6 +10,10 @@
         <router-link to="/config" class="nav-link">{{ $t('nav.mapBeaconConfig') }}</router-link>
       </div>
       <div class="nav-right">
+        <div v-if="currentUsername" class="username-display">
+          <i class="fas fa-user"></i>
+          <span class="username-text">{{ currentUsername }}</span>
+        </div>
         <LanguageSwitcher />
         <button @click="handleLogout" class="logout-button" :title="$t('common.logout', '登出')">
           <i class="fas fa-sign-out-alt"></i>
@@ -25,17 +29,39 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import Toast from './components/Toast.vue'
 import { authService } from './services/authService.js'
+import { getCurrentUsername } from './services/userStore.js'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const isLoginPage = computed(() => route.path === '/login')
+
+// 当前用户名（从全局状态获取）
+const currentUsername = ref(getCurrentUsername())
+
+// 更新用户名的函数
+const updateUsername = () => {
+  currentUsername.value = getCurrentUsername()
+}
+
+// 监听路由变化，当路由变化时更新用户名（checkAuth 会在路由守卫中调用）
+watch(() => route.path, (newPath, oldPath) => {
+  // 延迟更新，确保路由守卫中的 checkAuth 已经执行完成
+  setTimeout(() => {
+    updateUsername()
+  }, 100)
+})
+
+// 组件挂载时也更新一次
+onMounted(() => {
+  updateUsername()
+})
 
 // 检测全屏模式的状态
 const isFullscreenMode = ref(false)
@@ -76,6 +102,8 @@ onUnmounted(() => {
 const handleLogout = async () => {
   try {
     const success = await authService.logout()
+    // logout 中已经清空了全局用户名，这里同步更新显示
+    currentUsername.value = getCurrentUsername()
     if (success) {
       router.push('/login')
     } else {
@@ -85,7 +113,8 @@ const handleLogout = async () => {
     }
   } catch (error) {
     console.error('Logout error:', error)
-    // 出错时也跳转到登录页面
+    // 出错时也清空并跳转到登录页面
+    currentUsername.value = getCurrentUsername()
     router.push('/login')
   }
 }
@@ -134,6 +163,37 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.username-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.username-display i {
+  color: var(--primary-color);
+  font-size: 0.9rem;
+}
+
+.username-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .username-text {
+    display: none;
+  }
+  
+  .username-display {
+    padding: 0.4rem 0.6rem;
+  }
 }
 
 .nav-link {
