@@ -65,6 +65,7 @@
     "backgroundImage": "背景图",
     "backgroundImageLabel": "背景图片",
     "clear": "清除",
+    "reSelectImage": "重新选择图片",
     "selectImageHint": "请选择本地图片文件（支持 JPG、PNG、GIF 等格式）",
     "selectImageRequired": "请从本地选择背景图片文件（必填）",
     "selectImageRequiredWithCrop": "请从本地选择背景图片文件（必填），选择后将自动打开裁剪页面",

@@ -65,6 +65,7 @@
     "backgroundImage": "Background Image",
     "backgroundImageLabel": "Background Image",
     "clear": "Clear",
+    "reSelectImage": "Re-select Image",
     "selectImageHint": "Please select a local image file (supports JPG, PNG, GIF, etc.)",
     "selectImageRequired": "Please select a background image file from local (required)",
     "selectImageRequiredWithCrop": "Please select a background image file from local (required), the crop page will open automatically after selection",

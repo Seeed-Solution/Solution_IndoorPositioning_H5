@@ -313,6 +313,7 @@
                 <div class="edit-item">
                   <label for="mapBackground">{{ t('config.backgroundImageLabel') }} <span class="required-indicator">*</span></label>
                   <input 
+                    v-if="!hasMapBackgroundUrl"
                     type="file" 
                     id="mapBackground"
                     accept="image/*"
@@ -320,19 +321,26 @@
                     @click="handleFileInputClick"
                     @change="handleEditBackgroundFileSelect"
                   />
-                  <div v-if="currentConfiguration.map?.background" class="background-preview">
-<!--                    <img :src="currentMapBackgroundUrl" alt="背景图预览" class="preview-image" />-->
-                    <button type="button" @click="clearEditBackgroundFile" class="clear-preview-btn">
-                      <i class="fas fa-times"></i> {{ t('config.clear') }}
-                    </button>
-                  </div>
-                  <div v-else class="file-input-hint">
+                  <input 
+                    v-else
+                    type="file" 
+                    id="mapBackground"
+                    accept="image/*"
+                    class="map-background-file-input"
+                    style="display: none;"
+                    @click="handleFileInputClick"
+                    @change="handleEditBackgroundFileSelect"
+                  />
+                  <button v-if="hasMapBackgroundUrl" type="button" @click="triggerFileSelect" class="btn-secondary">
+                      <i class="fas fa-upload"></i> {{ t('config.reSelectImage') || '重新选择图片' }}
+                  </button>
+                  <!-- <div v-else class="file-input-hint">
                     <i class="fas fa-image"></i>
                     <span>{{ t('config.selectImageHint') }}</span>
-                  </div>
-                  <div class="input-help-small">
+                  </div> -->
+                  <!-- <div class="input-help-small">
                     <span>{{ t('config.selectImageRequired') }}</span>
-                  </div>
+                  </div> -->
                 </div>
               </div>
             </div>
@@ -1197,6 +1205,8 @@ const cropperTitle = ref(null);
 const isCroppingForNewMap = ref(true); // true: 创建新地图, false: 编辑现有地图
 const editMapBackgroundFile = ref(null); // 编辑模式下的文件对象
 const mapNameInputRef = ref(null);
+// 防抖定时器，用于延迟触发裁剪器
+const editWidthHeightChangeDebounceTimer = ref(null);
 const isCreatingNewMap = ref(false); // 标识是否在创建新地图状态
 const tempMapName = ref(''); // 临时存储新地图名称
 const editingMapNameError = ref(''); // 编辑地图名称时的错误信息
@@ -1310,6 +1320,12 @@ const currentMapBackgroundUrl = computed(() => {
     return '';
   }
   return buildImageUrl(currentConfiguration.value.map.background);
+});
+
+// 判断是否存在地图背景图 URL（blob、相对路径或 http）
+const hasMapBackgroundUrl = computed(() => {
+  const background = currentConfiguration.value?.map?.background;
+  return background && background.trim() !== '';
 });
 
 const dashboardStats = computed(() => {
@@ -2037,6 +2053,14 @@ const clearEditBackgroundFile = () => {
   }
 };
 
+// 重新选择图片（触发文件选择框）
+const triggerFileSelect = () => {
+  const fileInput = document.getElementById('mapBackground');
+  if (fileInput) {
+    fileInput.click();
+  }
+};
+
 // 打开图片裁剪器
 const openImageCropper = (imageSrc, width, height, isForNewMap) => {
   cropperImageSrc.value = imageSrc;
@@ -2115,9 +2139,9 @@ const handleCropClose = () => {
   handleCropCancel();
 };
 
-// 处理编辑模式下的长宽变化
+// 处理编辑模式下的长宽变化（使用防抖延迟触发裁剪器）
 const handleEditWidthHeightChange = () => {
-  // 限制为两位小数
+  // 限制为两位小数（立即执行，不需要防抖）
   if (currentConfiguration.value.map) {
     if (typeof currentConfiguration.value.map.width === 'number' && !isNaN(currentConfiguration.value.map.width)) {
       currentConfiguration.value.map.width = Math.round(currentConfiguration.value.map.width * 100) / 100;
@@ -2127,22 +2151,53 @@ const handleEditWidthHeightChange = () => {
     }
   }
   
-  // 如果已选择文件且长宽都有效
-  if (editMapBackgroundFile.value && 
-      currentConfiguration.value.map &&
-      currentConfiguration.value.map.width > 0 && 
-      currentConfiguration.value.map.height > 0) {
-    // 如果裁剪器已经打开，更新比例；否则打开裁剪器
-    if (showImageCropper.value && !isCroppingForNewMap.value) {
-      // 更新比例
-      const newRatio = currentConfiguration.value.map.width / currentConfiguration.value.map.height;
-      cropperAspectRatio.value = newRatio;
-    } else if (!showImageCropper.value) {
-      // 打开裁剪器
-      const previewUrl = URL.createObjectURL(editMapBackgroundFile.value);
-      openImageCropper(previewUrl, currentConfiguration.value.map.width, currentConfiguration.value.map.height, false);
-    }
+  // 清除之前的防抖定时器
+  if (editWidthHeightChangeDebounceTimer.value) {
+    clearTimeout(editWidthHeightChangeDebounceTimer.value);
+    editWidthHeightChangeDebounceTimer.value = null;
   }
+  
+  // 使用防抖延迟执行打开裁剪器的逻辑
+  editWidthHeightChangeDebounceTimer.value = setTimeout(() => {
+    if (!currentConfiguration.value.map ||
+        currentConfiguration.value.map.width <= 0 || 
+        currentConfiguration.value.map.height <= 0) {
+      editWidthHeightChangeDebounceTimer.value = null;
+      return;
+    }
+    
+    // 检查是否有可用的图片源
+    let imageSrc = null;
+    
+    // 情况1：用户选择了新文件
+    if (editMapBackgroundFile.value) {
+      imageSrc = URL.createObjectURL(editMapBackgroundFile.value);
+    }
+    // 情况2：已有背景图（相对路径或 HTTP URL，不是 blob 或 data URL）
+    else if (currentConfiguration.value.map.background) {
+      const background = currentConfiguration.value.map.background;
+      // 如果不是 blob 或 data URL，说明是已保存的图片，可以使用
+      if (!background.startsWith('blob:') && !background.startsWith('data:')) {
+        imageSrc = buildImageUrl(background);
+      }
+    }
+    
+    // 如果有可用的图片源，打开或更新裁剪器
+    if (imageSrc) {
+      // 如果裁剪器已经打开，更新比例；否则打开裁剪器
+      if (showImageCropper.value && !isCroppingForNewMap.value) {
+        // 更新比例
+        const newRatio = currentConfiguration.value.map.width / currentConfiguration.value.map.height;
+        cropperAspectRatio.value = newRatio;
+      } else if (!showImageCropper.value) {
+        // 打开裁剪器
+        openImageCropper(imageSrc, currentConfiguration.value.map.width, currentConfiguration.value.map.height, false);
+      }
+    }
+    
+    // 清除定时器引用
+    editWidthHeightChangeDebounceTimer.value = null;
+  }, 600); // 延迟 600ms，等待用户停止输入
 };
 
 // 验证背景图（现在验证是否已完成裁剪）
@@ -3114,6 +3169,11 @@ onMounted(() => {
 onUnmounted(() => {
   if (trackerDataInterval) {
     clearInterval(trackerDataInterval);
+  }
+  // 清理防抖定时器
+  if (editWidthHeightChangeDebounceTimer.value) {
+    clearTimeout(editWidthHeightChangeDebounceTimer.value);
+    editWidthHeightChangeDebounceTimer.value = null;
   }
 });
 
