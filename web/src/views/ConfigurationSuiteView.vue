@@ -126,7 +126,7 @@
               >
                 {{ mapConfig.map?.name || `${t('tracker.unnamedMap')} ${index + 1}` }} 
                 ({{ mapConfig.beacons.length }} {{ t('tracker.beacons') }} | 
-                {{ mapConfig.map?.width?.toFixed(1) || 'N/A' }}×{{ mapConfig.map?.height?.toFixed(1) || 'N/A' }}m)
+                {{ Number(mapConfig.map?.width)?.toFixed(1) || 'N/A' }}×{{ Number(mapConfig.map?.height)?.toFixed(1) || 'N/A' }}m)
               </option>
             </select>
             

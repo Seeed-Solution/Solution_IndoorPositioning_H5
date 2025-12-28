@@ -21,7 +21,7 @@ async def do(topic: str, payload_bytes: bytes, source_type: str = "chirpstack"):
         return
 
     device_eui = report.trackerId
-    if not rt_cfg.allow_all_tracker and device_eui not in rt_cfg.allow_tracker_list:
+    if not rt_cfg.allow_all_tracker and device_eui not in rt_cfg.tracker_list:
         log.debug(f"the device: {device_eui} not in allow_list, ignore this message.")
         return
     try:
