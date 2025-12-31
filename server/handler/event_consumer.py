@@ -158,7 +158,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         f'the tracker: {state.trackerId} '
                         f'position-detection-event(id:{alarm_setting.id}) skip because of none ble-range')
                     return
-                if not state.used_beacons or len(state.used_beacons) == 0:
+                if not state.last_detected_beacons or len(state.last_detected_beacons) == 0:
                     log.info(
                         f'the tracker: {state.trackerId} position-detection-event'
                         f'(id:{alarm_setting.id}) skip because of none none detectedBeacons')
@@ -166,7 +166,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
 
                 leaving = True
                 for target in target_beacons:
-                    for beacon in state.used_beacons:
+                    for beacon in state.last_detected_beacons:
                         beacon_mac = beacon.macAddress.replace(":", "").upper()
                         if beacon_mac == target.replace(":", "").upper():
                             leaving = False
