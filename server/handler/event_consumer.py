@@ -100,7 +100,9 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                 if not state.used_beacons or len(state.used_beacons) == 0:
                     log.info(
                         f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) '
-                        f'skip because of none none used_beacons')
+                        f'RECOVER because of none none used_beacons')
+                    device_event_holder.delete_device_event_timestamp(dev_eui=state.trackerId,
+                                                                      event_id=alarm_setting.id)
                     return
 
                 closed_beacons = find_closest_beacon(target_beacons, state.used_beacons, alarm_setting.dis_range)

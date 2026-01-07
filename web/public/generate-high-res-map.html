@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高精度地图背景图生成器（从Entities绘制）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        input, select, textarea, button {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .preview-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+        }
+        .preview-canvas {
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            max-width: 100%;
+            display: block;
+            margin: 20px auto;
+            background: #f9f9f9;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .info h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        .info ul {
+            margin-left: 20px;
+            color: #555;
+        }
+        .info li {
+            margin-bottom: 5px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #f44336;
+        }
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #2196f3;
+        }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-input-label {
+            display: block;
+            padding: 10px;
+            background: #f5f5f5;
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .file-input-label:hover {
+            background: #e8e8e8;
+            border-color: #667eea;
+        }
+        .map-info {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .map-info-item {
+            margin: 5px 0;
+            color: #555;
+        }
+        @media (max-width: 768px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 高精度地图背景图生成器</h1>
+        <p class="subtitle">从 dashboard_config.json.bk 读取 entities 并生成高分辨率背景图</p>
+        
+        <div class="info">
+            <h3>使用说明</h3>
+            <ul>
+                <li>选择或上传 <code>dashboard_config.json.bk</code> 文件</li>
+                <li>选择要生成的地图（如果有多个）</li>
+                <li>系统会自动计算合适的分辨率以达到约5M的文件大小</li>
+                <li>保持地图原始长宽比，样式与 MapView.vue.bk 一致</li>
+                <li>点击"生成高精度背景图"按钮，等待处理完成</li>
+                <li>右键点击预览图选择"图片另存为"保存高精度图片</li>
+            </ul>
+        </div>
+
+        <div class="form-group">
+            <label>选择配置文件：</label>
+            <div class="file-input-wrapper">
+                <input type="file" id="configFile" accept=".json,.bk" />
+                <label for="configFile" class="file-input-label">
+                    <span id="fileLabel">点击选择 dashboard_config.json.bk 文件</span>
+                </label>
+            </div>
+        </div>
+
+        <div id="mapSelection" class="form-group" style="display: none;">
+            <label>选择地图：</label>
+            <select id="mapSelect"></select>
+            <div id="mapInfo" class="map-info" style="display: none;">
+                <div class="map-info-item"><strong>地图名称：</strong><span id="mapName"></span></div>
+                <div class="map-info-item"><strong>尺寸：</strong><span id="mapSize"></span></div>
+                <div class="map-info-item"><strong>Entities数量：</strong><span id="entitiesCount"></span></div>
+                <div class="map-info-item"><strong>长宽比：</strong><span id="aspectRatio"></span></div>
+            </div>
+        </div>
+
+        <div class="settings-grid">
+            <div>
+                <label>目标文件大小（MB）：</label>
+                <input type="number" id="targetSize" value="5" min="1" max="20" step="0.5">
+                <small style="color: #666;">系统会自动计算合适的分辨率</small>
+            </div>
+            <div>
+                <label>白底边缘宽度（像素）：</label>
+                <input type="number" id="padding" value="0" min="0" max="500" step="10">
+                <small style="color: #666;">地图四周的白底边距，0表示无边缘</small>
+            </div>
+        </div>
+
+        <div class="settings-grid">
+            <div>
+                <label>线条宽度（像素）：</label>
+                <input type="number" id="lineWidth" value="1" min="0.5" max="5" step="0.5">
+                <small style="color: #666;">基础线条宽度，会根据分辨率自动缩放</small>
+            </div>
+            <div>
+                <label>线条颜色：</label>
+                <input type="color" id="lineColor" value="#333333">
+                <small style="color: #666;">默认 #333333，与MapView.vue.bk一致</small>
+            </div>
+        </div>
+
+        <button id="generateBtn" onclick="generateHighResMap()">🎨 生成高精度背景图</button>
+        
+        <div id="status" class="status"></div>
+
+        <div id="previewSection" class="preview-section" style="display: none;">
+            <h3>预览（右键点击图片可保存）</h3>
+            <div style="text-align: center; margin-bottom: 10px;">
+                <span id="resolutionInfo" style="color: #666;"></span>
+            </div>
+            <canvas id="previewCanvas" class="preview-canvas"></canvas>
+            <div style="text-align: center; margin-top: 10px;">
+                <button onclick="downloadImage()" style="width: auto; display: inline-block; margin: 0 10px;">💾 下载图片</button>
+                <button onclick="copyImageToClipboard()" style="width: auto; display: inline-block; margin: 0 10px; background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);">📋 复制到剪贴板</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let configData = null;
+        let generatedImageData = null;
+        let currentMapData = null;
+        let calculatedResolution = null;
+
+        // 文件选择处理
+        document.getElementById('configFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileLabel').textContent = `已选择: ${file.name}`;
+            showStatus('正在读取配置文件...', 'info');
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    configData = JSON.parse(event.target.result);
+                    
+                    if (!configData.maps || !Array.isArray(configData.maps) || configData.maps.length === 0) {
+                        throw new Error('配置文件中没有找到 maps 数组');
+                    }
+
+                    // 填充地图选择下拉框
+                    const mapSelect = document.getElementById('mapSelect');
+                    mapSelect.innerHTML = '';
+                    configData.maps.forEach((map, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = map.map?.name || `地图 ${index + 1}`;
+                        mapSelect.appendChild(option);
+                    });
+
+                    document.getElementById('mapSelection').style.display = 'block';
+                    updateMapInfo(0);
+                    showStatus(`✅ 成功加载 ${configData.maps.length} 个地图`, 'success');
+                } catch (error) {
+                    showStatus(`❌ 读取配置文件失败: ${error.message}`, 'error');
+                    console.error('Parse error:', error);
+                }
+            };
+            reader.onerror = function() {
+                showStatus('❌ 读取文件失败', 'error');
+            };
+            reader.readAsText(file);
+        });
+
+        // 地图选择变化
+        document.getElementById('mapSelect').addEventListener('change', function(e) {
+            updateMapInfo(parseInt(e.target.value));
+        });
+
+        function updateMapInfo(mapIndex) {
+            if (!configData || !configData.maps[mapIndex]) return;
+
+            const mapData = configData.maps[mapIndex];
+            const map = mapData.map;
+            
+            currentMapData = mapData;
+
+            document.getElementById('mapName').textContent = map.name || '未命名';
+            document.getElementById('mapSize').textContent = `${map.width.toFixed(2)}m × ${map.height.toFixed(2)}m`;
+            document.getElementById('entitiesCount').textContent = (map.entities?.length || 0).toLocaleString();
+            
+            const aspectRatio = map.width / map.height;
+            document.getElementById('aspectRatio').textContent = aspectRatio.toFixed(3);
+            
+            document.getElementById('mapInfo').style.display = 'block';
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+
+        // 计算合适的分辨率以达到目标文件大小
+        // 对于线条图（主要是白色背景+黑色线条），PNG压缩率非常高
+        // 实际压缩率可能在 0.1-0.5 字节/像素之间
+        function calculateResolution(mapData, targetSizeMB, padding) {
+            const map = mapData.map;
+            const aspectRatio = map.width / map.height;
+            const entitiesCount = (map.entities?.length || 0);
+            
+            // 目标字节数
+            const targetBytes = targetSizeMB * 1024 * 1024;
+            
+            // 根据entities数量估算压缩率
+            // entities越多，线条越复杂，压缩率越低（文件越大）
+            // 简单线条图：约0.1-0.2字节/像素
+            // 复杂线条图：约0.3-0.5字节/像素
+            let compressionRatio = 0.2; // 默认压缩率（字节/像素）
+            if (entitiesCount > 3000) {
+                compressionRatio = 0.4; // 复杂图形
+            } else if (entitiesCount > 1000) {
+                compressionRatio = 0.3; // 中等复杂度
+            }
+            
+            // 使用二分法找到合适的分辨率
+            // 注意：这里计算的是包含padding的总分辨率
+            let minHeight = 1000;
+            let maxHeight = 8000;
+            let bestHeight = 3000;
+            
+            // 二分查找，最多迭代20次
+            for (let i = 0; i < 20; i++) {
+                const testHeight = Math.round((minHeight + maxHeight) / 2);
+                const testWidth = Math.round(testHeight * aspectRatio);
+                // 总分辨率 = 地图区域 + padding
+                const totalWidth = testWidth + padding * 2;
+                const totalHeight = testHeight + padding * 2;
+                const estimatedSize = totalWidth * totalHeight * compressionRatio;
+                
+                if (Math.abs(estimatedSize - targetBytes) < targetBytes * 0.1) {
+                    // 误差在10%以内，认为找到了
+                    bestHeight = testHeight;
+                    break;
+                }
+                
+                if (estimatedSize > targetBytes) {
+                    maxHeight = testHeight;
+                } else {
+                    minHeight = testHeight;
+                }
+                
+                bestHeight = testHeight;
+            }
+            
+            const mapWidth = Math.round(bestHeight * aspectRatio);
+            const mapHeight = bestHeight;
+            // 总分辨率包含padding
+            const totalWidth = mapWidth + padding * 2;
+            const totalHeight = mapHeight + padding * 2;
+            
+            return { 
+                width: totalWidth, 
+                height: totalHeight, 
+                mapWidth, 
+                mapHeight, 
+                padding,
+                compressionRatio 
+            };
+        }
+
+        async function generateHighResMap() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            hideStatus();
+
+            try {
+                if (!configData || !currentMapData) {
+                    throw new Error('请先选择并加载配置文件');
+                }
+
+                const map = currentMapData.map;
+                const entities = map.entities || [];
+
+                if (entities.length === 0) {
+                    throw new Error('该地图没有 entities 数据');
+                }
+
+                const targetSizeMB = parseFloat(document.getElementById('targetSize').value);
+                const lineWidth = parseFloat(document.getElementById('lineWidth').value);
+                const lineColor = document.getElementById('lineColor').value;
+                const padding = parseInt(document.getElementById('padding').value) || 0;
+
+                showStatus('正在计算合适的分辨率...', 'info');
+
+                // 计算分辨率（包含padding）
+                calculatedResolution = calculateResolution(currentMapData, targetSizeMB, padding);
+                const targetWidth = calculatedResolution.width;
+                const targetHeight = calculatedResolution.height;
+                const mapWidth = calculatedResolution.mapWidth;
+                const mapHeight = calculatedResolution.mapHeight;
+
+                showStatus(`正在生成高精度图片 (${targetWidth}x${targetHeight})...`, 'info');
+
+                // 计算地图边界（从entities）
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                entities.forEach(entity => {
+                    if (entity.type === 'polyline' && entity.points && Array.isArray(entity.points)) {
+                        entity.points.forEach(point => {
+                            if (Array.isArray(point) && point.length >= 2) {
+                                minX = Math.min(minX, point[0]);
+                                maxX = Math.max(maxX, point[0]);
+                                minY = Math.min(minY, point[1]);
+                                maxY = Math.max(maxY, point[1]);
+                            }
+                        });
+                    }
+                });
+
+                // 如果边界无效，使用地图尺寸
+                if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+                    minX = 0;
+                    maxX = map.width;
+                    minY = 0;
+                    maxY = map.height;
+                }
+
+                const dataWidth = maxX - minX;
+                const dataHeight = maxY - minY;
+
+                // 计算缩放比例，保持宽高比
+                // 地图区域 = 总分辨率 - padding
+                const mapAreaWidth = targetWidth - padding * 2;
+                const mapAreaHeight = targetHeight - padding * 2;
+                const scaleX = mapAreaWidth / dataWidth;
+                const scaleY = mapAreaHeight / dataHeight;
+                const currentScale = Math.min(scaleX, scaleY);
+
+                // 计算实际渲染尺寸和偏移（考虑padding）
+                const renderedMapWidth = dataWidth * currentScale;
+                const renderedMapHeight = dataHeight * currentScale;
+                const offsetX = padding + (mapAreaWidth - renderedMapWidth) / 2;
+                const offsetY = padding + (mapAreaHeight - renderedMapHeight) / 2;
+                
+                // 计算线条宽度的缩放比例
+                // 假设原始显示canvas大约是1200x900，线条宽度是1像素
+                // 在高分辨率下，线条宽度应该按比例放大以保持视觉粗细一致
+                const baseCanvasWidth = 1200; // 基准canvas宽度
+                const baseCanvasHeight = 900; // 基准canvas高度
+                const scaleRatio = Math.min(targetWidth / baseCanvasWidth, targetHeight / baseCanvasHeight);
+
+                // 创建高分辨率canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
+
+                // 设置高质量渲染
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // 填充白色背景
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+                // 绘制 entities（参考 MapView.vue.bk 的绘制逻辑）
+                ctx.save();
+                // Translate to the bottom-left corner of the centered content box, then flip Y
+                ctx.translate(offsetX, targetHeight - offsetY);
+                ctx.scale(1, -1);
+
+                entities.forEach((entity, index) => {
+                    if (entity.type === 'polyline' && entity.points && entity.points.length > 0) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = entity.color || lineColor;
+                        // 线条宽度按比例放大，保持视觉粗细一致
+                        ctx.lineWidth = (entity.lineWidth || lineWidth) * scaleRatio;
+
+                        const startPoint = entity.points[0];
+                        if (Array.isArray(startPoint) && startPoint.length >= 2) {
+                            ctx.moveTo((startPoint[0] - minX) * currentScale, (startPoint[1] - minY) * currentScale);
+
+                            for (let i = 1; i < entity.points.length; i++) {
+                                const point = entity.points[i];
+                                if (Array.isArray(point) && point.length >= 2) {
+                                    ctx.lineTo((point[0] - minX) * currentScale, (point[1] - minY) * currentScale);
+                                }
+                            }
+
+                            if (entity.closed) {
+                                ctx.closePath();
+                            }
+                            ctx.stroke();
+                        }
+                    }
+                });
+
+                ctx.restore();
+
+                // 显示预览
+                const previewCanvas = document.getElementById('previewCanvas');
+                const previewCtx = previewCanvas.getContext('2d');
+                
+                // 计算预览尺寸（最大800px宽）
+                const previewMaxWidth = 800;
+                const previewScale = Math.min(1, previewMaxWidth / targetWidth);
+                previewCanvas.width = targetWidth * previewScale;
+                previewCanvas.height = targetHeight * previewScale;
+                
+                previewCtx.imageSmoothingEnabled = true;
+                previewCtx.imageSmoothingQuality = 'high';
+                previewCtx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+
+                // 保存完整分辨率图片数据
+                let imageData = canvas.toDataURL('image/png');
+                
+                // base64编码的实际大小 = (base64字符串长度 * 3) / 4
+                // 但实际PNG文件大小会更小（因为base64有33%的膨胀）
+                const base64Size = imageData.length;
+                const actualFileSize = (base64Size * 3) / 4; // base64解码后的实际字节数
+                const fileSizeMB = actualFileSize / 1024 / 1024;
+
+                generatedImageData = imageData;
+
+                // 显示分辨率信息
+                const paddingInfo = padding > 0 ? ` | 边缘: ${padding}px` : '';
+                document.getElementById('resolutionInfo').textContent = 
+                    `分辨率: ${targetWidth} × ${targetHeight} 像素 (地图区域: ${mapWidth} × ${mapHeight})${paddingInfo} | 文件大小: ${fileSizeMB.toFixed(2)} MB`;
+
+                document.getElementById('previewSection').style.display = 'block';
+                showStatus(`✅ 生成成功！分辨率: ${targetWidth}x${targetHeight} 像素`, 'success');
+
+            } catch (error) {
+                showStatus(`❌ 错误: ${error.message}`, 'error');
+                console.error('生成失败:', error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function downloadImage() {
+            if (!generatedImageData) {
+                showStatus('请先生成图片', 'error');
+                return;
+            }
+
+            const link = document.createElement('a');
+            const mapName = currentMapData?.map?.name || 'map';
+            const sanitizedName = mapName.replace(/[^a-zA-Z0-9]/g, '_');
+            link.download = `high-res-map-${sanitizedName}-${Date.now()}.png`;
+            link.href = generatedImageData;
+            link.click();
+            
+            showStatus('图片下载已开始', 'success');
+        }
+
+        async function copyImageToClipboard() {
+            if (!generatedImageData) {
+                showStatus('请先生成图片', 'error');
+                return;
+            }
+
+            try {
+                // 将dataURL转换为blob
+                const response = await fetch(generatedImageData);
+                const blob = await response.blob();
+                
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                
+                showStatus('✅ 图片已复制到剪贴板', 'success');
+            } catch (error) {
+                showStatus(`❌ 复制失败: ${error.message}`, 'error');
+                console.error('复制失败:', error);
+            }
+        }
+    </script>
+</body>
+</html>
