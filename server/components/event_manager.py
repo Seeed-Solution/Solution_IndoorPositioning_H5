@@ -81,7 +81,8 @@ class EventManager:
     def create_event(self, event_name: str, event_type: int, 
                     device_range: List[str] = None, ble_range: List[str] = None,
                     time_range: int = 0, ble_rule: int = 0, dis_range: float = 0.0,
-                    enable_status: bool = True) -> Optional[EventTriggerRecord]:
+                    enable_status: bool = True, geofence_id: Optional[int] = None,
+                    location_mode: str = 'ble', transition: str = 'both') -> Optional[EventTriggerRecord]:
         """创建事件，先保存到数据库，再添加到缓存"""
         try:
             # 先保存到数据库
@@ -93,7 +94,10 @@ class EventManager:
                 time_range=time_range,
                 ble_rule=ble_rule,
                 dis_range=dis_range,
-                enable_status=enable_status
+                enable_status=enable_status,
+                geofence_id=geofence_id,
+                location_mode=location_mode,
+                transition=transition
             )
             
             if event and enable_status:
