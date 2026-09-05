@@ -122,3 +122,114 @@ devEUI、applicationID、网关信息、beacon MAC 全部换成合成值。
 - `geofences` 表与 `event_triggers.geofence_id/location_mode/transition`
   已建好，需要补 `GeofenceDao` 与 ORM 列定义。
 - `PositionHistoryEntry` 已带 `coordSystem`，围栏判定可以直接吃这条轨迹。
+
+---
+
+# B4 第二批实施记录（步骤 3）
+
+分支 `feature/outdoor`，接在第一批的 `6c9a70d` 之后。
+迁移 `001_outdoor_geofence.sql` 建好的 `geofences` 表与 `event_triggers`
+的三列直接用，没有新增迁移。
+
+## spec 未覆盖、本批自行取的最小选择
+
+### 11. 围栏首次观测不产生告警
+
+spec 只说「连续 3 点且持续 10 s 才切换」，没说初始状态怎么来。
+取法：`FenceHysteresis.state` 初值为 `None`，第一个点只落地
+inside/outside，不产出 transition。否则服务重启后，
+第一个落在围栏内的上行会立刻补一条 enter 告警。
+
+### 12. 精度缓冲带的判据
+
+spec 说「精度缓冲带内保持原状态」，没给带宽定义。
+取法：点到围栏边界的距离 < 该点的 `accuracy` 时视为不可信，
+保持原状态且不推进 pending 计数（`Geofence.distance_to_boundary_m`）。
+多边形的度→米换算按当前纬度近似（`server/geofence.py`）。
+`accuracy` 为 `None` 时这条分支整个跳过——没有误差就没有缓冲带。
+
+### 13. 围栏的精度门槛
+
+任务书要求「accuracy 为 null 时视为通过精度门槛并在日志标注」，
+但没给门槛值。取法：复用室内外迟滞的 25 m
+（`DEFAULT_FENCE_ACCURACY_MAX_M`），超过就丢点。
+
+### 14. geo 模式下 position_detection 不走 time_range
+
+BLE 模式的 position_detection 有一套 `device_leaving_event_checker`
+的延时确认（`alarm_setting.time_range` 分钟）。
+geo 模式没有复用它：围栏滞回本身已经带「连续 3 点 + 10 s」的确认，
+再叠一层延时会让语义变成两个不同量纲的等待。
+所以 geo 模式下 checkin 与 position_detection 走同一个
+`consume_geo_event()`，只由 `transition` 区分方向。
+副作用：geo 模式的告警不受 `time_range` 影响，UI 上那个输入框对
+geo 模式无效。
+
+### 15. 围栏告警的广播消息类型
+
+没有新增 WebSocket 消息类型，enter 复用 `tracker_checkin`、
+exit 复用 `tracker_position_detection`，额外带一个 `geofence` 段
+（`message_constant.get_geofence_message()`）。
+前端不用加分支，`ws_capture.py` 靠 `geofence` 段区分围栏告警与 BLE 告警。
+
+### 16. 滞回状态的隔离粒度
+
+围栏滞回按 `(dev_eui, event_id)` 隔离，不是按 `(dev_eui, fence_id)`。
+同一个围栏被两条告警引用（比如一条只报 enter、一条只报 exit）时，
+两条各自独立计数。围栏被改过之后 `geofence_holder.invalidate()` 清编译缓存。
+
+### 17. 迟滞状态机还没定论时的回落
+
+`DeviceHysteresis.mode` 初值为 `None`（证据还不够）。
+这时 `apply_indoor_outdoor()` 回落到第一批的简化：有经纬度就 `wGS84`。
+攒够证据之后由状态机接管。所以「设备刚上线的头两个 GNSS 包」
+仍然是旧行为，第 3 个包起才是迟滞。
+
+### 18. 「有效 BLE」的定义
+
+spec 的「15 s 无有效 BLE」没定义什么算有效。
+取法：`beacon_holder` 里能查到配置的信标才算
+（`position_resolve_handler.count_configured_beacons()`）。
+没配置过的广播包不能证明设备在室内。
+转室内还额外要求单次 ≥ 2 个已配置信标。
+
+### 19. `resolve_loc_type()` 保持逐包语义
+
+第一批把它标成「步骤 3 的入口」。实际改法是不改它：
+`TrackerReport.locType` 描述的是「这一包带了什么数据」，是逐包事实；
+界面展示的室内/室外是 `TrackerState.type`，由迟滞状态机决定。
+两者分开，只把注释写清楚。
+
+### 20. 围栏几何的跨日界线处理
+
+shapely 在平面 lon/lat 上算，跨 180° 的多边形会被当成横跨整个地球的巨型矩形。
+取法：经度跨度 > 180° 时把所有经度归一化到 `[0, 360)`，
+待测点同样归一化（`Geofence.wrap`）。圆形不受影响，Haversine 本来就绕球算。
+
+### 21. 迟滞参数的配置入口
+
+spec 说「默认参数可配置」，没说配在哪。
+取法：`indoor_outdoor.HysteresisConfig` + 模块级 `configure(**kwargs)`，
+默认值就是 spec 的值。**没有接到 `server_runtime_config.json`**——
+接配置文件要改配置模型与前端表单，超出本批范围。
+
+## 顺带修掉的问题
+
+- `EventManager.create_event()` 没有透传 `geofence_id/location_mode/transition`，
+  `/api/events` 建 geo 模式告警直接报
+  `unexpected keyword argument 'geofence_id'`。冒烟时踩到，独立 commit。
+
+## 验证
+
+- `uv run pytest`：70 passed（第一批 27 + 本批 43）。
+- `npm run build`：通过。
+- 围栏冒烟见 `evaluation/runs/2026-09-05-geofence-smoke/results.md`：
+  进出围栏 2 条告警、门口徘徊 6 次翻转 0 条告警、type 切换 0 次。
+
+## 仍然留着的偏差
+
+- `accuracy` 恒为 `null`（第一批第 1 条），所以精度门槛与精度缓冲带在真机数据上
+  都是「恒通过」。接入精度测点之前，这两条路径只有单元测试覆盖。
+- 迁移仍需手工执行，没挂到服务启动流程上（第一批第 8 条）。
+- 高德/天地图的 GCJ-02 偏移仍未纠正；围栏在 GCJ-02 底图上画出来会存偏移，
+  `crs` 字段记下了它是按哪套坐标画的，但判定时不做转换。
