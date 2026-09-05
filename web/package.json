@@ -10,7 +10,9 @@
     "build": "vite build",
     "build:local": "VITE_LOCAL_CONTAINER=true vite build",
     "build:remote": "VITE_LOCAL_CONTAINER=false vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "axios": "^1.8.4",
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.2",
-    "vite": "^6.3.1"
+    "vite": "^6.3.1",
+    "vitest": "^2.1.9"
   }
 }

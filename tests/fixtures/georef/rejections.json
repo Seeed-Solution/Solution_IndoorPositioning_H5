@@ -1,0 +1,54 @@
+{
+  "_comment": "必须被拒绝的配准参数。两端都抛错。",
+  "polar_limit_deg": 85.0,
+  "cases": [
+    {
+      "name": "north_polar",
+      "registration": {
+        "origin_lat": 85.1,
+        "origin_lon": 0.0
+      }
+    },
+    {
+      "name": "south_polar",
+      "registration": {
+        "origin_lat": -85.1,
+        "origin_lon": 0.0
+      }
+    },
+    {
+      "name": "lat_out_of_range",
+      "registration": {
+        "origin_lat": 91.0,
+        "origin_lon": 0.0
+      }
+    },
+    {
+      "name": "lon_out_of_range",
+      "registration": {
+        "origin_lat": 0.0,
+        "origin_lon": 180.5
+      }
+    },
+    {
+      "name": "zero_scale",
+      "registration": {
+        "origin_lat": 0.0,
+        "origin_lon": 0.0,
+        "scale": 0.0
+      }
+    },
+    {
+      "name": "negative_scale",
+      "registration": {
+        "origin_lat": 0.0,
+        "origin_lon": 0.0,
+        "scale": -1.0
+      }
+    },
+    {
+      "name": "null_registration",
+      "registration": null
+    }
+  ]
+}
