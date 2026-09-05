@@ -1,5 +1,5 @@
 # server/models.py
-from pydantic import BaseModel, Field, AliasChoices, field_validator
+from pydantic import BaseModel, Field, AliasChoices, field_validator, model_validator
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -93,8 +93,57 @@ class WebUIConfig(BaseModel):
     is_darwin: Optional[bool] = Field(default=False, description="True if MAC addresses are virtual (server running on macOS)")
 
 
+DEFAULT_OUTDOOR_TILE_SOURCES = [
+    {
+        "id": "osm",
+        "name": "OpenStreetMap",
+        "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "attribution": "&copy; OpenStreetMap contributors",
+        "subdomains": ["a", "b", "c"],
+        "maxZoom": 19,
+        "coordSystem": "wgs84",
+        "gcj02Correction": False,
+    }
+]
+
+
+class OutdoorTileSource(BaseModel):
+    """One base-map source for the outdoor (WGS84) view."""
+    id: str
+    name: Optional[str] = None
+    url: str
+    attribution: Optional[str] = ""
+    subdomains: Optional[List[str]] = None
+    maxZoom: int = 19
+    coordSystem: str = "wgs84"          # wgs84 | gcj02
+    # 高德/天地图瓦片是 GCJ-02, 与设备上报的 WGS84 有偏移. 本期只标记, 不纠偏.
+    gcj02Correction: bool = False
+
+
+class OutdoorConfig(BaseModel):
+    tileSources: List[OutdoorTileSource] = Field(
+        default_factory=lambda: [OutdoorTileSource(**s) for s in DEFAULT_OUTDOOR_TILE_SOURCES])
+    defaultSource: str = "osm"
+
+    @field_validator("tileSources", mode="after")
+    @classmethod
+    def _at_least_one_source(cls, value):
+        # 配置里给了空列表也自动补回 OSM.
+        if not value:
+            return [OutdoorTileSource(**s) for s in DEFAULT_OUTDOOR_TILE_SOURCES]
+        return value
+
+    @model_validator(mode="after")
+    def _default_source_must_exist(self):
+        if self.defaultSource not in {s.id for s in self.tileSources}:
+            self.defaultSource = self.tileSources[0].id
+        return self
+
+
 class DashboardConfig(BaseModel):
     maps: Optional[list[SingleMapConfig]] = []
+    # 旧的 dashboard_config.json 没有这一段, 缺失时自动补一份 OSM 默认配置.
+    outdoor: OutdoorConfig = Field(default_factory=OutdoorConfig)
 
 # --- Models for Server-Side Runtime Configuration (e.g., server_runtime_config.json) ---
 
