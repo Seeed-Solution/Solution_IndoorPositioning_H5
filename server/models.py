@@ -93,16 +93,23 @@ class WebUIConfig(BaseModel):
     is_darwin: Optional[bool] = Field(default=False, description="True if MAC addresses are virtual (server running on macOS)")
 
 
+# ODbL 要求署名可点击回到 OSM 版权页.
+OSM_ATTRIBUTION = (
+    '&copy; <a href="https://www.openstreetmap.org/copyright" '
+    'target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'
+)
+
 DEFAULT_OUTDOOR_TILE_SOURCES = [
     {
         "id": "osm",
         "name": "OpenStreetMap",
         "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "attribution": "&copy; OpenStreetMap contributors",
+        "attribution": OSM_ATTRIBUTION,
         "subdomains": ["a", "b", "c"],
         "maxZoom": 19,
         "coordSystem": "wgs84",
         "gcj02Correction": False,
+        "kind": "raster",
     }
 ]
 
@@ -112,12 +119,21 @@ class OutdoorTileSource(BaseModel):
     id: str
     name: Optional[str] = None
     url: str
+    # raster: {z}/{x}/{y} 瓦片 URL; pmtiles: 单个 .pmtiles 归档的 URL (离线底图).
+    kind: str = "raster"
     attribution: Optional[str] = ""
     subdomains: Optional[List[str]] = None
     maxZoom: int = 19
     coordSystem: str = "wgs84"          # wgs84 | gcj02
     # 高德/天地图瓦片是 GCJ-02, 与设备上报的 WGS84 有偏移. 本期只标记, 不纠偏.
     gcj02Correction: bool = False
+
+    @field_validator("kind", mode="after")
+    @classmethod
+    def _known_kind(cls, value):
+        if value not in ("raster", "pmtiles"):
+            raise ValueError("kind must be 'raster' or 'pmtiles'")
+        return value
 
 
 class OutdoorConfig(BaseModel):

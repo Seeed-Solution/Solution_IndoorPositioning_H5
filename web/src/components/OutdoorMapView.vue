@@ -36,7 +36,7 @@ import { useI18n } from 'vue-i18n';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-import { normalizeOutdoorConfig } from '@/config/outdoor.js';
+import { normalizeOutdoorConfig, TILE_KIND_PMTILES } from '@/config/outdoor.js';
 import { outdoorSegments, isOutdoorTracker } from '@/utils/trail.js';
 
 const { t } = useI18n();
@@ -76,10 +76,29 @@ const trackerLatLng = (tracker) => {
   return [lat, lon];
 };
 
-const applyTileLayer = () => {
+const applyTileLayer = async () => {
   if (!map || !activeSource.value) return;
   if (tileLayer) map.removeLayer(tileLayer);
   const src = activeSource.value;
+  if (src.kind === TILE_KIND_PMTILES) {
+    // 离线归档: protomaps-leaflet 直接对 .pmtiles 发 HTTP Range 请求。
+    // 归档缺失时不要把整张图打崩, 回落到栅格源。
+    try {
+      const { leafletLayer } = await import('protomaps-leaflet');
+      tileLayer = leafletLayer({
+        url: src.url,
+        attribution: src.attribution,
+        maxDataZoom: src.maxZoom || 18,
+      }).addTo(map);
+      return;
+    } catch (err) {
+      console.error('[OutdoorMapView] PMTiles layer failed, falling back to raster:', err);
+      const fallback = tileSources.value.find((s) => s.kind !== TILE_KIND_PMTILES);
+      if (!fallback) return;
+      activeSourceId.value = fallback.id;
+      return;
+    }
+  }
   const options = { attribution: src.attribution, maxZoom: src.maxZoom || 19 };
   if (src.subdomains) options.subdomains = src.subdomains;
   tileLayer = L.tileLayer(src.url, options).addTo(map);
