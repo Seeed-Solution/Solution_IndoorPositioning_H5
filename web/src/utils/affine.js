@@ -119,3 +119,130 @@ export function isRegistered(mapInfo) {
     return false;
   }
 }
+
+// --------------------------------------------------------------------------- //
+// 配准编辑器用的几何辅助
+// --------------------------------------------------------------------------- //
+
+/** 取地图的米制边界，缺字段时按 0..width / 0..height 回落。 */
+export function mapBounds(mapInfo) {
+  const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+  const width = num(mapInfo?.width, 50);
+  const height = num(mapInfo?.height, 50);
+  const minX = num(mapInfo?.minX, 0);
+  const minY = num(mapInfo?.minY, 0);
+  return {
+    minX,
+    minY,
+    maxX: num(mapInfo?.maxX, minX + width),
+    maxY: num(mapInfo?.maxY, minY + height),
+  };
+}
+
+/**
+ * 背景图在局部米制坐标里的落位。
+ *
+ * 与 MapPreview 的画法一致：按图片自身宽高比等比缩放，居中放进地图的米制
+ * 边界框，不拉伸。配准锁宽高比锁的就是这个比例。
+ */
+export function imageFootprintLocal(mapInfo, naturalWidth, naturalHeight) {
+  const b = mapBounds(mapInfo);
+  const boxW = b.maxX - b.minX;
+  const boxH = b.maxY - b.minY;
+  const nw = Number(naturalWidth);
+  const nh = Number(naturalHeight);
+  let w = boxW;
+  let h = boxH;
+  if (Number.isFinite(nw) && Number.isFinite(nh) && nw > 0 && nh > 0) {
+    const imgAspect = nw / nh;
+    if (boxW / boxH > imgAspect) {
+      h = boxH;
+      w = boxH * imgAspect;
+    } else {
+      w = boxW;
+      h = boxW / imgAspect;
+    }
+  }
+  const cx = (b.minX + b.maxX) / 2;
+  const cy = (b.minY + b.maxY) / 2;
+  return {
+    minX: cx - w / 2, maxX: cx + w / 2,
+    minY: cy - h / 2, maxY: cy + h / 2,
+    width: w, height: h, centerX: cx, centerY: cy,
+  };
+}
+
+/**
+ * 配准参数 -> DistortableImageOverlay 的四角。
+ * 顺序与插件一致：[topLeft, topRight, bottomLeft, bottomRight]。
+ * 局部坐标 Y 向上，所以 top 对应 maxY。
+ */
+export function cornersFromRegistration(footprint, registration) {
+  const order = [
+    [footprint.minX, footprint.maxY],
+    [footprint.maxX, footprint.maxY],
+    [footprint.minX, footprint.minY],
+    [footprint.maxX, footprint.minY],
+  ];
+  return order.map(([x, y]) => localToWgs84(x, y, registration));
+}
+
+/**
+ * DistortableImageOverlay 的四角 -> 配准参数（cornersFromRegistration 的逆）。
+ *
+ * 只开 drag/rotate/scale 时四角始终是一个相似变换，因此从左边（BL->TL）
+ * 一条边就能定出旋转角与缩放；不做最小二乘。corners 里每项接受
+ * {lat, lng} 或 {lat, lon}。
+ */
+export function registrationFromCorners(footprint, corners) {
+  const pick = (c) => ({ lat: Number(c.lat), lon: Number(c.lon ?? c.lng) });
+  const [tl, , bl] = corners.map(pick);
+
+  // 以 BL 为切点建一个临时 ENU 框架，把三个角化成米。
+  const ref = { origin_lat: bl.lat, origin_lon: bl.lon, rotation_deg: 0, scale: 1 };
+  const blEN = wgs84ToLocal(bl.lat, bl.lon, ref);   // = (0, 0)
+  const tlEN = wgs84ToLocal(tl.lat, tl.lon, ref);
+
+  const dE = tlEN.x - blEN.x;
+  const dN = tlEN.y - blEN.y;
+  const lenY = Math.hypot(dE, dN);
+  const localH = footprint.maxY - footprint.minY;
+  if (!(lenY > 0) || !(localH > 0)) {
+    throw new GeoreferenceError('degenerate image footprint');
+  }
+
+  // 局部 +Y 顺时针偏离正北的角度。
+  let rotationDeg = Math.atan2(dE, dN) / DEG;
+  if (rotationDeg > 180) rotationDeg -= 360;
+  if (rotationDeg <= -180) rotationDeg += 360;
+  const scale = lenY / localH;
+
+  // 局部原点 (0,0) 相对 BL 的位移，再换回经纬度。
+  const theta = rotationDeg * DEG;
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+  const ox = -footprint.minX;
+  const oy = -footprint.minY;
+  const originE = blEN.x + scale * (ox * cosT + oy * sinT);
+  const originN = blEN.y + scale * (-ox * sinT + oy * cosT);
+  const origin = localToWgs84(originE, originN, ref);
+
+  return {
+    origin_lat: origin.lat,
+    origin_lon: origin.lon,
+    rotation_deg: rotationDeg,
+    scale,
+  };
+}
+
+/** 初猜：图片按当前视图中心摆正（正北、scale 1）。 */
+export function initialRegistration(footprint, centerLat, centerLon) {
+  const ref = { origin_lat: centerLat, origin_lon: centerLon, rotation_deg: 0, scale: 1 };
+  const origin = localToWgs84(-footprint.centerX, -footprint.centerY, ref);
+  return {
+    origin_lat: origin.lat,
+    origin_lon: origin.lon,
+    rotation_deg: 0,
+    scale: 1,
+  };
+}

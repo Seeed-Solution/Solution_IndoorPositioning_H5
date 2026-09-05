@@ -272,3 +272,36 @@ export const loadAlarmHistory = async (deviceEui, page = 1, pageSize = 20) => {
 };
 
 // You might add other API calls related to configuration here later. 
+/**
+ * 写回一张平面图与室外地图的配准参数。
+ * 只动 dashboard_config.json 里这一张地图的 registration，不覆盖整份配置。
+ */
+export const saveMapRegistration = async (mapName, registration) => {
+  try {
+    const url = `${API_ENDPOINTS.CONFIG_DASHBOARD}/maps/${encodeURIComponent(mapName)}/registration`;
+    const response = await httpClient.put(url, registration);
+    return response.data;
+  } catch (error) {
+    console.error('Error saving map registration to server:', error);
+    if (error.response) {
+      const detail = error.response.data?.detail;
+      throw new Error(`Server error (${error.response.status}): ${
+        typeof detail === 'string' ? detail : JSON.stringify(detail || error.message)}`);
+    } else if (error.request) {
+      throw new Error('Network error: Could not connect to server to save map registration.');
+    }
+    throw new Error(`Failed to save map registration: ${error.message}`);
+  }
+};
+
+/** 读一张平面图的配准参数；未配准返回 null。 */
+export const loadMapRegistration = async (mapName) => {
+  try {
+    const url = `${API_ENDPOINTS.CONFIG_DASHBOARD}/maps/${encodeURIComponent(mapName)}/registration`;
+    const response = await httpClient.get(url);
+    return response.data ?? null;
+  } catch (error) {
+    console.error('Error loading map registration from server:', error);
+    return null;
+  }
+};

@@ -593,7 +593,8 @@
     "items": "items",
     "perPage": "Per page",
     "dash": "-",
-    "noData": "No data"
+    "noData": "No data",
+    "reset": "Reset"
   },
   "errors": {
     "networkError": "Network connection error, please check your connection",
@@ -770,7 +771,25 @@
     "tileSource": "Base map",
     "showTrails": "Show trails",
     "noOutdoorTrackers": "No tracker reporting a GNSS fix.",
-    "gcj02Notice": "Tiles use GCJ-02; device fixes are WGS84. Offset correction is not applied."
+    "gcj02Notice": "Tiles use GCJ-02; device fixes are WGS84. Offset correction is not applied.",
+    "registration": {
+      "enter": "Align floor plan",
+      "exit": "Exit registration",
+      "title": "Floor plan registration",
+      "map": "Floor plan",
+      "mode": {
+        "drag": "Move",
+        "rotate": "Rotate",
+        "scale": "Scale"
+      },
+      "aspectLocked": "Aspect ratio is locked: only move, rotate and uniform scale are available.",
+      "originLat": "Origin latitude",
+      "originLon": "Origin longitude",
+      "rotation": "Rotation (deg, CW from north)",
+      "scale": "Scale",
+      "saved": "Registration saved.",
+      "imageLoadFailed": "Cannot load the floor plan image."
+    }
   },
   "geofence": {
     "polygon": "Polygon",

@@ -103,3 +103,53 @@ describe('geometry sanity', () => {
     expect(isRegistered({ registration: { origin_lat: 22.5, origin_lon: 113.9 } })).toBe(true);
   });
 });
+
+describe('registration editor geometry', () => {
+  const mapInfo = { width: 50, height: 40, minX: 0, maxX: 50, minY: 0, maxY: 40 };
+
+  it('imageFootprintLocal keeps the image aspect ratio inside the metric box', async () => {
+    const { imageFootprintLocal } = await import('../src/utils/affine.js');
+    // 图片 2:1, 地图框 50x40 (1.25:1) -> 宽受限
+    const fp = imageFootprintLocal(mapInfo, 1000, 500);
+    expect(fp.width).toBeCloseTo(50, 9);
+    expect(fp.height).toBeCloseTo(25, 9);
+    expect(fp.width / fp.height).toBeCloseTo(2, 9);
+    expect(fp.centerX).toBeCloseTo(25, 9);
+    expect(fp.centerY).toBeCloseTo(20, 9);
+    // 图片 1:2 -> 高受限
+    const fp2 = imageFootprintLocal(mapInfo, 500, 1000);
+    expect(fp2.height).toBeCloseTo(40, 9);
+    expect(fp2.width).toBeCloseTo(20, 9);
+  });
+
+  it('corners <-> registration round-trips', async () => {
+    const { imageFootprintLocal, cornersFromRegistration, registrationFromCorners } =
+      await import('../src/utils/affine.js');
+    const fp = imageFootprintLocal(mapInfo, 1000, 800);
+    for (const reg of [
+      { origin_lat: 22.5231, origin_lon: 113.9312, rotation_deg: 0, scale: 1 },
+      { origin_lat: 22.5231, origin_lon: 113.9312, rotation_deg: 37.5, scale: 1.8 },
+      { origin_lat: -33.8688, origin_lon: -70.6693, rotation_deg: -112.25, scale: 0.4 },
+      { origin_lat: 60.0, origin_lon: 24.9384, rotation_deg: 179.0, scale: 2.5 },
+    ]) {
+      const corners = cornersFromRegistration(fp, reg);
+      const back = registrationFromCorners(fp, corners);
+      expect(back.rotation_deg).toBeCloseTo(reg.rotation_deg, 6);
+      expect(back.scale).toBeCloseTo(reg.scale, 9);
+      expect(back.origin_lat).toBeCloseTo(reg.origin_lat, 9);
+      expect(back.origin_lon).toBeCloseTo(reg.origin_lon, 9);
+    }
+  });
+
+  it('initialRegistration puts the image centre on the given point', async () => {
+    const { imageFootprintLocal, initialRegistration, localToWgs84 } =
+      await import('../src/utils/affine.js');
+    const fp = imageFootprintLocal(mapInfo, 1000, 800);
+    const reg = initialRegistration(fp, 22.5231, 113.9312);
+    const centre = localToWgs84(fp.centerX, fp.centerY, reg);
+    expect(centre.lat).toBeCloseTo(22.5231, 9);
+    expect(centre.lon).toBeCloseTo(113.9312, 9);
+    expect(reg.rotation_deg).toBe(0);
+    expect(reg.scale).toBe(1);
+  });
+});

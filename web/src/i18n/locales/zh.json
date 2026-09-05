@@ -593,7 +593,8 @@
     "items": "项",
     "perPage": "每页",
     "dash": "-",
-    "noData": "无数据"
+    "noData": "无数据",
+    "reset": "重置"
   },
   "errors": {
     "networkError": "网络连接错误，请检查网络连接",
@@ -765,7 +766,25 @@
     "tileSource": "底图",
     "showTrails": "显示轨迹",
     "noOutdoorTrackers": "当前没有上报 GNSS 定位的设备。",
-    "gcj02Notice": "该底图使用 GCJ-02 坐标系，设备上报为 WGS84，本期未做偏移纠正。"
+    "gcj02Notice": "该底图使用 GCJ-02 坐标系，设备上报为 WGS84，本期未做偏移纠正。",
+    "registration": {
+      "enter": "配准平面图",
+      "exit": "退出配准",
+      "title": "平面图配准",
+      "map": "平面图",
+      "mode": {
+        "drag": "移动",
+        "rotate": "旋转",
+        "scale": "缩放"
+      },
+      "aspectLocked": "宽高比已锁定：只能移动、旋转与等比缩放。",
+      "originLat": "原点纬度",
+      "originLon": "原点经度",
+      "rotation": "旋转角（度，自北顺时针）",
+      "scale": "缩放系数",
+      "saved": "配准已保存。",
+      "imageLoadFailed": "平面图背景图加载失败。"
+    }
   },
   "geofence": {
     "polygon": "多边形",
