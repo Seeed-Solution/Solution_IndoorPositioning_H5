@@ -3,6 +3,7 @@ import TrackerModeConfigView from '@/views/TrackerModeConfigView.vue'; // Import
 import MapOverview from '@/views/MapOverview.vue'; // Import the new map overview view
 import LoginView from '@/views/LoginView.vue'; // Import the login view
 import ConfigurationSuiteView from '@/views/ConfigurationSuiteView.vue'; // Import the main config view
+import OutdoorMapOverview from '@/views/OutdoorMapOverview.vue'; // Outdoor (WGS84) map view
 
 import { authService } from '@/services/authService.js';
 
@@ -23,6 +24,12 @@ const routes = [
     path: '/map-overview', // Define path for map overview
     name: 'MapOverview', // Name for the map overview route
     component: MapOverview, // Use the new component
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/outdoor-map', // WGS84 / GNSS trackers on a Leaflet base map
+    name: 'OutdoorMapOverview',
+    component: OutdoorMapOverview,
     meta: { requiresAuth: true }
   },
   {

@@ -214,7 +214,7 @@
     }
   },
   "tracker": {
-    "tracker": "追踪器", 
+    "tracker": "追踪器",
     "trackers": "追踪器",
     "allGroups": "所有分组",
     "defaultGroup": "默认分组",
@@ -417,7 +417,7 @@
   },
   "positioning": {
     "trilateration": "三边测量",
-    "leastSquares": "最小二乘法", 
+    "leastSquares": "最小二乘法",
     "weightedCentroid": "加权质心"
   },
   "login": {
@@ -527,7 +527,7 @@
       "new": "新密码:",
       "confirm": "确认新密码:",
       "currentPlaceholder": "请输入当前密码",
-      "newPlaceholder": "请输入新密码", 
+      "newPlaceholder": "请输入新密码",
       "confirmPlaceholder": "请确认新密码",
       "changeTitle": "修改密码",
       "changing": "修改中...",
@@ -759,5 +759,12 @@
     "previewAlt": "裁剪预览",
     "imageLoadFailed": "图片加载失败",
     "cropBoxOutOfRange": "裁剪框不在图片范围内"
+  },
+  "outdoorMap": {
+    "title": "室外地图",
+    "tileSource": "底图",
+    "showTrails": "显示轨迹",
+    "noOutdoorTrackers": "当前没有上报 GNSS 定位的设备。",
+    "gcj02Notice": "该底图使用 GCJ-02 坐标系，设备上报为 WGS84，本期未做偏移纠正。"
   }
 }

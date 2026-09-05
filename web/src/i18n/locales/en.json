@@ -235,7 +235,7 @@
     "noAlarmRecords": "No alarm records for this device",
     "location": "Location",
     "longitude": "Longitude",
-    "latitude": "Latitude", 
+    "latitude": "Latitude",
     "map": "Map",
     "positioningType": "Positioning Type",
     "bluetoothPositioning": "Bluetooth Positioning",
@@ -359,7 +359,7 @@
       "failedToUpdateStarStatus": "Failed to update star status",
       "failedToCreateGroup": "Failed to create group",
       "failedToUpdateGroupName": "Failed to update group name",
-      "failedToDeleteGroup": "Failed to delete group", 
+      "failedToDeleteGroup": "Failed to delete group",
       "cannotDeleteGroup": "Cannot delete group",
       "invalidTargetGroup": "Invalid target group selected",
       "failedToMoveDevices": "Failed to move devices",
@@ -417,7 +417,7 @@
   },
   "positioning": {
     "trilateration": "Trilateration",
-    "leastSquares": "Least Squares", 
+    "leastSquares": "Least Squares",
     "weightedCentroid": "Weighted Centroid"
   },
   "login": {
@@ -527,7 +527,7 @@
       "new": "New Password:",
       "confirm": "Confirm New Password:",
       "currentPlaceholder": "Enter current password",
-      "newPlaceholder": "Enter new password", 
+      "newPlaceholder": "Enter new password",
       "confirmPlaceholder": "Confirm new password",
       "changeTitle": "Change Password",
       "changing": "Changing...",
@@ -655,7 +655,7 @@
     },
     "types": {
       "sos": "SOS Alarm",
-      "offline": "Offline Alarm", 
+      "offline": "Offline Alarm",
       "checkin": "Check-in Event",
       "position": "Position Detection"
     },
@@ -764,5 +764,12 @@
     "previewAlt": "Crop Preview",
     "imageLoadFailed": "Failed to load image",
     "cropBoxOutOfRange": "Crop box is out of image range"
+  },
+  "outdoorMap": {
+    "title": "Outdoor Map",
+    "tileSource": "Base map",
+    "showTrails": "Show trails",
+    "noOutdoorTrackers": "No tracker reporting a GNSS fix.",
+    "gcj02Notice": "Tiles use GCJ-02; device fixes are WGS84. Offset correction is not applied."
   }
 }
