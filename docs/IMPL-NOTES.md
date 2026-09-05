@@ -305,7 +305,9 @@ spec 要求"compose 只读挂载 `data/pmtiles/`"，因此新建了一个最小�
    主 bundle 求值时就要用（`L.Toolbar2.Action` 未定义会报
    `Cannot read properties of undefined (reading 'Action')`）。
 3. `editing.setMode()` 要等 overlay 的 `load` 事件——rotate/scale 句柄会读
-   图片元素的 `matrix3d` transform，图片没渲染时报 `reading 'slice'`。
+   图片元素的 `matrix3d` transform，图片没渲染时报 `reading 'slice'`；
+   `editing._modes` 还要等 `editing.enable()` 建好，否则 `reading 'drag'`。
+   实现里两个条件都判，不满足就让出一个 tick 重试。
 
 另外插件发布的 dist 里带 webpack dev-server 的 HMR 客户端，
 运行时会反复连 `ws://localhost:8081/ws` 并在 console 报错。噪音，不影响功能。
@@ -339,3 +341,24 @@ spec §5 只说前端 `outdoor.js` 加开关。但 `dashboard_config.json` 一�
 `outdoor` 段，前端就用配置里的列表，前端默认值不再生效。
 因此后端 `DEFAULT_OUTDOOR_TILE_SOURCES` 也加了这一条，
 保证零配置时离线源可选。
+
+### 14. 配准控件放工具条，不放侧栏
+
+原来做成地图右侧的 280 px 侧栏，1280×720 下被裁掉一半：
+`MapOverview` 的容器本身就比视口宽（`ui-01` 里右上角的地图下拉同样被切，
+与配准无关），侧栏放在地图右边必然出界。改成地图上方的一条
+`flex-wrap` 工具条，宽度随视口走，不依赖外层容器。
+
+顺带一个坑：全局 button 样式是白字，白底按钮上 Rotate / Scale /
+Reset / Cancel 的文字完全看不见，`.reg-modes button` 与
+`.reg-actions button` 要显式写 `color`。
+
+### 15. 表单改动要把视野带过去
+
+`fitBounds` 原来只在挂载时按初猜四角调一次。工具条改了经纬度之后
+图片挪到目标位置，视野还停在初猜处，屏幕上只剩底图——看起来像"叠加层
+没加载"，实际是叠加层在视野外。
+
+取法：`applyFormToOverlay(recenter = true)`，表单驱动的改动一律
+`fitBounds` 到新的四角；拖拽/旋转驱动的 `update` 事件不走这条路径，
+否则跟手时视野会乱跳。

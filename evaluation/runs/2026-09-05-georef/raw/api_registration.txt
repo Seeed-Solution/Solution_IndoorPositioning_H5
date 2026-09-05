@@ -37,3 +37,14 @@ $ server/config/json/dashboard_config.json 里的 registration 字段
     "scale": 1.25
   }
 }
+
+--- 复核轮（工具条布局 + 视野跟随修复之后）---
+$ GET .../maps/Georef%20Demo/registration  (UI 保存 + 浏览器刷新之后)
+{"origin_lat":22.5231,"origin_lon":113.9312,"rotation_deg":17.5,"scale":1.25}
+$ dashboard_config.json 里的 registration
+{
+  "origin_lat": 22.5231,
+  "origin_lon": 113.9312,
+  "rotation_deg": 17.5,
+  "scale": 1.25
+}

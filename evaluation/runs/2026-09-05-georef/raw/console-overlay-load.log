@@ -1,0 +1,21 @@
+Total messages: 43 (Errors: 7, Warnings: 0)
+
+[VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:4173/web/login:0
+[LOG] No token found in localStorage. @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] Token saved to localStorage. @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerModeConfig] TrackerList data prepared, total: 0 @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerList] Group device counts calculated: {} @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerModeConfig] Refreshing tracker data from backend... @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerList] Groups loaded: [Object] @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerModeConfig] Successfully refreshed 1 trackers @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerStats] 📊 统计数据更新: {📱 总设备数: 1, 🟢 在线设备: 0, 🔴 离线设备: 1, 🚨 SOS告警: 0, 🗺️ 地图分布: Object} @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerModeConfig] TrackerList data prepared, total: 1 @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [TrackerList] Group device counts calculated: {Default: 1} @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] MapOverview component mounted @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:47
+[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4173/uploads/10_5_Floor.png:0
+[LOG] [MapOverview] Connecting to WebSocket: ws://127.0.0.1:4173/ws @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:47
+[ERROR] [MapPreview] Failed to load map background image: /uploads/10_5_Floor.png Event @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:44
+[LOG] [MapOverview] WebSocket connected @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:47
+[LOG] Map changed to: null @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:47
+[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:4173/uploads/10_5_Floor.png:0
+[INFO] [OutdoorMapView] registration overlay loaded: http://127.0.0.1:4173/uploads/georef_floorplan.png 1000x800px corners=4 nw=22.523531,113.931346 @ http://127.0.0.1:4173/assets/index-28h2Z9Rv.js:47

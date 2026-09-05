@@ -65,13 +65,23 @@ lat0 = 0 / 22.5231 / 45 / 60，方位角每 15°、半径 500/1000/2000 m，
 
 步骤（截图在 `raw/`）：
 
+视口 1280 × 720，截图在 `raw/`。
+
 | 步骤 | 结果 | 截图 |
 | --- | --- | --- |
 | 室外视图，底图下拉含 OSM 与 Offline (PMTiles)，署名是可点击的 OSM 版权链接 | 通过 | `ui-01-outdoor-view.png` |
-| 进入配准模式，选平面图，初猜按视图中心 + 正北 + scale 1 | 通过 | `ui-02-registration-initial.png` |
-| 侧栏填 22.5231 / 113.9312 / 17.5° / 1.25，图片跟随移动、旋转、等比缩放 | 通过 | `ui-03-registration-params.png` |
-| 保存 → "Registration saved." | 通过 | `ui-04-registration-saved.png` |
+| 进入配准模式，选平面图，初猜按视图中心 + 正北 + scale 1；平面图叠加层可见 | 通过 | `ui-02-registration-initial.png` |
+| 工具条填 22.5231 / 113.9312 / 17.5° / 1.25，视野跟到图片上，平面图叠在 OSM 瓦片上 | 通过 | `ui-03-registration-params.png` |
+| 切 Rotate 模式，点中图片，四个旋转把手出现 | 通过 | `ui-06-rotate-handles.png` |
+| 拖把手旋转，工具条数字跟着变（17.50° → 54.42°，scale 1.2500 → 1.2541，宽高比不变） | 通过 | `ui-07-rotated-by-drag.png` |
+| 改回 17.5 / 1.25，保存 → "Registration saved." | 通过 | `ui-04-registration-saved.png` |
 | 浏览器刷新，重新进配准模式选同一张图，三参数仍是保存值 | 通过 | `ui-05-after-reload.png` |
+
+叠加层加载的 console 记录在 `raw/console-overlay-load.log`：
+
+```
+[INFO] [OutdoorMapView] registration overlay loaded: http://127.0.0.1:4173/uploads/georef_floorplan.png 1000x800px corners=4 nw=22.523531,113.931346
+```
 
 上传用的是 `POST /api/upload`（curl），不是配置页的上传控件：
 本次只自动化了配准这一段，配置页的上传/裁剪流程未走。
@@ -81,7 +91,8 @@ interface: /api/configuration/dashboard/maps/Georef Demo/registration`），
 换 admin 登录后成功。
 
 **未验证**：实时 x/y 投影、metric 与 wgs84 混合轨迹在同一张图上的画法、
-取消/重置按钮、PMTiles 离线底图。没有设备上行，也没有生成 PMTiles 归档。
+取消/重置按钮、Scale 模式的把手、PMTiles 离线底图。
+没有设备上行，也没有生成 PMTiles 归档。
 
 ## 3. API 与落盘
 
@@ -105,4 +116,22 @@ interface: /api/configuration/dashboard/maps/Georef Demo/registration`），
   且要先加载 `dist/vendor.js`（提供 `L.Toolbar2`），否则主 bundle 模块求值就抛错。
 - 插件的 rotate/scale 句柄要读图片元素的 `matrix3d` transform，
   图片还没渲染就调 `setMode` 会抛 `reading 'slice'`；
-  已改成等 overlay 的 `load` 事件之后再切模式。
+  `editing._modes` 也要等 `editing.enable()` 之后才存在（否则 `reading 'drag'`）。
+  已改成等 overlay 的 `load` 事件、并在两个句柄都就绪时才切模式，
+  不就绪就让出一个 tick 重试。
+
+## 5. 第一轮复核打回的两个问题（已修）
+
+第一轮的 `ui-03` 地图区一片纯蓝、侧栏被裁一半，两个原因：
+
+1. **叠加层看不见**：不是图片或瓦片取不到（`/uploads/...` 经 vite preview
+   代理到 8022 返回 200，`load` 事件也触发了），而是 `fitBounds` 只在挂载时
+   按初猜的四角调过一次。工具条改了经纬度之后图片挪到深圳，视野还停在
+   初猜位置——(0, 0) 附近的海面，所以是纯蓝。
+   修法：表单驱动的改动一律 `fitBounds` 到新的四角；
+   拖拽/旋转驱动的 `update` 不重新定位，避免跟手时视野乱跳。
+2. **侧栏被裁**：`MapOverview` 的容器本身就比 1280 视口宽（`ui-01` 里
+   右上角的地图下拉也被切掉，与配准无关），侧栏放在地图右边必然出界。
+   修法：改成地图上方的工具条（`flex-wrap`），不再用侧栏。
+   顺带发现全局 button 样式是白字，白底按钮上 Rotate / Scale / Reset /
+   Cancel 的文字看不见，显式补 `color`。

@@ -32,69 +32,71 @@
       <span class="tracker-count">{{ outdoorTrackers.length }}</span>
     </div>
 
+    <!-- 配准控件放在地图上方的工具条里, 不做侧栏: MapOverview 的容器本身
+         就比 1280 视口宽, 侧栏会被裁掉。 -->
+    <div v-if="regActive" class="registration-bar">
+      <span class="reg-title">{{ t('outdoorMap.registration.title') || 'Floor plan registration' }}</span>
+
+      <label class="reg-field">
+        <span>{{ t('outdoorMap.registration.map') || 'Floor plan' }}</span>
+        <select v-model="regMapName" @change="onRegMapChange">
+          <option v-for="m in registrableMaps" :key="m.map.name" :value="m.map.name">
+            {{ m.map.name }}
+          </option>
+        </select>
+      </label>
+
+      <div class="reg-modes">
+        <button v-for="m in REG_MODES" :key="m"
+                :class="{ active: regMode === m }"
+                @click="setRegMode(m)">
+          {{ t(`outdoorMap.registration.mode.${m}`) || m }}
+        </button>
+      </div>
+
+      <label class="reg-field narrow">
+        <span>{{ t('outdoorMap.registration.originLat') || 'Origin latitude' }}</span>
+        <input type="number" step="0.0000001" v-model.number="regForm.origin_lat"
+               @change="applyFormToOverlay" />
+      </label>
+      <label class="reg-field narrow">
+        <span>{{ t('outdoorMap.registration.originLon') || 'Origin longitude' }}</span>
+        <input type="number" step="0.0000001" v-model.number="regForm.origin_lon"
+               @change="applyFormToOverlay" />
+      </label>
+      <label class="reg-field narrow">
+        <span>{{ t('outdoorMap.registration.rotation') || 'Rotation (deg, CW from north)' }}</span>
+        <input type="number" step="0.01" v-model.number="regForm.rotation_deg"
+               @change="applyFormToOverlay" />
+      </label>
+      <label class="reg-field narrow">
+        <span>{{ t('outdoorMap.registration.scale') || 'Scale' }}</span>
+        <input type="number" step="0.0001" min="0.0001" v-model.number="regForm.scale"
+               @change="applyFormToOverlay" />
+      </label>
+
+      <div class="reg-actions">
+        <button class="primary" :disabled="regSaving" @click="saveRegistration">
+          {{ t('common.save') || 'Save' }}
+        </button>
+        <button :disabled="regSaving" @click="resetRegistration">
+          {{ t('common.reset') || 'Reset' }}
+        </button>
+        <button :disabled="regSaving" @click="cancelRegistration">
+          {{ t('common.cancel') || 'Cancel' }}
+        </button>
+      </div>
+
+      <p class="reg-hint">
+        {{ t('outdoorMap.registration.aspectLocked')
+          || 'Aspect ratio is locked: only drag, rotate and uniform scale are available.' }}
+      </p>
+      <p v-if="regError" class="reg-error">{{ regError }}</p>
+      <p v-if="regStatus" class="reg-status">{{ regStatus }}</p>
+    </div>
+
     <div class="outdoor-body">
       <div ref="mapEl" class="outdoor-map-container"></div>
-
-      <aside v-if="regActive" class="registration-panel">
-        <h4>{{ t('outdoorMap.registration.title') || 'Floor plan registration' }}</h4>
-
-        <label class="reg-field">
-          <span>{{ t('outdoorMap.registration.map') || 'Floor plan' }}</span>
-          <select v-model="regMapName" @change="onRegMapChange">
-            <option v-for="m in registrableMaps" :key="m.map.name" :value="m.map.name">
-              {{ m.map.name }}
-            </option>
-          </select>
-        </label>
-
-        <div class="reg-modes">
-          <button v-for="m in REG_MODES" :key="m"
-                  :class="{ active: regMode === m }"
-                  @click="setRegMode(m)">
-            {{ t(`outdoorMap.registration.mode.${m}`) || m }}
-          </button>
-        </div>
-        <p class="reg-hint">
-          {{ t('outdoorMap.registration.aspectLocked')
-            || 'Aspect ratio is locked: only drag, rotate and uniform scale are available.' }}
-        </p>
-
-        <label class="reg-field">
-          <span>{{ t('outdoorMap.registration.originLat') || 'Origin latitude' }}</span>
-          <input type="number" step="0.0000001" v-model.number="regForm.origin_lat"
-                 @change="applyFormToOverlay" />
-        </label>
-        <label class="reg-field">
-          <span>{{ t('outdoorMap.registration.originLon') || 'Origin longitude' }}</span>
-          <input type="number" step="0.0000001" v-model.number="regForm.origin_lon"
-                 @change="applyFormToOverlay" />
-        </label>
-        <label class="reg-field">
-          <span>{{ t('outdoorMap.registration.rotation') || 'Rotation (deg, CW from north)' }}</span>
-          <input type="number" step="0.01" v-model.number="regForm.rotation_deg"
-                 @change="applyFormToOverlay" />
-        </label>
-        <label class="reg-field">
-          <span>{{ t('outdoorMap.registration.scale') || 'Scale' }}</span>
-          <input type="number" step="0.0001" min="0.0001" v-model.number="regForm.scale"
-                 @change="applyFormToOverlay" />
-        </label>
-
-        <p v-if="regError" class="reg-error">{{ regError }}</p>
-        <p v-if="regStatus" class="reg-status">{{ regStatus }}</p>
-
-        <div class="reg-actions">
-          <button class="primary" :disabled="regSaving" @click="saveRegistration">
-            {{ t('common.save') || 'Save' }}
-          </button>
-          <button :disabled="regSaving" @click="resetRegistration">
-            {{ t('common.reset') || 'Reset' }}
-          </button>
-          <button :disabled="regSaving" @click="cancelRegistration">
-            {{ t('common.cancel') || 'Cancel' }}
-          </button>
-        </div>
-      </aside>
     </div>
 
     <div v-if="outdoorTrackers.length === 0" class="outdoor-empty">
@@ -380,8 +382,14 @@ const syncFormFromOverlay = () => {
   }
 };
 
-/** 表单三参数 -> 四角。 */
-const applyFormToOverlay = () => {
+/**
+ * 表单三参数 -> 四角。
+ *
+ * 侧栏改经纬度会把图片挪到别处, 视野不跟过去的话屏幕上就只剩底图。
+ * 因此表单驱动的改动一律把视野带到图片上; 拖拽/旋转驱动的 'update'
+ * 不走这里, 视野不动。
+ */
+const applyFormToOverlay = (recenter = true) => {
   if (!regOverlay || !regFootprint) return;
   try {
     validateRegistration(regForm.value);
@@ -390,6 +398,9 @@ const applyFormToOverlay = () => {
     regSyncing = true;
     regOverlay.setCorners(corners);
     regError.value = '';
+    if (recenter && map) {
+      map.fitBounds(L.latLngBounds(corners), { padding: [60, 60], maxZoom: 20 });
+    }
   } catch (err) {
     regError.value = err.message;
   } finally {
@@ -399,13 +410,26 @@ const applyFormToOverlay = () => {
 
 const setRegMode = (mode) => {
   regMode.value = mode;
-  // 插件的 rotate/scale 句柄要读图片元素的 matrix3d transform (getAngle),
-  // 图片还没渲染时会抛 "reading 'slice'"。图片未就绪就先记住模式, load 后再切。
-  if (!regOverlay?.editing?.setMode || !regOverlay._image) return;
+  applyRegMode();
+};
+
+/**
+ * 把当前模式推给插件。
+ *
+ * 两个时序坑：editing 句柄要等 `editing.enable()` 建好 `_modes`，
+ * rotate/scale 句柄还要读图片元素的 matrix3d transform（`getAngle`），
+ * 图片没渲染就调会抛 `reading 'slice'`。所以只在两者都就绪时才切，
+ * 否则记住模式，等 overlay 的 load + 一个 tick 之后由 load 回调重试。
+ */
+const applyRegMode = () => {
+  const edit = regOverlay?.editing;
+  if (!edit?.setMode || !edit._modes || !regOverlay._image) return false;
   try {
-    regOverlay.editing.setMode(mode);
+    edit.setMode(regMode.value);
+    return true;
   } catch (err) {
-    console.warn('[OutdoorMapView] setMode deferred:', err.message);
+    console.warn('[OutdoorMapView] setMode failed:', err.message);
+    return false;
   }
 };
 
@@ -479,8 +503,16 @@ const mountRegOverlay = async () => {
   });
   map.addLayer(regOverlay);
   regOverlay.on('update', syncFormFromOverlay);
-  regOverlay.once('load', () => setRegMode(regMode.value));
-  map.fitBounds(L.latLngBounds(corners), { padding: [40, 40] });
+  regOverlay.once('load', () => {
+    const corners = regOverlay.getCorners();
+    console.info('[OutdoorMapView] registration overlay loaded:', url,
+      `${size.width}x${size.height}px`,
+      `corners=${corners.length}`,
+      `nw=${corners[0].lat.toFixed(6)},${corners[0].lng.toFixed(6)}`);
+    // editing 句柄可能还没建好, 让出一个 tick 再切模式。
+    if (!applyRegMode()) setTimeout(applyRegMode, 0);
+  });
+  map.fitBounds(L.latLngBounds(corners), { padding: [60, 60], maxZoom: 20 });
 };
 
 const startRegistration = async () => {
@@ -611,12 +643,14 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   flex: 1;
   display: flex;
   min-height: 380px;
+  min-width: 0;
 }
 
 .outdoor-map-container {
-  flex: 1;
+  /* width: 100% 会把侧栏挤出容器, 这里只能让它吃剩下的宽度。 */
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 380px;
-  width: 100%;
 }
 
 .reg-toggle {
@@ -624,6 +658,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   border: 1px solid #c6c9cd;
   border-radius: 4px;
   background: #fff;
+  color: #202124;
   cursor: pointer;
 }
 
@@ -633,26 +668,36 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   color: #fff;
 }
 
-.registration-panel {
-  width: 280px;
-  flex: 0 0 280px;
-  padding: 12px;
-  overflow-y: auto;
+.registration-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 14px;
+  padding: 8px 12px;
   background: #fff;
-  border-left: 1px solid #e3e5e8;
+  border-bottom: 1px solid #e3e5e8;
   font-size: 13px;
 }
 
-.registration-panel h4 {
-  margin: 0 0 10px;
-  font-size: 14px;
+.reg-title {
+  align-self: center;
+  font-weight: 600;
 }
 
 .reg-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
+  gap: 3px;
+}
+
+.reg-field.narrow input {
+  width: 118px;
+}
+
+.reg-field span {
+  color: #5f6368;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .reg-field input,
@@ -664,16 +709,18 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 
 .reg-modes {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 6px;
 }
 
 .reg-modes button {
-  flex: 1;
-  padding: 4px 0;
+  min-width: 64px;
+  padding: 5px 8px;
   border: 1px solid #c6c9cd;
   border-radius: 4px;
   background: #fff;
+  /* 全局 button 样式是白字, 白底上看不见, 这里显式覆盖 */
+  color: #202124;
   cursor: pointer;
 }
 
@@ -684,32 +731,36 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 }
 
 .reg-hint {
-  margin: 0 0 12px;
+  flex-basis: 100%;
+  margin: 0;
   color: #5f6368;
-  line-height: 1.4;
 }
 
 .reg-error {
+  flex-basis: 100%;
+  margin: 0;
   color: #d93025;
-  margin: 0 0 8px;
 }
 
 .reg-status {
+  flex-basis: 100%;
+  margin: 0;
   color: #188038;
-  margin: 0 0 8px;
 }
 
 .reg-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .reg-actions button {
-  flex: 1;
-  padding: 6px 0;
+  min-width: 64px;
+  padding: 5px 10px;
   border: 1px solid #c6c9cd;
   border-radius: 4px;
   background: #fff;
+  color: #202124;
   cursor: pointer;
 }
 
@@ -718,6 +769,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   border-color: #1a73e8;
   color: #fff;
 }
+
 
 .outdoor-empty {
   position: absolute;
