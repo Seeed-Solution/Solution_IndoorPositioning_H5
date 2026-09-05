@@ -18,9 +18,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { buildWsUrl } from '@/config/api.js';
-import { loadDashboardConfiguration } from '@/services/configApiService.js';
+import { loadDashboardConfiguration, loadTrackers } from '@/services/configApiService.js';
 import OutdoorMapView from '@/components/OutdoorMapView.vue';
 import { isOutdoorTracker } from '@/utils/trail.js';
+import { buildTrackerMapFromSnapshot, normalizeTrackerSnapshotEntry } from '@/utils/trackerSnapshot.js';
 
 const trackers = ref({});
 const outdoorConfig = ref(null);
@@ -36,26 +37,25 @@ const outdoorTrackerList = computed(
 const applyUpdate = (data) => {
   const trackerId = Object.keys(data)[0];
   if (!trackerId || !data[trackerId]) return;
-  const d = data[trackerId];
+  const normalized = normalizeTrackerSnapshotEntry({ trackerId, ...data[trackerId] });
+  if (!normalized) return;
   trackers.value = {
     ...trackers.value,
-    [trackerId]: {
-      trackerId: d.trackerId,
-      device_name: d.device_name,
-      x: d.position?.x ?? null,
-      y: d.position?.y ?? null,
-      lat: d.lat ?? d.position?.lat ?? null,
-      lon: d.lon ?? d.position?.lon ?? null,
-      alt: d.alt ?? null,
-      accuracy: d.accuracy ?? null,
-      fix_time: d.fix_time ?? null,
-      timestamp: d.timestamp,
-      sos: d.sos ?? 2,
-      type: d.type || 'calculation',
-      map: d.map,
-      position_history: d.position_history || [],
-    },
+    [trackerId]: normalized,
   };
+};
+
+// 页面刷新后 WS 重新连接是空白状态, 服务端也从不在连接建立时真正广播
+// initial_state (server/main.py 的 websocket_endpoint 里没有这个分支) —— 靠
+// REST /api/trackers 补一份当前快照 (含 position_history/lat/lon/type), 避免
+// tracker 与轨迹要等下一条上行才出现。
+const preloadTrackers = async () => {
+  try {
+    const snapshot = await loadTrackers();
+    trackers.value = buildTrackerMapFromSnapshot(snapshot);
+  } catch (err) {
+    console.warn('[OutdoorMapOverview] tracker preload failed:', err);
+  }
 };
 
 onMounted(async () => {
@@ -67,6 +67,8 @@ onMounted(async () => {
     console.warn('[OutdoorMapOverview] dashboard config load failed:', err);
   }
 
+  await preloadTrackers();
+
   ws = new WebSocket(buildWsUrl('/ws'));
   wsStatus.value = 'connecting';
   ws.onopen = () => { wsStatus.value = 'connected'; };
@@ -75,7 +77,7 @@ onMounted(async () => {
     try {
       const message = JSON.parse(event.data);
       if (message.type === 'initial_state') {
-        trackers.value = message.data || {};
+        trackers.value = buildTrackerMapFromSnapshot(message.data || {});
       } else if (message.type === 'tracker_update') {
         applyUpdate(message.data);
       }
