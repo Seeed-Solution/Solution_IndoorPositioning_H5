@@ -71,6 +71,9 @@
                     <option v-for="(map, index) in availableMaps" :key="index" :value="index">
                       {{ map.map?.name || `Map ${index + 1}` }} ({{ map.beacons?.length || 0 }} beacons)
                     </option>
+                    <option :value="OUTDOOR_MAP_INDEX">
+                      {{ $t('outdoorMap.title') }} ({{ outdoorTrackerList.length }})
+                    </option>
                   </select>
                 </div>
               </div>
@@ -78,7 +81,13 @@
 
             <!-- 地图显示区域 -->
             <div class="map-display-container">
-              <div v-if="selectedMap" class="map-display">
+              <div v-if="isOutdoorView" class="map-display">
+                <OutdoorMapView
+                  :trackers="outdoorTrackerList"
+                  :outdoor="outdoorConfig"
+                />
+              </div>
+              <div v-else-if="selectedMap" class="map-display">
                 <MapPreview 
                   :config="selectedMap"
                   :trackers="getTrackersForMap(selectedMap)"
@@ -147,8 +156,13 @@
               </div>
             </div>
             <div class="fullscreen-map-display">
+              <OutdoorMapView
+                v-if="isOutdoorView"
+                :trackers="outdoorTrackerList"
+                :outdoor="outdoorConfig"
+              />
               <MapPreview 
-                v-if="selectedMap"
+                v-else-if="selectedMap"
                 ref="fullscreenMapPreviewRef"
                 :config="selectedMap"
                 :trackers="getTrackersForMap(selectedMap)"
@@ -178,6 +192,8 @@ import {
 import { loadConfigFromLocalStorage } from '@/services/localStorageService.js'
 import { buildWsUrl } from '@/config/api.js'
 import MapPreview from '@/components/MapPreview.vue'
+import OutdoorMapView from '@/components/OutdoorMapView.vue'
+import { isOutdoorTracker } from '@/utils/trail.js'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -208,9 +224,20 @@ const trackers = ref({})
 const ws = ref(null)
 
 // 计算属性
+const OUTDOOR_MAP_INDEX = -1
+const outdoorConfig = ref(null)
+
+const isOutdoorView = computed(() => selectedMapIndex.value === OUTDOOR_MAP_INDEX)
+
 const selectedMap = computed(() => {
+  if (isOutdoorView.value) return null
   return availableMaps.value[selectedMapIndex.value] || null
 })
+
+// tracker.type === 'wGS84' 的走室外 Leaflet 视图, 其余留在室内 Canvas 视图
+const outdoorTrackerList = computed(
+  () => Object.values(trackers.value || {}).filter(isOutdoorTracker)
+)
 
 const filteredTrackers = computed(() => {
   if (!selectedMap.value) return []
@@ -249,6 +276,7 @@ const initializeMasterConfig = async () => {
   
   try {
     const config = await loadDashboardConfiguration()
+    outdoorConfig.value = config?.outdoor || null
     if (config && config.maps) {
       currentFullConfig.value = config.maps
       availableMaps.value = config.maps
@@ -303,7 +331,8 @@ const getTrackersForMap = (mapConfig) => {
   
   const filteredTrackers = {};
   Object.entries(trackers.value).forEach(([trackerId, tracker]) => {
-    if (tracker.map === mapName) {
+    // 室外 tracker 由 OutdoorMapView 渲染, 不进室内地图
+    if (tracker.map === mapName && !isOutdoorTracker(tracker)) {
       filteredTrackers[trackerId] = tracker;
     }
   });
@@ -377,8 +406,13 @@ const connectWebSocket = () => {
           const trackerInstanceData = {
             trackerId: newTrackerData.trackerId,
             device_name: newTrackerData.device_name,
-            x: newTrackerData.position.x,
-            y: newTrackerData.position.y,
+            x: newTrackerData.position?.x ?? null,
+            y: newTrackerData.position?.y ?? null,
+            lat: newTrackerData.lat ?? newTrackerData.position?.lat ?? null,
+            lon: newTrackerData.lon ?? newTrackerData.position?.lon ?? null,
+            alt: newTrackerData.alt ?? null,
+            accuracy: newTrackerData.accuracy ?? null,
+            fix_time: newTrackerData.fix_time ?? null,
             // position: newTrackerData.position ? {
             //   x: newTrackerData.position.x,
             //   y: newTrackerData.position.y,
@@ -394,7 +428,7 @@ const connectWebSocket = () => {
             position_history: newTrackerData.position_history
               ? newTrackerData.position_history.map(hEntry => Array.isArray(hEntry) ? [...hEntry] : hEntry)
               : [],
-            type: "calculation",
+            type: newTrackerData.type || "calculation",
             map: newTrackerData.map
           };
 

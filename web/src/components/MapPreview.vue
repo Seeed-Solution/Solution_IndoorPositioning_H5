@@ -92,6 +92,7 @@
 </template>
 
 <script setup>
+import { indoorSegments } from '@/utils/trail.js';
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { loadTrackers } from '@/services/configApiService.js';
@@ -530,22 +531,22 @@ const drawMap = (ctx) => {
   // --- Draw Tracker Trails (if enabled) ---
   if (localShowTrails.value) {
     filteredTrackers.value.forEach(tracker => {
-      if (tracker.position_history && tracker.position_history.length > 1) {
+      // 统一时间轴按坐标系切段: 这里只画室内 (metric) 段。
+      // 室外 (wgs84) 段由 OutdoorMapView 的 Leaflet 图层负责,
+      // 段与段之间不连线, 所以进出楼的切换点不会被画成一条直线。
+      indoorSegments(tracker.position_history).forEach(segment => {
+        if (segment.points.length < 2) return;
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)'; // Light blue, semi-transparent
         ctx.lineWidth = 2; // Thinner than current tracker dot
-
-        // Move to the oldest point in the history for this tracker
-        const firstPoint = tracker.position_history[0];
-        ctx.moveTo((firstPoint[0] - minX) * currentScale, (firstPoint[1] - minY) * currentScale);
-
-        // Draw lines to subsequent points
-        for (let i = 1; i < tracker.position_history.length; i++) {
-          const point = tracker.position_history[i];
-          ctx.lineTo((point[0] - minX) * currentScale, (point[1] - minY) * currentScale);
+        const firstPoint = segment.points[0];
+        ctx.moveTo((firstPoint.x - minX) * currentScale, (firstPoint.y - minY) * currentScale);
+        for (let i = 1; i < segment.points.length; i++) {
+          const point = segment.points[i];
+          ctx.lineTo((point.x - minX) * currentScale, (point.y - minY) * currentScale);
         }
         ctx.stroke();
-      }
+      });
     });
   }
 
