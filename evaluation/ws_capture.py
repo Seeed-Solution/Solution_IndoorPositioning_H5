@@ -27,6 +27,11 @@ async def capture(url: str, seconds: float, out_path: Path):
     counts = {}
     tracker_updates_with_fix = 0
     latencies_ms = []
+    # 步骤 3: 围栏告警与展示类型切换
+    geofence_alarms = []          # {tracker, fence_id, transition, latency_ms}
+    geofence_latencies_ms = []
+    last_type = {}                # tracker -> 上一次的 tracker_update.type
+    type_switches = []            # {tracker, from, to, timestamp}
 
     async with websockets.connect(url) as ws:
         print(f"[ws_capture] connected to {url}, capturing for {seconds}s")
@@ -45,12 +50,37 @@ async def capture(url: str, seconds: float, out_path: Path):
                 mtype = message.get("type", "unknown")
                 counts[mtype] = counts.get(mtype, 0) + 1
                 if mtype == "tracker_update":
-                    for payload in message.get("data", {}).values():
+                    for tracker_id, payload in message.get("data", {}).items():
                         if payload.get("lat") is not None and payload.get("lon") is not None:
                             tracker_updates_with_fix += 1
                         uplink_ts = payload.get("timestamp")
                         if uplink_ts:
                             latencies_ms.append(recv_ms - int(uplink_ts))
+                        current_type = payload.get("type")
+                        previous = last_type.get(tracker_id)
+                        if previous is not None and current_type != previous:
+                            type_switches.append({"tracker": tracker_id, "from": previous,
+                                                  "to": current_type, "timestamp": uplink_ts})
+                        last_type[tracker_id] = current_type
+                elif mtype in ("tracker_checkin", "tracker_position_detection"):
+                    # 围栏告警沿用这两个消息类型, 多带一个 geofence 段.
+                    for tracker_id, payload in message.get("data", {}).items():
+                        fence = payload.get("geofence")
+                        if not fence:
+                            continue
+                        uplink_ts = payload.get("timestamp")
+                        latency = recv_ms - int(uplink_ts) if uplink_ts else None
+                        if latency is not None:
+                            geofence_latencies_ms.append(latency)
+                        geofence_alarms.append({
+                            "tracker": tracker_id,
+                            "message_type": mtype,
+                            "fence_id": fence.get("id"),
+                            "fence_name": fence.get("name"),
+                            "transition": fence.get("transition"),
+                            "uplink_timestamp": uplink_ts,
+                            "latency_ms": latency,
+                        })
 
     summary = {
         "message_counts": counts,
@@ -58,6 +88,14 @@ async def capture(url: str, seconds: float, out_path: Path):
         "latency_ms_count": len(latencies_ms),
         "latency_ms_p95": (sorted(latencies_ms)[int(len(latencies_ms) * 0.95)]
                            if latencies_ms else None),
+        "geofence_alarms": geofence_alarms,
+        "geofence_alarm_count": len(geofence_alarms),
+        "geofence_latency_ms_p50": (sorted(geofence_latencies_ms)[len(geofence_latencies_ms) // 2]
+                                    if geofence_latencies_ms else None),
+        "geofence_latency_ms_max": max(geofence_latencies_ms) if geofence_latencies_ms else None,
+        "type_switch_count": len(type_switches),
+        "type_switches": type_switches,
+        "final_types": last_type,
         "raw": str(out_path),
     }
     print("[ws_capture] " + json.dumps(summary, ensure_ascii=False))

@@ -1,0 +1,48 @@
+# 按 seeed-solutions-hub/templates/evaluation/boundary.schema.yaml 填写。
+# 本批只跑了冒烟，三档边界都没测到，全部为 null。
+# 实测值：围栏告警 2 条，时延 9 ms / 14 ms（同机 loopback）。
+demo_id: "solution-indoor-positioning"
+
+metric:
+  name: "围栏告警时延（上行时间戳 → 告警入库并广播）"
+  unit: "毫秒"
+  direction: "lower_is_better"
+
+conditions:
+  device:
+    model: "MacBook (Apple Silicon), 无边缘设备"
+    sku: "N/A"
+    os: "macOS, Darwin 25.5.0"
+    firmware: "N/A"
+  software:
+    repo: "solution-indoor-positioning"
+    commit: "6276f7e"
+    image_tag: "N/A"
+  network_env: "全部组件在同一台主机的 loopback 上，无网络损伤"
+  data_scale: "1 个虚拟标签 × 17 条 GNSS 上行 × 1 个多边形围栏"
+  duration: "单次 96 秒（--speed 1，未压缩）"
+
+tiers:
+  stable:
+    value: null
+    observation: null
+  degrading:
+    value: null
+    observation: null
+  failure:
+    value: null
+    observation: null
+
+raw_refs:
+  - "raw/ws.jsonl"
+  - "raw/ws_capture_summary.txt"
+  - "raw/alarm_records.json"
+  - "raw/server.log"
+
+reproduced_by: null
+
+caveats: >
+  这是链路冒烟，不是性能测试。broker/server/抓包客户端同机 loopback，
+  测得的 9/14 ms 只能证明链路无堆积，不代表真实部署的告警时延。
+  只跑了 1 个标签、1 个围栏、96 秒，未做并发与长时运行。
+  accuracy 全为 null，精度缓冲带这一路分支在本次回放中没有被触发。

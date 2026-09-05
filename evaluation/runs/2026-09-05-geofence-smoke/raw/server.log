@@ -1,0 +1,233 @@
+WARNING:server.main:Static files directory '../client' not found. Serving API only.
+INFO:server.main:Uploaded files will be served from /uploads, directory: uploads
+INFO:     Started server process [54715]
+INFO:     Waiting for application startup.
+INFO:server.main:Server startup sequence initiated.
+INFO:server.main:Server runtime configuration loaded. MQTT enabled: sensecapOpenStream=SensecapMqttConfig(brokerHost='sensecap-openstream.seeed.cc', brokerPort=1883, username='org-449120059189248', password='A3DF22EE57A24818AB036074D2053CAC59A1FE01C19441AF9873048DE6A79835', applicationID='449120059189248', topicPattern='/device_sensor_data/449120059189248/+/+/+/+', clientID='org-449120059189248-996065', enabled=False, live_mqtt_status=None) chirpStackMqtt=ChirpstackMqttConfig(brokerHost='127.0.0.1', brokerPort=1883, username=None, password=None, applicationID='26ac83a4-4d1d-4b4f-b0b5-d99893b70171', topicPattern='application/26ac83a4-4d1d-4b4f-b0b5-d99893b70171/device/+/event/up', clientID='client-{clientID}', enabled=True, live_mqtt_status=None) server=WebServerConfig(port=8022) kalman=KalmanParams(processVariance=1.0, measurementVariance=10.0) tracker_list=[] allow_all_tracker=True allow_area_location=True username='admin' password='xgg2pvJERKppwHUYU874' webhook=WebhookSetting(enable=False, host='', headers={})
+INFO:server.main:tracker list has been loaded successfully when startup...
+INFO:server.components.event_manager:Initializing EventManager...
+INFO:server.components.event_manager:EventManager initialized successfully. Loaded 2 events.
+INFO:server.main:Event manager initialized successfully during startup.
+INFO:server.main:MQTT setup called. Checking for enabled data sources...
+INFO:server.main:Initialized chirpstack MQTT client: client-724031
+INFO:server.main:chirpstack MQTT brokerHost is listening....
+INFO:server.main:Server startup complete.
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:29:39.600806)...
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:29:39.601096)...
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582579601.123
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:29:39.601139
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8022 (Press CTRL+C to quit)
+INFO:server.main:MQTT Broker: Connected to chirpstack!
+INFO:server.main:Subscribed to chirpstack topic: application/26ac83a4-4d1d-4b4f-b0b5-d99893b70171/device/+/event/up
+INFO:server.main:Login request received for username: admin
+INFO:server.components.session_holder:Session saved to SQLite for user: admin
+INFO:server.main:Login successful for username: admin
+Initializing configuration manager...
+Server runtime configuration loaded successfully from server/config/json/server_runtime_config.json
+Dashboard configuration loaded successfully from server/config/json/dashboard_config.json.
+Server runtime configuration loaded successfully from server/config/json/server_runtime_config.json
+INFO:     127.0.0.1:57192 - "POST /api/login HTTP/1.1" 200 OK
+INFO:server.components.event_manager:Created and cached event: 围栏进出告警(评测) (ID: 3)
+INFO:server.main:Created event trigger: 围栏进出告警(评测) (ID: 3)
+INFO:     127.0.0.1:57193 - "POST /api/events HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57326 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:server.components.websocket_holder:WebSocket client connected: Address(host='127.0.0.1', port=57326)
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582609612.397
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:30:09.612777
+INFO:     127.0.0.1:57625 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:server.components.websocket_holder:WebSocket client connected: Address(host='127.0.0.1', port=57625)
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582620215 timestamp=1788582620214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=92 online='online' lat=22.534 lon=113.941 alt=None accuracy=None fix_time=1788582620214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582625226 timestamp=1788582625214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=92 online='online' lat=22.5342 lon=113.9412 alt=None accuracy=None fix_time=1788582625214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582630221 timestamp=1788582630214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=92 online='online' lat=22.5345 lon=113.9415 alt=None accuracy=None fix_time=1788582630214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582635226 timestamp=1788582635214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=92 online='online' lat=22.536 lon=113.943 alt=None accuracy=None fix_time=1788582635214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:30:39.601688)...
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:30:39.604275)...
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582639615.281
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:30:39.615595
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582641220 timestamp=1788582641214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=92 online='online' lat=22.5361 lon=113.9431 alt=None accuracy=None fix_time=1788582641214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582647222 timestamp=1788582647214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=91 online='online' lat=22.5362 lon=113.9432 alt=None accuracy=None fix_time=1788582647214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD geofence 1 enter event(id:3) triggered
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582653226 timestamp=1788582653214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=91 online='online' lat=22.5363 lon=113.9433 alt=None accuracy=None fix_time=1788582653214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582660225 timestamp=1788582660214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=91 online='online' lat=22.5349 lon=113.943 alt=None accuracy=None fix_time=1788582660214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582666224 timestamp=1788582666214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=91 online='online' lat=22.5351 lon=113.943 alt=None accuracy=None fix_time=1788582666214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582669615.357
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:31:09.618565
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582672221 timestamp=1788582672214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=91 online='online' lat=22.5349 lon=113.943 alt=None accuracy=None fix_time=1788582672214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582678217 timestamp=1788582678214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=91 online='online' lat=22.5351 lon=113.943 alt=None accuracy=None fix_time=1788582678214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582684218 timestamp=1788582684214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582684214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=90 online='online' lat=22.5349 lon=113.943 alt=None accuracy=None fix_time=1788582684214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582690226 timestamp=1788582690214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582684214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582690214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=90 online='online' lat=22.5351 lon=113.943 alt=None accuracy=None fix_time=1788582690214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582698221 timestamp=1788582698214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582684214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582690214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582698214, x=None, y=None, map=None, lat=22.5344, lon=113.9415, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=90 online='online' lat=22.5344 lon=113.9415 alt=None accuracy=None fix_time=1788582698214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:31:39.605740)...
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:31:39.607743)...
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582699619.7961
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:31:39.620095
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582704224 timestamp=1788582704214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582684214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582690214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582698214, x=None, y=None, map=None, lat=22.5344, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582704214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=90 online='online' lat=22.5342 lon=113.9412 alt=None accuracy=None fix_time=1788582704214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582710217 timestamp=1788582710214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582684214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582690214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582698214, x=None, y=None, map=None, lat=22.5344, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582704214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582710214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=90 online='online' lat=22.534 lon=113.941 alt=None accuracy=None fix_time=1788582710214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD geofence 1 exit event(id:3) triggered
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.handler.indoor_outdoor:hysteresis 2CF7F1C0530004AD: GNSS fix 无 accuracy, 按通过精度门槛处理
+INFO:server.handler.uplink_consumer:tracker(id: 2CF7F1C0530004AD) location resolving done, state: 
+ trackerId='2CF7F1C0530004AD' x=None y=None last_update_time=1788582716224 timestamp=1788582716214 last_detected_beacons=[] position_history=[PositionHistoryEntry(coordSystem='wgs84', time=1788582620214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582625214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582630214, x=None, y=None, map=None, lat=22.5345, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582635214, x=None, y=None, map=None, lat=22.536, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582641214, x=None, y=None, map=None, lat=22.5361, lon=113.9431, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582647214, x=None, y=None, map=None, lat=22.5362, lon=113.9432, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582653214, x=None, y=None, map=None, lat=22.5363, lon=113.9433, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582660214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582666214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582672214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582678214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582684214, x=None, y=None, map=None, lat=22.5349, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582690214, x=None, y=None, map=None, lat=22.5351, lon=113.943, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582698214, x=None, y=None, map=None, lat=22.5344, lon=113.9415, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582704214, x=None, y=None, map=None, lat=22.5342, lon=113.9412, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582710214, x=None, y=None, map=None, lat=22.534, lon=113.941, alt=None, accuracy=None), PositionHistoryEntry(coordSystem='wgs84', time=1788582716214, x=None, y=None, map=None, lat=22.5338, lon=113.9408, alt=None, accuracy=None)] used_beacons=[] map='unknown' sos=0 type='wGS84' radius=0 battery=90 online='online' lat=22.5338 lon=113.9408 alt=None accuracy=None fix_time=1788582716214
+INFO:server.handler.event_consumer:alarm_handle: 2CF7F1C0530004AD
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 3
+INFO:server.geofence:geofence 1: accuracy 缺失, 按通过精度门槛处理 (2CF7F1C0530004AD/3)
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 2
+INFO:server.handler.event_consumer:single_event_consume: 2CF7F1C0530004AD in event: 1
+INFO:server.handler.event_consumer:the tracker: 2CF7F1C0530004AD sos event: 0 from 0
+INFO:server.handler.message_listen_handler:message_listener: post_listener finish for tracker:2CF7F1C0530004AD
+INFO:server.components.websocket_holder:WebSocket client disconnected: Address(host='127.0.0.1', port=57326)
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582729620.563
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:32:09.624867
+INFO:server.components.websocket_holder:WebSocket client disconnected: Address(host='127.0.0.1', port=57625)
+INFO:     127.0.0.1:60900 - "GET /api/list_alarm?page=1&page_size=5 HTTP/1.1" 422 Unprocessable Entity
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:32:39.609814)...
+INFO:server.handler.offline_handler:task: device-offline-checker is running in (2026-09-05 12:32:39.611871)...
+INFO:server.handler.event_trigger:leaving_event_trigger is running, now: 1788582759627.1902
+INFO:server.handler.event_trigger:leaving_event_trigger is end, now: 2026-09-05 12:32:39.627472
+INFO:     127.0.0.1:61002 - "GET /api/list_alarm?device_eui=2CF7F1C0530004AD&page=1&page_size=5 HTTP/1.1" 200 OK
