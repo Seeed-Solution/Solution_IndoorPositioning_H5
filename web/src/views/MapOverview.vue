@@ -83,8 +83,10 @@
             <div class="map-display-container">
               <div v-if="isOutdoorView" class="map-display">
                 <OutdoorMapView
-                  :trackers="outdoorTrackerList"
+                  :trackers="trackers"
                   :outdoor="outdoorConfig"
+                  :maps="availableMaps"
+                  @registration-saved="onRegistrationSaved"
                 />
               </div>
               <div v-else-if="selectedMap" class="map-display">
@@ -158,8 +160,10 @@
             <div class="fullscreen-map-display">
               <OutdoorMapView
                 v-if="isOutdoorView"
-                :trackers="outdoorTrackerList"
+                :trackers="trackers"
                 :outdoor="outdoorConfig"
+                :maps="availableMaps"
+                @registration-saved="onRegistrationSaved"
               />
               <MapPreview 
                 v-else-if="selectedMap"
@@ -320,6 +324,13 @@ const loadMasterConfigFromStorage = () => {
     totalBeacons.value = 0
     showStatus(t('mapOverview.status.noConfigFound'), 'warn')
   }
+}
+
+// 配准保存后本地也留一份, 刷新前就能按配准渲染; 服务端已落盘, 刷新后由
+// initializeMasterConfig 重新读回来。
+const onRegistrationSaved = ({ mapName, registration }) => {
+  const entry = availableMaps.value.find((m) => m.map?.name === mapName)
+  if (entry && entry.map) entry.map.registration = { ...registration }
 }
 
 const getTrackersForMap = (mapConfig) => {

@@ -110,8 +110,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 import { normalizeOutdoorConfig, TILE_KIND_PMTILES } from '@/config/outdoor.js';
-import { outdoorSegments, isOutdoorTracker } from '@/utils/trail.js';
+import { outdoorSegments, indoorSegments, isOutdoorTracker } from '@/utils/trail.js';
 import {
+  localToWgs84,
+  isRegistered,
   imageFootprintLocal,
   cornersFromRegistration,
   registrationFromCorners,
@@ -145,10 +147,37 @@ const activeSource = computed(
   () => tileSources.value.find((s) => s.id === activeSourceId.value) || tileSources.value[0],
 );
 
-const outdoorTrackers = computed(() => {
-  const list = Array.isArray(props.trackers) ? props.trackers : Object.values(props.trackers || {});
-  return list.filter(isOutdoorTracker);
+const allTrackers = computed(
+  () => (Array.isArray(props.trackers) ? props.trackers : Object.values(props.trackers || {})),
+);
+
+const outdoorTrackers = computed(() => allTrackers.value.filter(isOutdoorTracker));
+
+/** 已配准的平面图: 名字 -> registration。未配准的地图不进这张图。 */
+const registrationByMap = computed(() => {
+  const byName = {};
+  (props.maps || []).forEach((entry) => {
+    if (entry?.map?.name && isRegistered(entry.map)) {
+      byName[entry.map.name] = entry.map.registration;
+    }
+  });
+  return byName;
 });
+
+/** 米制点 -> [lat, lon]，地图未配准或坐标非法返回 null。 */
+const projectMetric = (x, y, mapName) => {
+  const reg = registrationByMap.value[mapName];
+  if (!reg) return null;
+  const px = Number(x);
+  const py = Number(y);
+  if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+  try {
+    const p = localToWgs84(px, py, reg);
+    return [p.lat, p.lon];
+  } catch (err) {
+    return null;
+  }
+};
 
 let map = null;
 let tileLayer = null;
@@ -196,6 +225,57 @@ const redraw = () => {
   overlay = L.layerGroup().addTo(map);
 
   const bounds = [];
+
+  // 已配准平面图上的室内设备: 实时 x/y 与 metric 历史段按配准投影到同一张图。
+  // 与 wgs84 段分属不同 segment, 因此切换点不会被连成一条线。
+  allTrackers.value.forEach((tracker) => {
+    if (isOutdoorTracker(tracker)) return;
+    const latlng = projectMetric(tracker.x, tracker.y, tracker.map);
+    if (latlng) {
+      bounds.push(latlng);
+      const isSos = tracker.sos === 1;
+      L.circleMarker(latlng, {
+        radius: 6,
+        color: isSos ? '#d93025' : '#188038',
+        fillColor: '#ffffff',
+        fillOpacity: 0.9,
+        weight: 2,
+        dashArray: '3,2',
+      })
+        .bindTooltip(`${tracker.device_name || tracker.trackerId} · ${tracker.map}`,
+          { permanent: false })
+        .addTo(overlay);
+    }
+    if (!showTrails.value) return;
+    indoorSegments(tracker.position_history).forEach((segment) => {
+      // 同一段里换地图也要断开: 两张平面图各有自己的配准。
+      let run = [];
+      let runMap = null;
+      const flush = () => {
+        if (run.length >= 2) {
+          run.forEach((pt) => bounds.push(pt));
+          L.polyline(run, {
+            color: '#188038', weight: 2, opacity: 0.45, dashArray: '4,4',
+          }).addTo(overlay);
+        }
+        run = [];
+      };
+      segment.points.forEach((p) => {
+        if (p.map !== runMap) {
+          flush();
+          runMap = p.map;
+        }
+        const projected = projectMetric(p.x, p.y, p.map);
+        if (!projected) {
+          flush();
+          return;
+        }
+        run.push(projected);
+      });
+      flush();
+    });
+  });
+
   outdoorTrackers.value.forEach((tracker) => {
     const latlng = trackerLatLng(tracker);
     if (!latlng) return;
@@ -473,7 +553,7 @@ watch(() => props.outdoor, () => {
   activeSourceId.value = outdoorConfig.value.defaultSource;
   applyTileLayer();
 });
-watch([() => props.trackers, showTrails], redraw, { deep: true });
+watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true });
 </script>
 
 <style scoped>

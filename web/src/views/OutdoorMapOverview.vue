@@ -10,7 +10,7 @@
       <span class="tracker-count">{{ outdoorTrackerList.length }}</span>
     </div>
     <div class="outdoor-wrapper">
-      <OutdoorMapView :trackers="outdoorTrackerList" :outdoor="outdoorConfig" />
+      <OutdoorMapView :trackers="trackers" :outdoor="outdoorConfig" :maps="availableMaps" />
     </div>
   </div>
 </template>
@@ -24,6 +24,8 @@ import { isOutdoorTracker } from '@/utils/trail.js';
 
 const trackers = ref({});
 const outdoorConfig = ref(null);
+// 已配准的平面图也要画在这张图上, 所以投屏页同样需要 maps。
+const availableMaps = ref([]);
 const wsStatus = ref('disconnected');
 let ws = null;
 
@@ -60,6 +62,7 @@ onMounted(async () => {
   try {
     const config = await loadDashboardConfiguration();
     outdoorConfig.value = config?.outdoor || null;
+    availableMaps.value = config?.maps || [];
   } catch (err) {
     console.warn('[OutdoorMapOverview] dashboard config load failed:', err);
   }
