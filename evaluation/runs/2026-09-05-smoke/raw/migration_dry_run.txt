@@ -1,0 +1,3 @@
+[migrate] database: /private/tmp/claude-501/-Users-harvest-project/21b93804-9526-4f6f-9403-50a93f8d393b/scratchpad/old_app.db
+[migrate] 001_outdoor_geofence.sql: already applied, skipping
+[migrate] done
