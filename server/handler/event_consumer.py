@@ -13,6 +13,9 @@ import server.handler.event_trigger as event_trigger
 
 from server.dao.device_alarm_record_dao import alarm_record_dao
 
+from server.components.geofence_holder import geofence_holder
+from server import geofence as geofence_engine
+
 from server.constant import event_constant
 from server.constant import message_constant
 
@@ -50,6 +53,102 @@ def find_closest_beacon(
     return closest_beacon, closest_dis
 
 
+def build_geo_loc(state: TrackerState, fence_id: Optional[int], transition: str) -> dict:
+    """告警记录的 loc: 经纬度 + 坐标系 + 围栏与转换方向.
+
+    旧的 x/y 在室内模式下继续写(见下面 build_metric_loc), 读侧两种都要吃.
+    """
+    return {
+        "lat": state.lat,
+        "lon": state.lon,
+        "coordSystem": "wgs84",
+        "fence_id": fence_id,
+        "transition": transition,
+    }
+
+
+def build_metric_loc(state: TrackerState) -> dict:
+    """BLE 模式的告警坐标: 旧的 x/y/radius 照写, 有经纬度时一并带上."""
+    loc = {}
+    if state.x and state.y:
+        loc["x"] = state.x
+        loc["y"] = state.y
+        loc["coordSystem"] = "metric"
+    if state.radius:
+        loc["radius"] = state.radius
+    if state.lat is not None and state.lon is not None:
+        loc["lat"] = state.lat
+        loc["lon"] = state.lon
+        if "coordSystem" not in loc:
+            loc["coordSystem"] = "wgs84"
+    return loc
+
+
+async def consume_geo_event(state: TrackerState,
+                            alarm_setting: EventTriggerRecord) -> Optional[DeviceAlarmRecord]:
+    """location_mode=geo 的判定: 只看经纬度, 不依赖 beacon.
+
+    围栏状态走 FenceHysteresis: 连续 3 点且持续 10 s 才切换,
+    切换瞬间产出一次 enter/exit; 方向与 alarm_setting.transition 匹配才告警.
+    """
+    if state.lat is None or state.lon is None:
+        log.info(
+            f'the tracker: {state.trackerId} geo-event(id:{alarm_setting.id}) '
+            f'skip because of no lat/lon in this uplink')
+        return None
+
+    fence = geofence_holder.get_fence(alarm_setting.geofence_id)
+    if fence is None:
+        log.info(
+            f'the tracker: {state.trackerId} geo-event(id:{alarm_setting.id}) '
+            f'skip because geofence {alarm_setting.geofence_id} is missing/disabled/invalid')
+        return None
+
+    hysteresis = geofence_holder.get_hysteresis(state.trackerId, alarm_setting.id)
+    transition = hysteresis.feed(
+        fence=fence,
+        lat=state.lat,
+        lon=state.lon,
+        timestamp_ms=state.timestamp or int(datetime.datetime.now().timestamp() * 1000),
+        accuracy=state.accuracy,
+        log_key=f'{state.trackerId}/{alarm_setting.id}',
+    )
+    if not transition:
+        return None
+    if not geofence_engine.transition_matches(alarm_setting.transition, transition):
+        log.info(
+            f'the tracker: {state.trackerId} geo-event(id:{alarm_setting.id}) '
+            f'ignores {transition} because configured transition is {alarm_setting.transition}')
+        return None
+
+    loc = build_geo_loc(state, fence.id, transition)
+    record = alarm_record_dao.create_record(
+        dev_eui=state.trackerId,
+        alarm_time=datetime.datetime.fromtimestamp(state.timestamp / 1000)
+        if state.timestamp else datetime.datetime.now(),
+        pos_type=message_constant.TRACKER_POSITIONING_TYPE_GPS,
+        loc=loc,
+        beacons=state.used_beacons,
+        status=1,
+        event_type=alarm_setting.event_type,
+        event_id=alarm_setting.id,
+        event_name=alarm_setting.event_name,
+        map_name=fence.name or state.map,
+        desc={"fence_id": fence.id, "fence_name": fence.name, "transition": transition},
+    )
+    if transition == geofence_engine.TRANSITION_ENTER:
+        await websocket_holder.broadcast(message_constant.get_geofence_message(
+            state, fence.id, fence.name, transition, message_constant.MESSAGE_TYPE_TRACKER_CHECKIN))
+    else:
+        await websocket_holder.broadcast(message_constant.get_geofence_message(
+            state, fence.id, fence.name, transition,
+            message_constant.MESSAGE_TYPE_TRACKER_POSITION_DETECTION))
+    log.info(
+        f'the tracker: {state.trackerId} geofence {fence.id} {transition} '
+        f'event(id:{alarm_setting.id}) triggered')
+    return record
+
+
 async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerRecord) -> Optional[DeviceAlarmRecord]:
     log.info(f"single_event_consume: {state.trackerId} in event: {alarm_setting.id}")
     try:
@@ -66,12 +165,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                     if previous_sos == event_constant.SOS_STATUS_UNKNOWN:
                         return
                     log.info(f'the tracker: {state.trackerId} sos event: {state.sos} from {previous_sos}')
-                    loc = {}
-                    if state.x and state.y:
-                        loc["x"] = state.x
-                        loc["y"] = state.y
-                    if state.radius:
-                        loc["radius"] = state.radius
+                    loc = build_metric_loc(state)
                     alarm_record_dao.create_record(
                         dev_eui=state.trackerId,
                         alarm_time=datetime.datetime.fromtimestamp(state.timestamp / 1000),
@@ -86,6 +180,8 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                     )
             # case event_constant.ALARM_TYPE_OFFLINE:
             case event_constant.ALARM_TYPE_CHECKIN:
+                if alarm_setting.is_geo_mode():
+                    return await consume_geo_event(state, alarm_setting)
                 if not alarm_setting.ble_range or len(alarm_setting.ble_range) == 0:
                     log.info(
                         f'the tracker: {state.trackerId} check-in-event(id:{alarm_setting.id}) skip '
@@ -123,12 +219,7 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                         f'skip because of has been triggered in {triggered_time}')
                     return
 
-                loc = {}
-                if state.x and state.y:
-                    loc["x"] = state.x
-                    loc["y"] = state.y
-                if state.radius:
-                    loc["radius"] = state.radius
+                loc = build_metric_loc(state)
                 alarm_record_dao.create_record(
                     dev_eui=state.trackerId,
                     alarm_time=datetime.datetime.fromtimestamp(state.timestamp / 1000),
@@ -149,6 +240,8 @@ async def single_event_consume(state: TrackerState, alarm_setting: EventTriggerR
                 )
                 log.info(f'the tracker: {state.trackerId} check-in event: {closest_beacon} with dis: {closest_dis} M')
             case event_constant.ALARM_TYPE_POSITION_DETECTION:
+                if alarm_setting.is_geo_mode():
+                    return await consume_geo_event(state, alarm_setting)
                 if not alarm_setting.ble_range or len(alarm_setting.ble_range) == 0:
                     log.info(
                         f'the tracker: {state.trackerId} '

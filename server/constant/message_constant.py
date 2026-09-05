@@ -77,6 +77,34 @@ def get_leaving_message(state: TrackerState) -> dict:
         }}
     }
 
+def get_geofence_message(state: TrackerState, fence_id, fence_name: str,
+                         transition: str, message_type: str) -> dict:
+    """围栏进出告警的广播载荷.
+
+    沿用 checkin / position_detection 两个消息类型, 前端不用新增分支;
+    额外带 geofence 段, 让室外地图能定位到是哪个围栏.
+    """
+    return {
+        "type": message_type,
+        "data": {state.trackerId: {
+            "timestamp": state.timestamp,
+            "map": fence_name,
+            "geofence": {
+                "id": fence_id,
+                "name": fence_name,
+                "transition": transition,
+            },
+            "position": {
+                "lat": state.lat,
+                "lon": state.lon,
+                "accuracy": state.accuracy,
+                "coordSystem": "wgs84",
+            },
+            "last_detected_beacons": [],
+        }}
+    }
+
+
 def get_tracker_update(state: TrackerState) -> dict:
     position_payload = None
     if state.x is not None and state.y is not None:
