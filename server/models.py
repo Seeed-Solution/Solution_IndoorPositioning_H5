@@ -51,6 +51,57 @@ class WebUIMapEntity(BaseModel):
     fillColor: Optional[str] = None # If supporting filled shapes
     # 'color' was in MiniprogramMapEntity, MapEditorTab uses strokeColor, fillColor
 
+# 平面图与室外地图的配准。缺失即纯室内模式。
+# 高纬度下"每度经度的米数"随纬度剧烈变化，切平面近似失效，直接拒绝配准。
+GEOREF_POLAR_LIMIT_DEG = 85.0
+
+
+class MapRegistration(BaseModel):
+    """把平面图的米制坐标系锚到 WGS84。
+
+    origin_lat/origin_lon 是平面图局部坐标原点 (x=0, y=0) 对应的经纬度；
+    rotation_deg 是平面图 +Y 轴顺时针偏离正北的角度；
+    scale 是相对基准比例的缩放系数（1.0 = 按地图米数原样贴图）。
+    公式见 server/geo/affine.py 与 web/src/utils/affine.js。
+    """
+    origin_lat: float
+    origin_lon: float
+    rotation_deg: float = 0.0
+    scale: float = 1.0
+
+    @field_validator("origin_lat", "origin_lon", "rotation_deg", "scale", mode="after")
+    @classmethod
+    def _finite(cls, value: float) -> float:
+        if not isinstance(value, (int, float)) or value != value or value in (float("inf"), float("-inf")):
+            raise ValueError("registration fields must be finite numbers")
+        return float(value)
+
+    @field_validator("origin_lat", mode="after")
+    @classmethod
+    def _lat_range(cls, value: float) -> float:
+        if not -90.0 <= value <= 90.0:
+            raise ValueError("origin_lat must be within [-90, 90]")
+        if abs(value) > GEOREF_POLAR_LIMIT_DEG:
+            raise ValueError(
+                f"georeferencing is refused above |lat| {GEOREF_POLAR_LIMIT_DEG} deg"
+            )
+        return value
+
+    @field_validator("origin_lon", mode="after")
+    @classmethod
+    def _lon_range(cls, value: float) -> float:
+        if not -180.0 <= value <= 180.0:
+            raise ValueError("origin_lon must be within [-180, 180]")
+        return value
+
+    @field_validator("scale", mode="after")
+    @classmethod
+    def _scale_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("scale must be > 0")
+        return value
+
+
 class WebUIMapInfo(BaseModel):
     name: Optional[str] = None # Optional name for the map layout itself
     width: float # in meters
@@ -60,6 +111,8 @@ class WebUIMapInfo(BaseModel):
     minY: Optional[float] = None # Minimum Y coordinate in meters
     maxY: Optional[float] = None # Maximum Y coordinate in meters
     background: Optional[str] = None # Background image URL or path
+    # 与室外地图的配准，缺失即纯室内模式。
+    registration: Optional[MapRegistration] = None
 
 class WebUIBeaconConfig(BaseModel):
     uuid: str = Field(..., description="iBeacon UUID")

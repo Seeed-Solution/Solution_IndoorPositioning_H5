@@ -50,7 +50,8 @@ from server.models import (  # Grouped imports for models
     DeviceUpdateRequest, DeviceListItem, DeviceSearchRequest,
     DeviceBatchUpdateGroupRequest, TrackerInfo, TrackerStateQueryRequest,
     EventTriggerCreateRequest, EventTriggerUpdateRequest, EventTriggerListItem,
-    GeofenceCreateRequest, GeofenceUpdateRequest, GeofenceListItem
+    GeofenceCreateRequest, GeofenceUpdateRequest, GeofenceListItem,
+    MapRegistration
 )
 from server.positioning import KalmanFilter2D
 
@@ -1262,6 +1263,53 @@ async def save_dashboard_config(config_content: DashboardConfig, response: Respo
         log.error(f"Error processing uploaded Dashboard configuration: {e}", exc_info=True)
         raise HTTPException(status_code=500,
                             detail=f"Internal server error while saving Dashboard configuration: {str(e)}")
+
+
+def _find_map_entry(config: Optional[DashboardConfig], map_name: str):
+    """按地图名找到 SingleMapConfig, 找不到返回 None."""
+    if not config or not config.maps:
+        return None
+    for entry in config.maps:
+        if entry.map and entry.map.name == map_name:
+            return entry
+    return None
+
+
+@app.get("/api/configuration/dashboard/maps/{map_name}/registration",
+         response_model=Optional[MapRegistration])
+async def get_map_registration(map_name: str):
+    """读一张平面图的室外配准参数。未配准返回 null(200), 地图不存在返回 404."""
+    global dashboard_cfg
+    if dashboard_cfg is None:
+        dashboard_cfg = config_manager.get_dashboard_config()
+    entry = _find_map_entry(dashboard_cfg, map_name)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Map '{map_name}' not found")
+    return entry.map.registration
+
+
+@app.put("/api/configuration/dashboard/maps/{map_name}/registration", status_code=200)
+async def put_map_registration(map_name: str, registration: MapRegistration,
+                               dep=Depends(check_authority)):
+    """写回一张平面图的室外配准参数。
+
+    校验(经纬度范围、极区、有限数、scale>0)由 MapRegistration 完成,
+    非法输入由 FastAPI 直接返回 422。写的是 dashboard_config.json 同一份
+    JSON 与内存 cache, 整配置 API 不变。
+    """
+    global dashboard_cfg
+    if dashboard_cfg is None:
+        dashboard_cfg = config_manager.get_dashboard_config()
+    entry = _find_map_entry(dashboard_cfg, map_name)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Map '{map_name}' not found")
+
+    entry.map.registration = registration
+    if not config_manager.save_dashboard_config_to_file(dashboard_cfg):
+        raise HTTPException(status_code=500, detail="Failed to persist map registration")
+    log.info(f"Map '{map_name}' registration saved: {registration.model_dump()}")
+    return {"message": "Map registration saved successfully.",
+            "registration": registration.model_dump()}
 
 
 @app.post("/api/upload", status_code=200)

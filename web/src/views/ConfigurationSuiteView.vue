@@ -1691,7 +1691,19 @@ const formatMapConfig = (mapConfig) => {
     minY: Math.round(minY * 100) / 100,
     maxY: Math.round(maxY * 100) / 100
   };
-  
+
+  // 配准参数由室外视图的配准模式写入。这里是字段白名单, 不透传就会在
+  // 保存整份配置时被静默丢掉。缺失即纯室内模式, 不补默认值。
+  const reg = mapConfig.map?.registration;
+  if (reg && isValidNumber(Number(reg.origin_lat)) && isValidNumber(Number(reg.origin_lon))) {
+    mapObj.registration = {
+      origin_lat: Number(reg.origin_lat),
+      origin_lon: Number(reg.origin_lon),
+      rotation_deg: isValidNumber(Number(reg.rotation_deg)) ? Number(reg.rotation_deg) : 0,
+      scale: isValidNumber(Number(reg.scale)) && Number(reg.scale) > 0 ? Number(reg.scale) : 1,
+    };
+  }
+
   // 背景图链接必填，如果为空则使用默认值或抛出错误
   // if (!mapObj.background) {
   //   console.warn(t('server.messages.backgroundImageEmpty'));
