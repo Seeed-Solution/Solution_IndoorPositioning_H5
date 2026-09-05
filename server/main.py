@@ -49,7 +49,8 @@ from server.models import (  # Grouped imports for models
     UserSessionInfo, GroupCreateRequest, GroupUpdateRequest, GroupListItem,
     DeviceUpdateRequest, DeviceListItem, DeviceSearchRequest,
     DeviceBatchUpdateGroupRequest, TrackerInfo, TrackerStateQueryRequest,
-    EventTriggerCreateRequest, EventTriggerUpdateRequest, EventTriggerListItem
+    EventTriggerCreateRequest, EventTriggerUpdateRequest, EventTriggerListItem,
+    GeofenceCreateRequest, GeofenceUpdateRequest, GeofenceListItem
 )
 from server.positioning import KalmanFilter2D
 
@@ -1654,6 +1655,8 @@ async def create_event_trigger(event_request: EventTriggerCreateRequest):
     创建事件触发条件接口
     """
     try:
+        if (event_request.location_mode or "ble").lower() == "geo" and not event_request.geofence_id:
+            raise HTTPException(status_code=400, detail="location_mode=geo 时必须指定 geofence_id")
         # 检查事件名称是否已存在
         if event_manager.get_cache_stats()["initialized"]:
             # 如果缓存已初始化，使用DAO检查
@@ -1670,7 +1673,10 @@ async def create_event_trigger(event_request: EventTriggerCreateRequest):
             time_range=event_request.time_range,
             ble_rule=event_request.ble_rule,
             dis_range=event_request.dis_range,
-            enable_status=event_request.enable_status
+            enable_status=event_request.enable_status,
+            geofence_id=event_request.geofence_id,
+            location_mode=event_request.location_mode or "ble",
+            transition=event_request.transition or "both"
         )
         
         if not event:
@@ -1718,7 +1724,10 @@ async def get_event_triggers(
                 ble_rule=event.ble_rule,
                 dis_range=event.dis_range,
                 enable_status=event.enable_status,
-                create_time=event.create_time.isoformat() if event.create_time else ""
+                create_time=event.create_time.isoformat() if event.create_time else "",
+                geofence_id=event.geofence_id,
+                location_mode=event.location_mode or "ble",
+                transition=event.transition or "both"
             )
             event_list.append(event_item)
         
@@ -1773,7 +1782,10 @@ async def get_event_trigger(event_id: int):
             ble_rule=event.ble_rule,
             dis_range=event.dis_range,
             enable_status=event.enable_status,
-            create_time=event.create_time.isoformat() if event.create_time else ""
+            create_time=event.create_time.isoformat() if event.create_time else "",
+            geofence_id=event.geofence_id,
+            location_mode=event.location_mode or "ble",
+            transition=event.transition or "both"
         )
         
     except HTTPException:
@@ -1819,7 +1831,18 @@ async def update_event_trigger(event_id: int, event_request: EventTriggerUpdateR
             update_data["dis_range"] = event_request.dis_range
         if event_request.enable_status is not None:
             update_data["enable_status"] = event_request.enable_status
-        
+        if event_request.geofence_id is not None:
+            update_data["geofence_id"] = event_request.geofence_id
+        if event_request.location_mode is not None:
+            update_data["location_mode"] = event_request.location_mode
+        if event_request.transition is not None:
+            update_data["transition"] = event_request.transition
+
+        target_mode = (event_request.location_mode or existing_event.location_mode or "ble").lower()
+        target_fence = update_data.get("geofence_id", existing_event.geofence_id)
+        if target_mode == "geo" and not target_fence:
+            raise HTTPException(status_code=400, detail="location_mode=geo 时必须指定 geofence_id")
+
         if not update_data:
             raise HTTPException(status_code=400, detail="没有提供要更新的数据")
         
@@ -1932,6 +1955,151 @@ async def disable_event_trigger(event_id: int, dep=Depends(check_authority)):
     except Exception as e:
         log.error(f"Error disabling event trigger {event_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"禁用事件失败: {str(e)}")
+
+
+# --- Geofence Management API (步骤 3) ---
+
+def _geofence_to_item(record) -> GeofenceListItem:
+    return GeofenceListItem(
+        id=record.id,
+        name=record.name,
+        geometry=record.get_geometry(),
+        radius_m=record.radius_m,
+        crs=record.crs or "wgs84",
+        enabled=record.enabled,
+        created_at=record.created_at.isoformat() if record.created_at else "",
+    )
+
+
+def _validate_geometry(geometry: dict, radius_m):
+    """几何必须能被围栏引擎编译, 否则直接 400, 不要等到告警流水线里才炸."""
+    from server import geofence as geofence_engine
+    try:
+        geofence_engine.build_geofence(geometry_json=geometry, radius_m=radius_m)
+    except geofence_engine.GeofenceGeometryError as err:
+        raise HTTPException(status_code=400, detail=f"围栏几何非法: {err}")
+
+
+@app.post("/api/geofences", status_code=200)
+async def create_geofence(request: GeofenceCreateRequest, dep=Depends(check_authority)):
+    """创建地理围栏"""
+    try:
+        from server.dao.geofence_dao import geofence_dao
+        from server.components.geofence_holder import geofence_holder
+
+        _validate_geometry(request.geometry, request.radius_m)
+        if geofence_dao.name_exists(request.name):
+            raise HTTPException(status_code=400, detail="围栏名称已存在")
+
+        record = geofence_dao.create_geofence(
+            name=request.name,
+            geometry_json=json.dumps(request.geometry, ensure_ascii=False),
+            radius_m=request.radius_m,
+            crs=request.crs,
+            enabled=request.enabled,
+        )
+        geofence_holder.invalidate(record.id)
+        log.info(f"Created geofence: {record.name} (ID: {record.id})")
+        return {"success": True, "message": "围栏创建成功", "data": _geofence_to_item(record)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error creating geofence: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"创建围栏失败: {str(e)}")
+
+
+@app.get("/api/geofences")
+async def list_geofences(page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500)):
+    """地理围栏列表（分页）"""
+    try:
+        from server.dao.geofence_dao import geofence_dao
+        records, total = geofence_dao.get_active_geofences(page, page_size)
+        return {
+            "data": [_geofence_to_item(r) for r in records],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size,
+            },
+        }
+    except Exception as e:
+        log.error(f"Error listing geofences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取围栏列表失败: {str(e)}")
+
+
+@app.get("/api/geofences/{fence_id}", response_model=GeofenceListItem)
+async def get_geofence(fence_id: int):
+    """单个地理围栏详情"""
+    from server.dao.geofence_dao import geofence_dao
+    record = geofence_dao.get_by_id(fence_id)
+    if not record or record.is_deleted():
+        raise HTTPException(status_code=404, detail="围栏不存在或已被删除")
+    return _geofence_to_item(record)
+
+
+@app.put("/api/geofences/{fence_id}", status_code=200)
+async def update_geofence(fence_id: int, request: GeofenceUpdateRequest, dep=Depends(check_authority)):
+    """更新地理围栏"""
+    try:
+        from server.dao.geofence_dao import geofence_dao
+        from server.components.geofence_holder import geofence_holder
+
+        existing = geofence_dao.get_by_id(fence_id)
+        if not existing or existing.is_deleted():
+            raise HTTPException(status_code=404, detail="围栏不存在或已被删除")
+
+        update_data = {}
+        if request.name is not None:
+            if geofence_dao.name_exists(request.name, exclude_id=fence_id):
+                raise HTTPException(status_code=400, detail="围栏名称已存在")
+            update_data["name"] = request.name
+        if request.geometry is not None or request.radius_m is not None:
+            geometry = request.geometry if request.geometry is not None else existing.get_geometry()
+            radius = request.radius_m if request.radius_m is not None else existing.radius_m
+            _validate_geometry(geometry, radius)
+            update_data["geometry_json"] = json.dumps(geometry, ensure_ascii=False)
+            update_data["radius_m"] = radius
+        if request.crs is not None:
+            update_data["crs"] = request.crs
+        if request.enabled is not None:
+            update_data["enabled"] = request.enabled
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有提供要更新的数据")
+
+        record = geofence_dao.update_geofence(fence_id, **update_data)
+        # 几何或启用状态变了, 缓存与滞回状态一起作废: 换了围栏再拿旧的 in/out 没有意义.
+        geofence_holder.invalidate(fence_id)
+        geofence_holder.reset_hysteresis(event_id=None)
+        log.info(f"Updated geofence {fence_id}")
+        return {"success": True, "message": "围栏更新成功", "data": _geofence_to_item(record)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating geofence {fence_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"更新围栏失败: {str(e)}")
+
+
+@app.delete("/api/geofences/{fence_id}", status_code=200)
+async def delete_geofence(fence_id: int, dep=Depends(check_authority)):
+    """删除地理围栏（软删除）"""
+    try:
+        from server.dao.geofence_dao import geofence_dao
+        from server.components.geofence_holder import geofence_holder
+
+        existing = geofence_dao.get_by_id(fence_id)
+        if not existing or existing.is_deleted():
+            raise HTTPException(status_code=404, detail="围栏不存在或已被删除")
+        geofence_dao.soft_delete_geofence(fence_id)
+        geofence_holder.invalidate(fence_id)
+        log.info(f"Soft deleted geofence {fence_id}: {existing.name}")
+        return {"success": True, "message": "围栏删除成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error deleting geofence {fence_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除围栏失败: {str(e)}")
 
 
 @app.post("/api/shutdown", status_code=200)

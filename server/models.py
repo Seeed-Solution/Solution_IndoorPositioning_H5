@@ -425,7 +425,10 @@ class EventTriggerCreateRequest(BaseModel):
     ble_rule: Optional[int] = Field(default=0, description="BLE规则")
     dis_range: Optional[float] = Field(default=0.0, ge=0, description="距离范围")
     enable_status: Optional[bool] = Field(default=True, description="启用状态")
-    
+    geofence_id: Optional[int] = Field(default=None, description="地理围栏ID，location_mode=geo 时必填")
+    location_mode: Optional[str] = Field(default="ble", description="判定模式 ble|geo")
+    transition: Optional[str] = Field(default="both", description="进出方向 enter|exit|both")
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -453,7 +456,10 @@ class EventTriggerUpdateRequest(BaseModel):
     ble_rule: Optional[int] = Field(None, description="BLE规则")
     dis_range: Optional[float] = Field(None, ge=0, description="距离范围")
     enable_status: Optional[bool] = Field(None, description="启用状态")
-    
+    geofence_id: Optional[int] = Field(None, description="地理围栏ID")
+    location_mode: Optional[str] = Field(None, description="判定模式 ble|geo")
+    transition: Optional[str] = Field(None, description="进出方向 enter|exit|both")
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -479,7 +485,10 @@ class EventTriggerListItem(BaseModel):
     dis_range: float = Field(..., description="距离范围")
     enable_status: bool = Field(..., description="启用状态")
     create_time: str = Field(..., description="创建时间")
-    
+    geofence_id: Optional[int] = Field(default=None, description="地理围栏ID")
+    location_mode: str = Field(default="ble", description="判定模式 ble|geo")
+    transition: str = Field(default="both", description="进出方向 enter|exit|both")
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -595,11 +604,22 @@ class EventTriggerRecord:
     enable_status: bool = True  # 启用状态
     create_time: Optional[datetime] = None  # 创建时间
     delete_time: Optional[datetime] = None  # 删除时间（软删除）
-    
+    geofence_id: Optional[int] = None  # 关联的地理围栏 ID（location_mode=geo 时必填）
+    location_mode: str = "ble"  # ble | geo
+    transition: str = "both"  # enter | exit | both
+
     def __post_init__(self):
         if self.create_time is None:
             self.create_time = datetime.now()
-    
+        if not self.location_mode:
+            self.location_mode = "ble"
+        if not self.transition:
+            self.transition = "both"
+
+    def is_geo_mode(self) -> bool:
+        """是否按经纬度围栏判定（而不是 BLE MAC 白名单）"""
+        return (self.location_mode or "ble").lower() == "geo"
+
     def get_device_range_list(self) -> List[str]:
         """获取设备范围列表"""
         try:
@@ -1038,3 +1058,83 @@ class TrackerInfo(BaseModel):
     class Config:
         # 允许任意类型，因为包含datetime等复杂类型
         arbitrary_types_allowed = True
+
+
+# --- Geofence Models (步骤 3) ---
+
+@dataclass
+class GeofenceRecord:
+    """地理围栏数据模型.
+
+    geometry_json 存 GeoJSON：多边形为 Polygon/MultiPolygon；
+    圆形为 Point，半径写在 radius_m。
+    """
+    id: Optional[int] = None
+    name: str = ""
+    geometry_json: str = ""
+    radius_m: Optional[float] = None
+    crs: str = "wgs84"  # wgs84 | gcj02
+    enabled: bool = True
+    created_at: Optional[datetime] = None
+    delete_time: Optional[datetime] = None
+
+    def __post_init__(self):
+        if self.created_at is None:
+            self.created_at = datetime.now()
+
+    def is_deleted(self) -> bool:
+        return self.delete_time is not None
+
+    def get_geometry(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.geometry_json) if self.geometry_json else {}
+        except json.JSONDecodeError:
+            return {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = asdict(self)
+        if self.created_at:
+            data['created_at'] = self.created_at.isoformat()
+        if self.delete_time:
+            data['delete_time'] = self.delete_time.isoformat()
+        data['geometry'] = self.get_geometry()
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'GeofenceRecord':
+        data = dict(data)
+        data.pop('geometry', None)
+        if isinstance(data.get('created_at'), str):
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if isinstance(data.get('delete_time'), str):
+            data['delete_time'] = datetime.fromisoformat(data['delete_time'])
+        return cls(**data)
+
+
+class GeofenceCreateRequest(BaseModel):
+    """创建地理围栏请求"""
+    name: str = Field(..., min_length=1, max_length=100, description="围栏名称")
+    geometry: Dict[str, Any] = Field(..., description="GeoJSON 几何：Polygon/MultiPolygon/Point")
+    radius_m: Optional[float] = Field(default=None, gt=0, description="圆形围栏半径（米），Point 时必填")
+    crs: str = Field(default="wgs84", description="坐标系 wgs84|gcj02")
+    enabled: bool = Field(default=True, description="是否启用")
+
+
+class GeofenceUpdateRequest(BaseModel):
+    """更新地理围栏请求"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    geometry: Optional[Dict[str, Any]] = None
+    radius_m: Optional[float] = Field(None, gt=0)
+    crs: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+class GeofenceListItem(BaseModel):
+    """地理围栏列表项"""
+    id: int
+    name: str
+    geometry: Dict[str, Any]
+    radius_m: Optional[float] = None
+    crs: str = "wgs84"
+    enabled: bool = True
+    created_at: str = ""

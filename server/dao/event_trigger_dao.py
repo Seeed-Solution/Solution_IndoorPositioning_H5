@@ -21,6 +21,10 @@ class EventTriggerTable(Base):
     enable_status = Column(Boolean, nullable=False, default=True, comment='启用状态')
     create_time = Column(DateTime, nullable=False, comment='创建时间')
     delete_time = Column(DateTime, nullable=True, comment='删除时间（软删除）')
+    # 步骤 3 新增列，与 migrations/001_outdoor_geofence.sql 对齐
+    geofence_id = Column(Integer, nullable=True, comment='地理围栏ID')
+    location_mode = Column(String(8), nullable=False, default='ble', comment='判定模式 ble|geo')
+    transition = Column(String(8), nullable=False, default='both', comment='进出方向 enter|exit|both')
 
     # 创建索引提高查询性能
     __table_args__ = (
@@ -43,7 +47,8 @@ class EventTriggerDao(BaseDao[EventTriggerRecord]):
     def create_event_trigger(self, event_name: str, event_type: int, 
                            device_range: List[str] = None, ble_range: List[str] = None,
                            time_range: int = 0, ble_rule: int = 0, dis_range: float = 0.0,
-                           enable_status: bool = True) -> EventTriggerRecord:
+                           enable_status: bool = True, geofence_id: Optional[int] = None,
+                           location_mode: str = 'ble', transition: str = 'both') -> EventTriggerRecord:
         """创建新的事件触发条件"""
         import json
         
@@ -60,7 +65,10 @@ class EventTriggerDao(BaseDao[EventTriggerRecord]):
             dis_range=dis_range,
             enable_status=enable_status,
             create_time=datetime.now(),
-            delete_time=None
+            delete_time=None,
+            geofence_id=geofence_id,
+            location_mode=location_mode or 'ble',
+            transition=transition or 'both'
         )
 
     def get_event_trigger_by_name(self, event_name: str, include_deleted: bool = False) -> Optional[EventTriggerRecord]:
