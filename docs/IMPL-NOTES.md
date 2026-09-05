@@ -233,3 +233,109 @@ spec 说「默认参数可配置」，没说配在哪。
 - 迁移仍需手工执行，没挂到服务启动流程上（第一批第 8 条）。
 - 高德/天地图的 GCJ-02 偏移仍未纠正；围栏在 GCJ-02 底图上画出来会存偏移，
   `crs` 字段记下了它是按哪套坐标画的，但判定时不做转换。
+
+---
+
+# B4 第三批实施记录（室内平面图与室外地图配准）
+
+spec：`docs/SPEC-georeference.md`（复制自 seeed-solutions-hub
+`docs/specs/b4-floorplan-georeference-spec.md`）。
+分支 `feature/outdoor`，基线 `443bce6`。六个 commit，顺序同 spec §7。
+
+## spec 未覆盖、本批自行取的最小选择
+
+### 1. `scale` 的语义：直接存比值，不存 scale0
+
+spec 写 `k = scale/scale0`（scale0 由地图米宽高与图片像素推导）。
+如果按字面存 `scale`，转换函数就得同时知道图片像素尺寸才能算出 k，
+后端与轨迹投影都拿不到这个信息。
+
+取法：`MapRegistration.scale` **直接就是 k**，1.0 表示按地图米数原样贴图。
+转换只依赖 `{origin_lat, origin_lon, rotation_deg, scale}` 四个数，
+不需要图片尺寸。图片像素只在配准编辑器里用一次
+（`imageFootprintLocal()` 决定背景图在局部米制坐标里的落位，
+与 `MapPreview` 的等比居中画法一致）。
+
+### 2. 极区阈值取 85°
+
+spec 只说"极区拒绝配准"，没给数字。取 `GEOREF_POLAR_LIMIT_DEG = 85.0`，
+三处保持同一个值：`server/models.py`、`server/geo/affine.py`、
+`web/src/utils/affine.js`，fixture 里也记了一份用于交叉断言。
+
+### 3. fixture 的期望值由 Python 生成
+
+`tests/fixtures/georef/cases.json` 的 `expected` 是 `server/geo/affine.py`
+算出来的，JS 侧断言差 ≤ 1e-9°。单看这一项是"两端读同一条曲线"，
+不是独立验证。独立参照另加：`server/tests/vincenty_ref.py` 的 Vincenty 反算，
+与被测实现无共享代码，用来核对 2 km 内相对测地线的偏差 ≤ 0.7 m。
+
+### 4. registration 的 API 只覆盖单张地图
+
+新增 `GET/PUT /api/configuration/dashboard/maps/{mapName}/registration`。
+**没有 DELETE**：spec 没要求，清除配准目前只能改整份配置。
+PUT 的校验完全由 `MapRegistration` 的 pydantic validator 承担，
+非法输入返回 422（不是 400），这是 FastAPI 的默认行为。
+
+### 5. `docker-compose.yml` 是新建的
+
+仓库原本没有 compose 文件（只有 `Dockerfile*` + `release.sh`）。
+spec 要求"compose 只读挂载 `data/pmtiles/`"，因此新建了一个最小的
+`docker-compose.yml`，只做单服务 + 四个挂载，不改 `release.sh` 的构建链路。
+
+### 6. `demo.pmtiles` 没有真的生成
+
+`pmtiles extract` 要从 `build.protomaps.com` 拉源归档，本机取不到。
+`data/pmtiles/` 只放了 README 占位，`.gitignore` 排除 `*.pmtiles`，
+提取命令写在 `docs/PMTILES.md`。`pmtiles-offline` 这个底图源已经进了
+前后端默认列表，归档缺失时 `OutdoorMapView` 打一条 console 错误
+并回落到栅格源。**PMTiles 路径本批未实测。**
+
+### 7. JS 测试框架选 vitest
+
+仓库原本没有前端测试。加 `vitest@2.1.9`（devDependency）与
+`npm test` / `npm test:watch`，用现成的 `vite.config.js`（`@` alias 直接可用）。
+
+### 8. leaflet-distortableimage 的三个坑
+
+插件是 UMD 产物，在 Vue + ESM Leaflet 下要按顺序做三件事，
+否则模块求值期就抛错：
+
+1. `window.L = L`——插件只往全局 `L` 上挂 `DragAction/RotateAction/ScaleAction`。
+2. 先 `import 'leaflet-distortableimage/dist/vendor.js'`——它提供 `L.Toolbar2`，
+   主 bundle 求值时就要用（`L.Toolbar2.Action` 未定义会报
+   `Cannot read properties of undefined (reading 'Action')`）。
+3. `editing.setMode()` 要等 overlay 的 `load` 事件——rotate/scale 句柄会读
+   图片元素的 `matrix3d` transform，图片没渲染时报 `reading 'slice'`。
+
+另外插件发布的 dist 里带 webpack dev-server 的 HMR 客户端，
+运行时会反复连 `ws://localhost:8081/ws` 并在 console 报错。噪音，不影响功能。
+
+### 9. 锁宽高比靠"不给 action"
+
+不加 `DistortAction` 与 `FreeRotateAction`，只给 drag/rotate/scale，
+四角就始终保持相似变换，宽高比自然锁死。因此
+`registrationFromCorners()` 只用 BL→TL 一条边反解旋转与缩放，不做最小二乘。
+
+### 10. 反解用 BL 作切点
+
+`registrationFromCorners()` 以左下角为切平面锚点算 E/N，再把原点换回经纬度；
+`local_to_wgs84` 用的锚点是配准原点。两者不是同一个切点，
+平面图尺度（< 200 m）下差异在亚毫米量级，未做补偿。
+
+### 11. 统一渲染里的断线规则
+
+同一条 metric 段内如果 `map` 字段变了（跨平面图），也要断开——两张平面图
+各有自己的配准，连起来没有意义。未配准的地图上的点一个都不画。
+metric 与 wgs84 的跨段不连线沿用 `trail.js` 已有的切段逻辑，没改。
+
+### 12. 室内点在室外图上的样式
+
+实时点用空心绿圈 + 虚线边，历史段用绿色虚线，与 GNSS 的蓝色实心点 / 实线区分。
+spec 没规定样式。
+
+### 13. `pmtiles-offline` 也进了后端默认列表
+
+spec §5 只说前端 `outdoor.js` 加开关。但 `dashboard_config.json` 一旦写过
+`outdoor` 段，前端就用配置里的列表，前端默认值不再生效。
+因此后端 `DEFAULT_OUTDOOR_TILE_SOURCES` 也加了这一条，
+保证零配置时离线源可选。

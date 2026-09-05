@@ -1,0 +1,39 @@
+$ curl -s -X PUT ".../maps/Georef%20Demo/registration" -d {"origin_lat":22.5231,"origin_lon":113.9312,"rotation_deg":17.5,"scale":1.25}
+{"message":"Map registration saved successfully.","registration":{"origin_lat":22.5231,"origin_lon":113.9312,"rotation_deg":17.5,"scale":1.25}}
+$ curl -s ".../maps/Georef%20Demo/registration"
+{"origin_lat":22.5231,"origin_lon":113.9312,"rotation_deg":17.5,"scale":1.25}
+$ PUT with polar latitude 89 (must be rejected)
+{"detail":[{"type":"value_error","loc":["body","origin_lat"],"msg":"Value error, georeferencing is refused above |lat| 85.0 deg","input":89.0,"ctx":{"error":{}}}]}
+HTTP 422
+$ PUT with scale 0 (must be rejected)
+{"detail":[{"type":"value_error","loc":["body","scale"],"msg":"Value error, scale must be > 0","input":0,"ctx":{"error":{}}}]}
+HTTP 422
+$ GET unknown map (must be 404)
+{"detail":"Map 'NoSuchMap' not found"}
+HTTP 404
+$ registration field in dashboard_config.json after the UI save + browser reload
+{
+  "origin_lat": 22.5231,
+  "origin_lon": 113.9312,
+  "rotation_deg": 17.5,
+  "scale": 1.25
+}
+$ GET /api/configuration/dashboard/maps/Georef%20Demo/registration  (UI 保存 + 浏览器刷新之后)
+{"origin_lat":22.5231,"origin_lon":113.9312,"rotation_deg":17.5,"scale":1.25}
+$ server/config/json/dashboard_config.json 里的 registration 字段
+{
+  "name": "Georef Demo",
+  "width": 50.0,
+  "height": 40.0,
+  "minX": 0.0,
+  "maxX": 50.0,
+  "minY": 0.0,
+  "maxY": 40.0,
+  "background": "/uploads/georef_floorplan.png",
+  "registration": {
+    "origin_lat": 22.5231,
+    "origin_lon": 113.9312,
+    "rotation_deg": 17.5,
+    "scale": 1.25
+  }
+}

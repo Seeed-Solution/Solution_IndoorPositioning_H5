@@ -163,7 +163,19 @@ DEFAULT_OUTDOOR_TILE_SOURCES = [
         "coordSystem": "wgs84",
         "gcj02Correction": False,
         "kind": "raster",
-    }
+    },
+    {
+        # 离线归档由 compose 只读挂载到 /app/uploads/pmtiles, 见 docs/PMTILES.md.
+        # 文件不存在时前端会打一条 console 错误并回落到栅格源.
+        "id": "pmtiles-offline",
+        "name": "Offline (PMTiles)",
+        "url": "/uploads/pmtiles/demo.pmtiles",
+        "attribution": OSM_ATTRIBUTION,
+        "maxZoom": 18,
+        "coordSystem": "wgs84",
+        "gcj02Correction": False,
+        "kind": "pmtiles",
+    },
 ]
 
 

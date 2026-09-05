@@ -399,7 +399,14 @@ const applyFormToOverlay = () => {
 
 const setRegMode = (mode) => {
   regMode.value = mode;
-  if (regOverlay?.editing?.setMode) regOverlay.editing.setMode(mode);
+  // 插件的 rotate/scale 句柄要读图片元素的 matrix3d transform (getAngle),
+  // 图片还没渲染时会抛 "reading 'slice'"。图片未就绪就先记住模式, load 后再切。
+  if (!regOverlay?.editing?.setMode || !regOverlay._image) return;
+  try {
+    regOverlay.editing.setMode(mode);
+  } catch (err) {
+    console.warn('[OutdoorMapView] setMode deferred:', err.message);
+  }
 };
 
 const mountRegOverlay = async () => {
@@ -443,17 +450,28 @@ const mountRegOverlay = async () => {
     .map((c) => L.latLng(c.lat, c.lon));
 
   try {
+    // 插件是 UMD, 只往全局 L 上挂 DragAction/RotateAction/ScaleAction。
+    // Leaflet 这里是 ESM import, window.L 不会自动存在, 得先补上。
+    if (typeof window !== 'undefined' && !window.L) window.L = L;
+    // vendor.js 提供 L.Toolbar2, 主 bundle 在模块求值期就要用它, 必须先加载。
+    await import('leaflet-distortableimage/dist/vendor.css');
+    await import('leaflet-distortableimage/dist/vendor.js');
     await import('leaflet-distortableimage/dist/leaflet.distortableimage.css');
-    await import('leaflet-distortableimage');
+    await import('leaflet-distortableimage/dist/leaflet.distortableimage.js');
   } catch (err) {
     regError.value = `leaflet-distortableimage failed to load: ${err.message}`;
     return;
   }
 
-  regOverlay = L.distortableImageOverlay(url, {
+  const LD = (typeof window !== 'undefined' && window.L) ? window.L : L;
+  if (!LD.DragAction || !LD.RotateAction || !LD.ScaleAction) {
+    regError.value = 'leaflet-distortableimage actions are unavailable';
+    return;
+  }
+  regOverlay = LD.distortableImageOverlay(url, {
     corners,
     // 不含 DistortAction / FreeRotateAction: 宽高比锁死。
-    actions: [L.DragAction, L.RotateAction, L.ScaleAction],
+    actions: [LD.DragAction, LD.RotateAction, LD.ScaleAction],
     mode: regMode.value,
     editable: true,
     suppressToolbar: true,
@@ -461,7 +479,7 @@ const mountRegOverlay = async () => {
   });
   map.addLayer(regOverlay);
   regOverlay.on('update', syncFormFromOverlay);
-  setRegMode(regMode.value);
+  regOverlay.once('load', () => setRegMode(regMode.value));
   map.fitBounds(L.latLngBounds(corners), { padding: [40, 40] });
 };
 
