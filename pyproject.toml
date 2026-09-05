@@ -14,7 +14,9 @@ dependencies = [
     "sqlalchemy>=2.0.42",
     "uvicorn[standard]>=0.34.2",
     "websockets>=15.0.1",
-    "numpy>=2.2.5"
+    "numpy>=2.2.5",
+    "requests>=2.34.2",
+    "httpx>=0.28.1",
 ]
 
 [tool.setuptools.packages.find]
