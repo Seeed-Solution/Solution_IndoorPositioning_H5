@@ -1,7 +1,8 @@
 <!-- web/src/components/OutdoorMapView.vue
-     室外 (WGS84) 追踪视图。底图默认 OSM, 瓦片 URL / 署名 / 坐标制均由
-     dashboard_config.json 的 outdoor 段配置。轨迹只画 wgs84 段, 室内段留给
-     Canvas 的 MapPreview, 两者在切换点不连线。 -->
+     室内外统一追踪视图。底图默认 OSM, 瓦片 URL / 署名 / 坐标制均由
+     dashboard_config.json 的 outdoor 段配置。每个 tracker 的 metric 历史段
+     (按配准投影) 与 wgs84 历史段同图共存, 只在坐标系切换点断线; 只有
+     "当前点" marker 的样式按 tracker 当下是否室外二选一。 -->
 <template>
   <div class="outdoor-map-view">
     <div class="outdoor-toolbar">
@@ -112,7 +113,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 import { normalizeOutdoorConfig, TILE_KIND_PMTILES } from '@/config/outdoor.js';
-import { outdoorSegments, indoorSegments, isOutdoorTracker } from '@/utils/trail.js';
+import { isOutdoorTracker } from '@/utils/trail.js';
+import { buildIndoorPolylines, buildOutdoorPolylines } from '@/utils/renderPlan.js';
 import {
   localToWgs84,
   isRegistered,
@@ -228,14 +230,56 @@ const redraw = () => {
 
   const bounds = [];
 
-  // 已配准平面图上的室内设备: 实时 x/y 与 metric 历史段按配准投影到同一张图。
-  // 与 wgs84 段分属不同 segment, 因此切换点不会被连成一条线。
+  // 每个 tracker 无条件画两类历史段: metric 段按配准投影, wgs84 段原样连线。
+  // 两类互不依赖 tracker 的"当前"状态, 只有当前点 marker 的样式才按
+  // isOutdoorTracker(tracker) 二选一 —— 这样同一设备在切换过坐标系之后,
+  // 室内/室外历史段能同图共存, 只在切换点断线。
   allTrackers.value.forEach((tracker) => {
-    if (isOutdoorTracker(tracker)) return;
-    const latlng = projectMetric(tracker.x, tracker.y, tracker.map);
-    if (latlng) {
+    if (showTrails.value) {
+      buildIndoorPolylines(tracker, projectMetric).forEach((run) => {
+        run.forEach((pt) => bounds.push(pt));
+        L.polyline(run, {
+          color: '#188038', weight: 2, opacity: 0.45, dashArray: '4,4',
+        }).addTo(overlay);
+      });
+      buildOutdoorPolylines(tracker).forEach((line) => {
+        line.forEach((pt) => bounds.push(pt));
+        L.polyline(line, { color: '#1a73e8', weight: 2, opacity: 0.45 }).addTo(overlay);
+      });
+    }
+
+    const isSos = tracker.sos === 1;
+    if (isOutdoorTracker(tracker)) {
+      const latlng = trackerLatLng(tracker);
+      if (!latlng) return;
       bounds.push(latlng);
-      const isSos = tracker.sos === 1;
+
+      L.circleMarker(latlng, {
+        radius: 7,
+        color: isSos ? '#d93025' : '#1a73e8',
+        fillColor: isSos ? '#d93025' : '#1a73e8',
+        fillOpacity: 0.9,
+        weight: 2,
+      })
+        .bindTooltip(tracker.device_name || tracker.trackerId, { permanent: false })
+        .addTo(overlay);
+
+      // 精度圈
+      const accuracy = Number(tracker.accuracy ?? tracker.position?.accuracy);
+      if (Number.isFinite(accuracy) && accuracy > 0) {
+        L.circle(latlng, {
+          radius: accuracy,
+          color: '#1a73e8',
+          weight: 1,
+          opacity: 0.4,
+          fillOpacity: 0.08,
+        }).addTo(overlay);
+      }
+    } else {
+      const latlng = projectMetric(tracker.x, tracker.y, tracker.map);
+      if (!latlng) return;
+      bounds.push(latlng);
+
       L.circleMarker(latlng, {
         radius: 6,
         color: isSos ? '#d93025' : '#188038',
@@ -248,72 +292,6 @@ const redraw = () => {
           { permanent: false })
         .addTo(overlay);
     }
-    if (!showTrails.value) return;
-    indoorSegments(tracker.position_history).forEach((segment) => {
-      // 同一段里换地图也要断开: 两张平面图各有自己的配准。
-      let run = [];
-      let runMap = null;
-      const flush = () => {
-        if (run.length >= 2) {
-          run.forEach((pt) => bounds.push(pt));
-          L.polyline(run, {
-            color: '#188038', weight: 2, opacity: 0.45, dashArray: '4,4',
-          }).addTo(overlay);
-        }
-        run = [];
-      };
-      segment.points.forEach((p) => {
-        if (p.map !== runMap) {
-          flush();
-          runMap = p.map;
-        }
-        const projected = projectMetric(p.x, p.y, p.map);
-        if (!projected) {
-          flush();
-          return;
-        }
-        run.push(projected);
-      });
-      flush();
-    });
-  });
-
-  outdoorTrackers.value.forEach((tracker) => {
-    const latlng = trackerLatLng(tracker);
-    if (!latlng) return;
-    bounds.push(latlng);
-
-    const isSos = tracker.sos === 1;
-    L.circleMarker(latlng, {
-      radius: 7,
-      color: isSos ? '#d93025' : '#1a73e8',
-      fillColor: isSos ? '#d93025' : '#1a73e8',
-      fillOpacity: 0.9,
-      weight: 2,
-    })
-      .bindTooltip(tracker.device_name || tracker.trackerId, { permanent: false })
-      .addTo(overlay);
-
-    // 精度圈
-    const accuracy = Number(tracker.accuracy ?? tracker.position?.accuracy);
-    if (Number.isFinite(accuracy) && accuracy > 0) {
-      L.circle(latlng, {
-        radius: accuracy,
-        color: '#1a73e8',
-        weight: 1,
-        opacity: 0.4,
-        fillOpacity: 0.08,
-      }).addTo(overlay);
-    }
-
-    if (!showTrails.value) return;
-    // 只画 wgs84 段: 室内段不在这张图上, 切换点不连线。
-    outdoorSegments(tracker.position_history).forEach((segment) => {
-      if (segment.points.length < 2) return;
-      const line = segment.points.map((p) => [p.lat, p.lon]);
-      line.forEach((pt) => bounds.push(pt));
-      L.polyline(line, { color: '#1a73e8', weight: 2, opacity: 0.45 }).addTo(overlay);
-    });
   });
 
   if (bounds.length > 0 && !hasFitted) {
