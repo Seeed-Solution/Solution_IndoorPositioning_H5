@@ -45,7 +45,8 @@ def pre_listener(report: TrackerReport):
 async def post_listener(state: TrackerState):
     state.online = event_constant.ONLINE_STATUS_ACTIVE
     device_holder.set_tracker_state(state.trackerId, state)
-    if state.type == message_constant.TRACKER_STATE_TYPE_BLE_CAL:
+    if state.type in (message_constant.TRACKER_STATE_TYPE_BLE_CAL,
+                      message_constant.TRACKER_STATE_TYPE_WGS84):
         await websocket_holder.broadcast(message_constant.get_tracker_update(state))
     elif state.type == message_constant.TRACKER_STATE_TYPE_BLE_RANGE:
         await websocket_holder.broadcast(message_constant.get_tracker_loc_appr(state))

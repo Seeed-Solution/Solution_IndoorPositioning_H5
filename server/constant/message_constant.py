@@ -81,10 +81,27 @@ def get_tracker_update(state: TrackerState) -> dict:
     position_payload = None
     if state.x is not None and state.y is not None:
         position_payload = {"x": state.x, "y": state.y}
+    if state.lat is not None and state.lon is not None:
+        position_payload = dict(position_payload or {})
+        position_payload.update({
+            "lat": state.lat,
+            "lon": state.lon,
+            "alt": state.alt,
+            "accuracy": state.accuracy,
+            "coordSystem": "wgs84",
+        })
+    elif position_payload is not None:
+        position_payload["coordSystem"] = "metric"
     tracker_data_payload = {
         "trackerId": state.trackerId,
         "timestamp": state.timestamp,
         "position": position_payload,
+        "lat": state.lat,
+        "lon": state.lon,
+        "alt": state.alt,
+        "accuracy": state.accuracy,
+        "fix_time": state.fix_time,
+        "type": state.type,
         "last_detected_beacons": [
             {
                 "name": beacon_holder.get_beacon(beacon.macAddress).displayName,
@@ -93,7 +110,7 @@ def get_tracker_update(state: TrackerState) -> dict:
                 "rssi": beacon.rssi
             } for beacon in state.used_beacons
         ],
-        "position_history": state.position_history,
+        "position_history": [entry.model_dump() for entry in state.position_history],
         "map": state.map,
         "sos": state.sos
     }
