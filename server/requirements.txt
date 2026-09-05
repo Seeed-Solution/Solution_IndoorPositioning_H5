@@ -11,3 +11,4 @@ sqlalchemy
 cachetools
 requests
 httpx
+shapely # For outdoor geofence polygon operations
