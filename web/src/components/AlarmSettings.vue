@@ -240,8 +240,46 @@
               <span v-if="alarmErrors.deviceScope" class="error-message">{{ alarmErrors.deviceScope }}</span>
             </div>
             
-            <!-- Bluetooth Beacons 选择 (仅在 checkin 和 position 类型时显示) -->
+            <!-- 判定模式: BLE 信标白名单 vs 地理围栏 (仅 checkin / position) -->
             <div v-if="alarmForm.type === 'checkin' || alarmForm.type === 'position'" class="form-group">
+              <label>{{ $t('alarmGeo.mode') }}</label>
+              <div class="location-mode-options">
+                <label class="location-mode-option">
+                  <input type="radio" value="ble" v-model="alarmForm.locationMode" name="locationMode" />
+                  <span>{{ $t('alarmGeo.modeBle') }}</span>
+                </label>
+                <label class="location-mode-option">
+                  <input type="radio" value="geo" v-model="alarmForm.locationMode" name="locationMode" />
+                  <span>{{ $t('alarmGeo.modeGeo') }}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 地理围栏配置 -->
+            <div v-if="isGeoMode" class="form-group">
+              <label>{{ $t('alarmGeo.transition') }}</label>
+              <div class="location-mode-options">
+                <label class="location-mode-option">
+                  <input type="radio" value="enter" v-model="alarmForm.transition" name="transition" />
+                  <span>{{ $t('alarmGeo.transitionEnter') }}</span>
+                </label>
+                <label class="location-mode-option">
+                  <input type="radio" value="exit" v-model="alarmForm.transition" name="transition" />
+                  <span>{{ $t('alarmGeo.transitionExit') }}</span>
+                </label>
+                <label class="location-mode-option">
+                  <input type="radio" value="both" v-model="alarmForm.transition" name="transition" />
+                  <span>{{ $t('alarmGeo.transitionBoth') }}</span>
+                </label>
+              </div>
+
+              <label class="geofence-label">{{ $t('alarmGeo.fence') }} <span class="required">{{ $t('alarmSettings.form.required') }}</span></label>
+              <GeofenceEditor v-model="alarmForm.geofenceId" />
+              <span v-if="alarmErrors.geofence" class="error-message">{{ alarmErrors.geofence }}</span>
+            </div>
+
+            <!-- Bluetooth Beacons 选择 (BLE 模式下的 checkin 和 position 类型) -->
+            <div v-if="!isGeoMode && (alarmForm.type === 'checkin' || alarmForm.type === 'position')" class="form-group">
               <label for="beaconScope">{{ $t('alarmSettings.form.bluetoothBeacons') }} <span class="required">{{ $t('alarmSettings.form.required') }}</span></label>
               <div class="beacon-scope-dropdown" ref="beaconScopeDropdown">
                 <div class="dropdown-trigger" @click="toggleBeaconDropdown">
@@ -544,6 +582,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import GeofenceEditor from '@/components/GeofenceEditor.vue';
 import { apiRequest } from '@/utils/httpClient.js';
 import { API_ENDPOINTS } from '@/config/api.js';
 
@@ -583,14 +622,24 @@ const alarmForm = ref({
   checkinRange: 10,
   triggerType: 'immediate',
   triggerDuration: 5,
-  enabled: true
+  enabled: true,
+  // 步骤 3: ble = 信标白名单(原行为), geo = 经纬度围栏
+  locationMode: 'ble',
+  geofenceId: null,
+  transition: 'both'
 });
+
+const isGeoMode = computed(
+  () => alarmForm.value.locationMode === 'geo'
+    && (alarmForm.value.type === 'checkin' || alarmForm.value.type === 'position'),
+);
 
 const alarmErrors = ref({
   name: '',
   type: '',
   deviceScope: '',
   beaconScope: '',
+  geofence: '',
   checkinRange: '',
   triggerDuration: ''
 });
@@ -704,6 +753,9 @@ const convertBackendToFrontend = (backendEvent) => {
     triggerType: isImmediate ? 'immediate' : 'duration',
     // 保留原始的 time_range 值，这样编辑时能正确判断
     triggerDuration: isImmediate ? 10 : backendEvent.time_range,
+    locationMode: backendEvent.location_mode || 'ble',
+    geofenceId: backendEvent.geofence_id ?? null,
+    transition: backendEvent.transition || 'both',
     // 添加原始值以便编辑时参考
     time_range: backendEvent.time_range,
     enabled: backendEvent.enable_status,
@@ -729,6 +781,14 @@ const convertFrontendToBackend = (frontendEvent) => {
     enable_status: frontendEvent.enabled
   };
 
+  const geoMode = frontendEvent.locationMode === 'geo'
+    && (frontendEvent.type === 'checkin' || frontendEvent.type === 'position');
+  if (frontendEvent.type === 'checkin' || frontendEvent.type === 'position') {
+    baseData.location_mode = geoMode ? 'geo' : 'ble';
+    baseData.transition = frontendEvent.transition || 'both';
+    baseData.geofence_id = geoMode ? frontendEvent.geofenceId : null;
+  }
+
   // 根据告警类型添加相应的字段
   switch (frontendEvent.type) {
     case 'sos':
@@ -737,16 +797,16 @@ const convertFrontendToBackend = (frontendEvent) => {
       break;
       
     case 'checkin':
-      // 签到事件需要beacon配置和签到规则
-      baseData.ble_range = frontendEvent.selectedBeacons || [];
+      // 签到事件需要beacon配置和签到规则; geo 模式不依赖 beacon
+      baseData.ble_range = geoMode ? [] : (frontendEvent.selectedBeacons || []);
       baseData.ble_rule = frontendEvent.checkinRule === 'any' ? 1 : 2;
       baseData.dis_range = frontendEvent.checkinRange || 10;
       // 签到事件不需要time_range
       break;
       
     case 'position':
-      // 位置检测需要beacon配置和触发时间
-      baseData.ble_range = frontendEvent.selectedBeacons || [];
+      // 位置检测需要beacon配置和触发时间; geo 模式不依赖 beacon
+      baseData.ble_range = geoMode ? [] : (frontendEvent.selectedBeacons || []);
       baseData.time_range = frontendEvent.triggerType === 'immediate' ? 0 : (frontendEvent.triggerDuration || 10);
       // 位置检测不需要ble_rule和dis_range
       break;
@@ -1107,13 +1167,17 @@ const openCreateAlarmModal = async () => {
     checkinRange: 10,
     triggerType: 'immediate',
     triggerDuration: 10, // 修改默认值为10分钟
-    enabled: true
+    enabled: true,
+    locationMode: 'ble',
+    geofenceId: null,
+    transition: 'both'
   };
   alarmErrors.value = {
     name: '',
     type: '',
     deviceScope: '',
     beaconScope: '',
+    geofence: '',
     checkinRange: '',
     triggerDuration: ''
   };
@@ -1154,6 +1218,7 @@ const editAlarm = async (alarm) => {
     type: '',
     deviceScope: '',
     beaconScope: '',
+    geofence: '',
     checkinRange: '',
     triggerDuration: ''
   };
@@ -1190,13 +1255,17 @@ const closeAlarmModal = () => {
     checkinRange: 10,
     triggerType: 'immediate',
     triggerDuration: 10, // 修改默认值为10分钟
-    enabled: true
+    enabled: true,
+    locationMode: 'ble',
+    geofenceId: null,
+    transition: 'both'
   };
   alarmErrors.value = {
     name: '',
     type: '',
     deviceScope: '',
     beaconScope: '',
+    geofence: '',
     checkinRange: '',
     triggerDuration: ''
   };
@@ -1211,6 +1280,7 @@ const validateAlarmForm = () => {
     type: '',
     deviceScope: '',
     beaconScope: '',
+    geofence: '',
     checkinRange: '',
     triggerDuration: ''
   };
@@ -1248,9 +1318,14 @@ const validateAlarmForm = () => {
     isValid = false;
   }
 
-  // 验证 beacon 范围 (仅对 checkin 和 position 类型)
+  // 验证 beacon 范围 (仅 BLE 模式下的 checkin / position); geo 模式改验围栏
   if (alarmForm.value.type === 'checkin' || alarmForm.value.type === 'position') {
-    if (!alarmForm.value.selectedBeacons || alarmForm.value.selectedBeacons.length === 0) {
+    if (isGeoMode.value) {
+      if (!alarmForm.value.geofenceId) {
+        alarmErrors.value.geofence = $t('alarmGeo.fenceRequired');
+        isValid = false;
+      }
+    } else if (!alarmForm.value.selectedBeacons || alarmForm.value.selectedBeacons.length === 0) {
       alarmErrors.value.beaconScope = $t('alarmSettings.validation.beaconRequired');
       isValid = false;
     }
@@ -1530,6 +1605,25 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.location-mode-options {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.location-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.geofence-label {
+  display: block;
+  margin: 10px 0 6px;
+}
+
 /* === Alarm Settings 样式 === */
 .alarm-settings-section {
   margin-bottom: 2rem;

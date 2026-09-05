@@ -212,7 +212,11 @@ export const API_ENDPOINTS = {
   
   // 事件/告警相关
   EVENTS: '/events',
-  EVENT_BY_ID: (id) => `/events/${id}`
+  EVENT_BY_ID: (id) => `/events/${id}`,
+
+  // 地理围栏相关
+  GEOFENCES: '/geofences',
+  GEOFENCE_BY_ID: (id) => `/geofences/${id}`
 }
 
 // 开发环境下打印配置信息

@@ -766,5 +766,32 @@
     "showTrails": "显示轨迹",
     "noOutdoorTrackers": "当前没有上报 GNSS 定位的设备。",
     "gcj02Notice": "该底图使用 GCJ-02 坐标系，设备上报为 WGS84，本期未做偏移纠正。"
+  },
+  "geofence": {
+    "polygon": "多边形",
+    "circle": "圆形",
+    "name": "围栏名称",
+    "radius": "半径（米）",
+    "baseMap": "底图",
+    "clear": "清除",
+    "save": "保存围栏",
+    "saving": "保存中...",
+    "hintPolygon": "在地图上依次点击落点，至少 3 个点。",
+    "hintCircle": "在地图上点击确定圆心，再填写半径。",
+    "gcjNotice": "该底图为 GCJ-02，围栏按所画坐标原样保存，不做偏移纠正。",
+    "existing": "已有围栏",
+    "none": "尚未定义任何围栏。"
+  },
+  "alarmGeo": {
+    "mode": "判定模式",
+    "modeBle": "蓝牙信标",
+    "modeGeo": "地理围栏",
+    "fence": "地理围栏",
+    "fencePlaceholder": "选择围栏",
+    "transition": "触发方向",
+    "transitionEnter": "进入",
+    "transitionExit": "离开",
+    "transitionBoth": "进入与离开",
+    "fenceRequired": "请选择或绘制一个地理围栏。"
   }
 }

@@ -771,5 +771,32 @@
     "showTrails": "Show trails",
     "noOutdoorTrackers": "No tracker reporting a GNSS fix.",
     "gcj02Notice": "Tiles use GCJ-02; device fixes are WGS84. Offset correction is not applied."
+  },
+  "geofence": {
+    "polygon": "Polygon",
+    "circle": "Circle",
+    "name": "Fence name",
+    "radius": "Radius (m)",
+    "baseMap": "Base map",
+    "clear": "Clear",
+    "save": "Save fence",
+    "saving": "Saving...",
+    "hintPolygon": "Click on the map to add vertices; at least 3 points.",
+    "hintCircle": "Click on the map to set the center, then set the radius.",
+    "gcjNotice": "This base map uses GCJ-02; fences are stored as drawn without offset correction.",
+    "existing": "Existing fences",
+    "none": "No fence defined yet."
+  },
+  "alarmGeo": {
+    "mode": "Detection mode",
+    "modeBle": "Bluetooth beacons",
+    "modeGeo": "Geofence",
+    "fence": "Geofence",
+    "fencePlaceholder": "Select a fence",
+    "transition": "Trigger on",
+    "transitionEnter": "Enter",
+    "transitionExit": "Exit",
+    "transitionBoth": "Enter and exit",
+    "fenceRequired": "Please select or draw a geofence."
   }
 }
