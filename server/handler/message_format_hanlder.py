@@ -77,9 +77,11 @@ def parse_beacon_list(beacon_values: Any, device_eui: str) -> List[DetectedBeaco
 
 
 def resolve_loc_type(loc: dict, detected_beacons: List[DetectedBeacon]) -> str:
-    """First-batch simplification: a valid GNSS fix wins over BLE.
+    """这一包携带的定位数据种类: 有 GNSS fix 记 gps, 否则有 beacon 记 bluetooth.
 
-    Step 3 replaces this with the hysteresis state machine.
+    注意区分两个概念: 这里是"上行里有什么", 是逐包的事实;
+    界面展示的室内/室外 (``TrackerState.type``) 由
+    ``server/handler/indoor_outdoor.py`` 的迟滞状态机决定, 不逐包翻转.
     """
     if loc:
         return message_constant.TRACKER_POSITIONING_TYPE_GPS

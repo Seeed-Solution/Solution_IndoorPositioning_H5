@@ -10,6 +10,7 @@ from server.models import (
 from server.components.device_holder import device_holder
 from server.components.beacon_holder import beacon_holder
 from server.components.uplink_collector import UplinkCollector
+from server.handler import indoor_outdoor
 
 import server.constant.message_constant as message_constant
 import server.constant.event_constant as event_constant
@@ -50,6 +51,45 @@ def prune_history(history, current_time_ms: int):
     return [p for p in history if p.time >= cutoff]
 
 
+def count_configured_beacons(report: TrackerReport) -> int:
+    """上行里能在 beacon_holder 找到配置的信标数量.
+
+    迟滞状态机的「有效 BLE」按这个数算: 没配置过的信标不能证明设备在室内.
+    """
+    if not report.detectedBeacons:
+        return 0
+    count = 0
+    for detected in report.detectedBeacons:
+        if beacon_holder.get_beacon(detected.macAddress.replace(":", "")) is not None:
+            count += 1
+    return count
+
+
+def apply_indoor_outdoor(state: TrackerState, report: TrackerReport,
+                         gnss: Optional[dict], now_ms: int) -> Optional[str]:
+    """跑迟滞状态机, 用它的结论决定 state.type.
+
+    - outdoor 且有经纬度 -> wGS84
+    - indoor            -> 保留 BLE 解算出来的 type
+    - 还没定论(None)     -> 回落到第一批的简化: 有 fix 就 wGS84
+    """
+    mode = indoor_outdoor.state_machine.update(
+        dev_eui=report.trackerId,
+        now_ms=report.timestamp or now_ms,
+        has_fix=gnss is not None,
+        accuracy=(gnss or {}).get("accuracy"),
+        configured_beacon_count=count_configured_beacons(report),
+    )
+    has_position = state.lat is not None and state.lon is not None
+    if mode == indoor_outdoor.MODE_OUTDOOR and has_position:
+        state.type = message_constant.TRACKER_STATE_TYPE_WGS84
+    elif mode == indoor_outdoor.MODE_INDOOR:
+        pass  # 室内: 保留 resolve_ble() 给出的 approximate/calculation/ble_failed
+    elif has_position:
+        state.type = message_constant.TRACKER_STATE_TYPE_WGS84
+    return mode
+
+
 # 入口: 同一个上行里可能同时有 GNSS 和 BLE, 分别解算, 原子追加两类历史.
 def do(report: TrackerReport) -> TrackerState:
     current_time_ms = int(time.time() * 1000)
@@ -75,6 +115,8 @@ def do(report: TrackerReport) -> TrackerState:
 
     if gnss is None:
         state.position_history = prune_history(state.position_history, current_time_ms)
+        # 没有 fix 也要喂状态机: BLE 侧的证据靠这条路径累积.
+        apply_indoor_outdoor(state, report, None, current_time_ms)
         return state
 
     # GNSS 不写入 x/y (那是室内 metric 坐标系), 走独立的 lat/lon 字段.
@@ -92,8 +134,8 @@ def do(report: TrackerReport) -> TrackerState:
     ))
     history.sort(key=lambda e: e.time)
     state.position_history = prune_history(history, current_time_ms)
-    # 第一批简化: 有有效 GPS fix 就展示为室外. 步骤 3 的迟滞状态机会替换这里.
-    state.type = message_constant.TRACKER_STATE_TYPE_WGS84
+    # 展示类型由迟滞状态机决定, 不再是"有 GPS fix 就室外".
+    apply_indoor_outdoor(state, report, gnss, current_time_ms)
     state.online = event_constant.ONLINE_STATUS_ACTIVE
     return state
 
