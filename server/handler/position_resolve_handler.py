@@ -3,7 +3,8 @@ from typing import List, Dict, Optional, Tuple
 import time
 
 from server.models import (
-    TrackerReport, DetectedBeacon, TrackerState
+    TrackerReport, DetectedBeacon, TrackerState,
+    PositionHistoryEntry, COORD_SYSTEM_METRIC, COORD_SYSTEM_WGS84
 )
 
 from server.components.device_holder import device_holder
@@ -25,36 +26,83 @@ log = logging.getLogger(__name__)
 kalman_filters: Dict[str, KalmanFilter2D] = {}  # Stores Kalman filter instance per tracker
 
 
-# 主要针对蓝牙定位: 1. 解析出所在地图, 2. 计算出每个beacon的距离, 3.根据定位方式解算结果
+HISTORY_TIME_WINDOW_MS = 30 * 60 * 1000
+
+
+def extract_gnss_fix(report: TrackerReport) -> Optional[dict]:
+    """Return the WGS84 fix carried by a report, or None when there is none."""
+    loc = report.loc or {}
+    lat = loc.get("lat")
+    lon = loc.get("lon")
+    if lat is None or lon is None:
+        return None
+    return {
+        "lat": float(lat),
+        "lon": float(lon),
+        "alt": float(loc["alt"]) if loc.get("alt") is not None else None,
+        "accuracy": float(loc["accuracy"]) if loc.get("accuracy") is not None else None,
+        "fix_time": report.timestamp,
+    }
+
+
+def prune_history(history, current_time_ms: int):
+    cutoff = current_time_ms - HISTORY_TIME_WINDOW_MS
+    return [p for p in history if p.time >= cutoff]
+
+
+# 入口: 同一个上行里可能同时有 GNSS 和 BLE, 分别解算, 原子追加两类历史.
 def do(report: TrackerReport) -> TrackerState:
+    current_time_ms = int(time.time() * 1000)
+    gnss = extract_gnss_fix(report)
+
+    if report.detectedBeacons:
+        state = resolve_ble(report)
+    else:
+        state = TrackerState(
+            trackerId=report.trackerId,
+            last_update_time=current_time_ms,
+            timestamp=report.timestamp,
+            sos=report.sos,
+            battery=report.battery,
+            type=message_constant.TRACKER_STATE_TYPE_BLE_UNKNOWN,
+            online=event_constant.ONLINE_STATUS_ACTIVE
+        )
+    # BLE 解算的部分早退分支不带历史, 统一从上一次状态补齐, 避免追加 GNSS 点时把轨迹清空.
+    if not state.position_history:
+        last_state = device_holder.get_tracker_state(report.trackerId)
+        if last_state and last_state.position_history:
+            state.position_history = list(last_state.position_history)
+
+    if gnss is None:
+        state.position_history = prune_history(state.position_history, current_time_ms)
+        return state
+
+    # GNSS 不写入 x/y (那是室内 metric 坐标系), 走独立的 lat/lon 字段.
+    state.lat = gnss["lat"]
+    state.lon = gnss["lon"]
+    state.alt = gnss["alt"]
+    state.accuracy = gnss["accuracy"]
+    state.fix_time = gnss["fix_time"]
+    history = list(state.position_history)
+    history.append(PositionHistoryEntry(
+        coordSystem=COORD_SYSTEM_WGS84,
+        time=report.timestamp or current_time_ms,
+        lat=gnss["lat"], lon=gnss["lon"],
+        alt=gnss["alt"], accuracy=gnss["accuracy"],
+    ))
+    history.sort(key=lambda e: e.time)
+    state.position_history = prune_history(history, current_time_ms)
+    # 第一批简化: 有有效 GPS fix 就展示为室外. 步骤 3 的迟滞状态机会替换这里.
+    state.type = message_constant.TRACKER_STATE_TYPE_WGS84
+    state.online = event_constant.ONLINE_STATUS_ACTIVE
+    return state
+
+
+# 主要针对蓝牙定位: 1. 解析出所在地图, 2. 计算出每个beacon的距离, 3.根据定位方式解算结果
+def resolve_ble(report: TrackerReport) -> TrackerState:
     try:
         global kalman_filters
         current_time_ms = int(time.time() * 1000)
-        if report.locType == message_constant.TRACKER_POSITIONING_TYPE_GPS:
-            return TrackerState(
-                trackerId=report.trackerId,
-                last_update_time=current_time_ms,
-                timestamp=report.timestamp,
-                last_detected_beacons=[],
-                map="",
-                sos=report.sos,
-                battery=report.battery,
-                type=message_constant.TRACKER_STATE_TYPE_WGS84,
-                x=report.loc.get("alt"),
-                y=report.loc.get("lon"),
-                online=event_constant.ONLINE_STATUS_ACTIVE
-            )
-        if report.locType != message_constant.TRACKER_POSITIONING_TYPE_BLE:
-            return TrackerState(
-                trackerId=report.trackerId,
-                last_update_time=current_time_ms,
-                timestamp=report.timestamp,
-                sos=report.sos,
-                battery=report.battery,
-                type=message_constant.TRACKER_STATE_TYPE_BLE_UNKNOWN,
-                online=event_constant.ONLINE_STATUS_ACTIVE
-            )
-        # 非蓝牙定位, 不需要进入后面的部分
         if len(report.detectedBeacons) == 0:
             return TrackerState(
                 trackerId=report.trackerId,
@@ -229,7 +277,11 @@ def do(report: TrackerReport) -> TrackerState:
 
             # Add new position to history
             if filtered_position:
-                current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
+                current_position_history.append(PositionHistoryEntry(
+                    coordSystem=COORD_SYSTEM_METRIC,
+                    x=filtered_position[0], y=filtered_position[1],
+                    map=best_map, time=report.timestamp or current_time_ms,
+                ))
 
         elif kf:  # No new calculation, but KF might have predicted
             kf.predict(dt)
@@ -242,9 +294,8 @@ def do(report: TrackerReport) -> TrackerState:
             #     current_position_history.append((filtered_position[0], filtered_position[1], current_time_ms))
 
         # Prune history to last 30 minutes (30 * 60 * 1000 ms)
-        history_time_window_ms = 30 * 60 * 1000
-        cutoff_time_ms = current_time_ms - history_time_window_ms
-        current_position_history = [p for p in current_position_history if p[2] >= cutoff_time_ms]
+        current_position_history.sort(key=lambda e: e.time)
+        current_position_history = prune_history(current_position_history, current_time_ms)
 
         log.info(f"device({tracker_id}) 最终定位: ${current_position_history}")  # Can be noisy
 

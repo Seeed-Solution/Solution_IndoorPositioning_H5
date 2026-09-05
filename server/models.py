@@ -1,5 +1,5 @@
 # server/models.py
-from pydantic import BaseModel, Field, AliasChoices
+from pydantic import BaseModel, Field, AliasChoices, field_validator
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -824,6 +824,48 @@ class DeviceAlarmRecord:
         return cls.from_dict(data)
 
 
+COORD_SYSTEM_METRIC = "metric"
+COORD_SYSTEM_WGS84 = "wgs84"
+
+
+class PositionHistoryEntry(BaseModel):
+    """A single point of a tracker trail.
+
+    Replaces the legacy ``(x, y, timestamp_ms)`` triple. Legacy triples are still
+    accepted on input and read back as ``coordSystem="metric"`` (see
+    ``TrackerState.position_history`` validator).
+    """
+    coordSystem: str = COORD_SYSTEM_METRIC  # metric | wgs84
+    time: int = 0                           # unix ms
+    # metric (indoor, map local frame)
+    x: Optional[float] = None
+    y: Optional[float] = None
+    map: Optional[str] = None
+    # wgs84 (outdoor)
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    alt: Optional[float] = None
+    accuracy: Optional[float] = None
+
+
+def normalize_position_history(value: Any) -> Any:
+    """Accept legacy ``[x, y, t]`` triples alongside PositionHistoryEntry dicts."""
+    if not isinstance(value, (list, tuple)):
+        return value
+    normalized = []
+    for item in value:
+        if isinstance(item, PositionHistoryEntry):
+            normalized.append(item)
+        elif isinstance(item, (list, tuple)) and len(item) == 3:
+            normalized.append(PositionHistoryEntry(
+                coordSystem=COORD_SYSTEM_METRIC,
+                x=float(item[0]), y=float(item[1]), time=int(item[2]),
+            ))
+        else:
+            normalized.append(item)
+    return normalized
+
+
 class TrackerState(BaseModel):
     trackerId: str
     x: Optional[float] = None
@@ -831,7 +873,7 @@ class TrackerState(BaseModel):
     last_update_time: Optional[int] = 0 # Unix ms timestamp in ms (server time of this update)
     timestamp: Optional[int] = None # Unix ms timestamp (from original report)
     last_detected_beacons: List[DetectedBeacon] = []
-    position_history: List[Tuple[float, float, int]] = [] # List of (x, y, timestamp_ms)
+    position_history: List[PositionHistoryEntry] = []  # trail, mixed metric/wgs84 segments
     used_beacons: List[DetectedBeacon] = []  # MAC addresses of beacons used in position calculation
     map: Optional[str] = "unknown"
     sos: int = 0
@@ -839,6 +881,16 @@ class TrackerState(BaseModel):
     radius: float = 0
     battery: Optional[int] = -1
     online: Optional[str] = "unknown"
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    alt: Optional[float] = None
+    accuracy: Optional[float] = None
+    fix_time: Optional[int] = None  # unix ms of the GNSS fix
+
+    @field_validator("position_history", mode="before")
+    @classmethod
+    def _coerce_position_history(cls, value):
+        return normalize_position_history(value)
 
     def toTrackerInfo(self, device_record: DeviceRecord) -> "TrackerInfo":
         """将TrackerState和DeviceRecord合并转换为TrackerInfo"""
@@ -859,6 +911,11 @@ class TrackerState(BaseModel):
             radius=self.radius,
             battery=self.battery,
             online=self.online,
+            lat=self.lat,
+            lon=self.lon,
+            alt=self.alt,
+            accuracy=self.accuracy,
+            fix_time=self.fix_time,
             
             # DeviceRecord字段
             id=device_record.id,
@@ -894,7 +951,7 @@ class TrackerInfo(BaseModel):
     last_update_time: int
     timestamp: Optional[int] = None
     last_detected_beacons: List[DetectedBeacon] = []
-    position_history: List[Tuple[float, float, int]] = []
+    position_history: List[PositionHistoryEntry] = []
     used_beacons: List[DetectedBeacon] = []
     map: Optional[str] = "unknown"
     sos: int = 0
@@ -902,12 +959,22 @@ class TrackerInfo(BaseModel):
     radius: float = 0
     battery: Optional[int] = -1
     online: Optional[str] = "unknown"
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    alt: Optional[float] = None
+    accuracy: Optional[float] = None
+    fix_time: Optional[int] = None  # unix ms of the GNSS fix
     
     # DeviceRecord字段
     id: Optional[int] = None
     device_name: str = ""
     group_id: int = 0
     is_favorite: bool = False
+
+    @field_validator("position_history", mode="before")
+    @classmethod
+    def _coerce_position_history(cls, value):
+        return normalize_position_history(value)
 
     @staticmethod
     def fromDeviceRecord(device: DeviceRecord) -> "TrackerInfo":

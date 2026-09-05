@@ -19,3 +19,14 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["server"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["server/tests"]
+asyncio_mode = "auto"

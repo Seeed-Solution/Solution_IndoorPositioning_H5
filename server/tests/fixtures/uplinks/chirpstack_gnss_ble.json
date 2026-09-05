@@ -1,0 +1,42 @@
+{
+  "_comment": [
+    "Desensitised ChirpStack uplink event for a T1000 behind the SenseCAP codec.",
+    "Topic and payload layout follow server/handler/message_format_hanlder.py:parse_chirpstack_payload():",
+    "  topic = application/{applicationID}/device/{devEUI}/event/up",
+    "  payload.object.messages[0] = list of {measurementId, measurementValue, type, timestamp}",
+    "measurementId mapping is identical to SenseCAP: 4197=longitude, 4198=latitude,",
+    "5002=BLE scan result, 5003=event list (id 7 = SOS), 3000=battery.",
+    "devEUI, gateway ids, appliation name and beacon MACs are synthetic."
+  ],
+  "topic": "application/1000/device/2cf7f1c0530004ad/event/up",
+  "payload": {
+    "deduplicationId": "00000000-0000-0000-0000-000000000001",
+    "time": "2026-09-05T02:13:20+00:00",
+    "deviceInfo": {
+      "tenantName": "demo-tenant",
+      "applicationName": "indoor-positioning",
+      "deviceProfileName": "SenseCAP T1000",
+      "deviceName": "tracker-001",
+      "devEui": "2cf7f1c0530004ad"
+    },
+    "fCnt": 4211,
+    "fPort": 5,
+    "object": {
+      "valid": true,
+      "err": 0,
+      "payload": "0000000000",
+      "messages": [
+        [
+          {"type": "Longitude", "measurementId": "4197", "measurementValue": 113.9421, "timestamp": 1757000000000},
+          {"type": "Latitude", "measurementId": "4198", "measurementValue": 22.5352, "timestamp": 1757000000000},
+          {"type": "Battery", "measurementId": "3000", "measurementValue": 87, "timestamp": 1757000000000},
+          {"type": "Bluetooth Beacon", "measurementId": "5002", "measurementValue": [
+            {"mac": "c3:00:00:3e:7d:da", "rssi": -53},
+            {"macAddress": "C3:00:00:3E:7D:EF", "rssi": -71}
+          ], "timestamp": 1757000000000},
+          {"type": "Event Status", "measurementId": "5003", "measurementValue": [{"id": 7, "name": "SOS Mode"}], "timestamp": 1757000000000}
+        ]
+      ]
+    }
+  }
+}
