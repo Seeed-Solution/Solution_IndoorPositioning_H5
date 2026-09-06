@@ -424,8 +424,10 @@ const drawMap = (ctx) => {
   }
 
   // Ensure canvas internal drawing buffer matches these dimensions.
-  ctx.canvas.width = canvasWidth.value;
-  ctx.canvas.height = canvasHeight.value;
+  // 只在真的变了才写: 给 canvas.width 赋值（哪怕是同一个数）会重建整个
+  // backing buffer, 拖动时每帧重来一次没必要, 后面的 clearRect 已经够了。
+  if (ctx.canvas.width !== canvasWidth.value) ctx.canvas.width = canvasWidth.value;
+  if (ctx.canvas.height !== canvasHeight.value) ctx.canvas.height = canvasHeight.value;
 
   const hasImage = !!(mapImage.value && mapImage.value.complete && mapImage.value.height);
   const imageAspect = hasImage ? (mapImage.value.width / mapImage.value.height) : null;
@@ -852,9 +854,9 @@ watch(() => props.config?.map?.background, (newUrl, oldUrl) => {
 });
 
 // Watch for changes in config, trackers, trail visibility and redraw
+// mergedTrackers 已经派生自 props.trackers, 不必再单独订阅一次。
 watch([
   () => props.config,
-  () => props.trackers,
   mergedTrackers,
   trailsVisible,
   () => props.selectedId,

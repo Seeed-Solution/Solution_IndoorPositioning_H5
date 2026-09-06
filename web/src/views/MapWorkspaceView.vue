@@ -206,8 +206,7 @@ const onFocusTracker = (id) => controller.focusTracker(id);
 
 const acceptLayerSuggestion = () => {
   if (!layerSuggestion.value) return;
-  controller.setLayer(layerSuggestion.value);
-  layerSuggestion.value = null;
+  setLayer(layerSuggestion.value);
   nextTick(() => controller.focusTracker(state.value.tracker));
 };
 
@@ -295,7 +294,7 @@ const replaceState = (patch) => {
 
 const setLayer = (layer) => {
   layerSuggestion.value = null;
-  pushState({ layer });
+  controller.setLayer(layer);
 };
 
 watch(() => route.query, (q) => {

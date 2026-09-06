@@ -7,7 +7,7 @@ import OutdoorMapOverview from '@/views/OutdoorMapOverview.vue'; // Outdoor (WGS
 import MapWorkspaceView from '@/views/MapWorkspaceView.vue'; // 统一地图工作台 /map
 
 import { authService } from '@/services/authService.js';
-import { LEGACY_ROUTE_MAP, MAP_PATH, migrateLastVisitedPage } from '@/utils/mapUrlState.js';
+import { LEGACY_ROUTE_MAP, MAP_PATH, legacyRedirect, migrateLastVisitedPage } from '@/utils/mapUrlState.js';
 
 const routes = [
   {
@@ -43,9 +43,11 @@ const routes = [
   },
   // 旧路由兼容: 开发环境（Vite）与 SPA 内部导航靠这里的 client redirect；
   // 生产环境由 nginx 的 return 301 先接住（nginx.conf），两条路都要留。
-  ...Object.entries(LEGACY_ROUTE_MAP).map(([from, preset]) => ({
+  // query 用 legacyRedirect 归一化: 与缺省相同的字段会被省掉, 落地的 URL
+  // 与 nginx 那条 301 一致, 不会多出 layer=indoor&panel=list 这种噪声。
+  ...Object.keys(LEGACY_ROUTE_MAP).map((from) => ({
     path: from,
-    redirect: () => ({ path: MAP_PATH, query: { ...preset } }),
+    redirect: () => legacyRedirect(from),
   })),
   {
     path: '/config',

@@ -245,6 +245,19 @@ const redraw = () => {
   const selected = props.interactive ? props.selectedId : '';
   const hovered = props.interactive ? props.hoveredId : '';
 
+  /** 选中/悬停/淡出三态在两类当前点 marker 上是同一套, 只有基础半径不同。 */
+  const markerState = (tracker, baseRadius) => {
+    const isSelected = !!selected && tracker.trackerId === selected;
+    const isHovered = !!hovered && tracker.trackerId === hovered;
+    const dim = !!selected && !isSelected;
+    return {
+      radius: (isSelected ? baseRadius * 1.4 : baseRadius) * (isHovered ? 1.15 : 1),
+      fillOpacity: dim ? 0.4 : 0.9,
+      opacity: dim ? 0.4 : 1,
+      weight: isSelected ? 4 : 2,
+    };
+  };
+
   /** 当前点 marker 统一在这里登记并绑事件, 室内投影点和室外 GNSS 点都走它。 */
   const registerMarker = (marker, tracker) => {
     const id = tracker.trackerId;
@@ -282,16 +295,10 @@ const redraw = () => {
       if (!latlng) return;
       bounds.push(latlng);
 
-      const isSelected = !!selected && tracker.trackerId === selected;
-      const isHovered = !!hovered && tracker.trackerId === hovered;
-      const dim = !!selected && !isSelected;
       registerMarker(L.circleMarker(latlng, {
-        radius: (isSelected ? 7 * 1.4 : 7) * (isHovered ? 1.15 : 1),
+        ...markerState(tracker, 7),
         color: isSos ? '#d93025' : '#1a73e8',
         fillColor: isSos ? '#d93025' : '#1a73e8',
-        fillOpacity: dim ? 0.4 : 0.9,
-        opacity: dim ? 0.4 : 1,
-        weight: isSelected ? 4 : 2,
       })
         .bindTooltip(tracker.device_name || tracker.trackerId, { permanent: false })
         .addTo(overlay), tracker);
@@ -312,16 +319,10 @@ const redraw = () => {
       if (!latlng) return;
       bounds.push(latlng);
 
-      const isSelected = !!selected && tracker.trackerId === selected;
-      const isHovered = !!hovered && tracker.trackerId === hovered;
-      const dim = !!selected && !isSelected;
       registerMarker(L.circleMarker(latlng, {
-        radius: (isSelected ? 6 * 1.4 : 6) * (isHovered ? 1.15 : 1),
+        ...markerState(tracker, 6),
         color: isSos ? '#d93025' : '#188038',
         fillColor: '#ffffff',
-        fillOpacity: dim ? 0.4 : 0.9,
-        opacity: dim ? 0.4 : 1,
-        weight: isSelected ? 4 : 2,
         dashArray: '3,2',
       })
         .bindTooltip(`${tracker.device_name || tracker.trackerId} · ${tracker.map}`,
