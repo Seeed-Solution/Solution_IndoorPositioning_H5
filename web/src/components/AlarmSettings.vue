@@ -1874,27 +1874,27 @@ onBeforeUnmount(() => {
 }
 
 .edit-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
   border: none;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .edit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .delete-btn {
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  background: linear-gradient(135deg, var(--sc-color-text-secondary) 0%, var(--sc-color-text) 100%);
   color: white;
   border: none;
   box-shadow: 0 2px 4px rgba(74, 85, 104, 0.3);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3a4553 0%, #1a202c 100%);
+  background: linear-gradient(135deg, var(--sc-color-text-secondary) 0%, var(--sc-color-text) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(74, 85, 104, 0.4);
 }
@@ -2016,7 +2016,7 @@ onBeforeUnmount(() => {
 }
 
 .alarm-modal .modal-header h3 i {
-  color: #667eea;
+  color: var(--sc-color-primary);
 }
 
 .alarm-modal .modal-body {
@@ -2066,7 +2066,7 @@ onBeforeUnmount(() => {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -2109,7 +2109,7 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-trigger:hover {
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
 }
 
 .dropdown-trigger.error {
@@ -2458,7 +2458,7 @@ onBeforeUnmount(() => {
 }
 
 .checkin-option:hover {
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   background: var(--sc-color-bg-layout);
 }
 
@@ -2472,12 +2472,12 @@ onBeforeUnmount(() => {
 }
 
 .checkin-option input[type="radio"]:checked + .radio-mark + .checkin-content .checkin-title {
-  color: #667eea;
+  color: var(--sc-color-primary);
   font-weight: 600;
 }
 
 .checkin-option:has(input[type="radio"]:checked) {
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   background: #f0f4ff;
 }
 
@@ -2545,7 +2545,7 @@ onBeforeUnmount(() => {
 }
 
 .trigger-option:hover {
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   background: var(--sc-color-bg-layout);
 }
 
@@ -2559,12 +2559,12 @@ onBeforeUnmount(() => {
 }
 
 .trigger-option input[type="radio"]:checked + .radio-mark + .trigger-content .trigger-title {
-  color: #667eea;
+  color: var(--sc-color-primary);
   font-weight: 600;
 }
 
 .trigger-option:has(input[type="radio"]:checked) {
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   background: #f0f4ff;
 }
 
@@ -2616,7 +2616,7 @@ onBeforeUnmount(() => {
 }
 
 .save-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -2631,7 +2631,7 @@ onBeforeUnmount(() => {
 }
 
 .save-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
@@ -2772,7 +2772,7 @@ onBeforeUnmount(() => {
 }
 
 .delete-confirm-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-error) 0%, #bd2130 100%);
+  background: linear-gradient(135deg, var(--sc-color-error) 0%, var(--sc-color-error) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
 }
@@ -2875,7 +2875,7 @@ onBeforeUnmount(() => {
 }
 
 .error-confirm-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, #004085 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }

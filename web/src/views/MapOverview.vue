@@ -1055,7 +1055,7 @@ onUnmounted(() => {
 }
 
 .map-list-item:hover {
-  background: #f0f8ff;
+  background: var(--sc-color-bg-container);
 }
 
 .map-list-item.active {

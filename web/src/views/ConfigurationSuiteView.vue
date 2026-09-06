@@ -4558,7 +4558,7 @@ select {
 .stat-item {
   text-align: center;
   padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -4601,7 +4601,7 @@ select {
 
 .export-config-btn {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -4618,7 +4618,7 @@ select {
 }
 
 .export-config-btn:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
@@ -4629,7 +4629,7 @@ select {
 
 .refresh-config-btn {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-primary) 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -4646,7 +4646,7 @@ select {
 }
 
 .refresh-config-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0f8578 0%, #32d96f 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-primary-hover) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(17, 153, 142, 0.4);
 }
@@ -4835,7 +4835,7 @@ select {
 
 /* 编辑模式横幅 */
 .edit-mode-banner {
-  background: linear-gradient(135deg, var(--sc-color-warning) 0%, #ff8c00 100%);
+  background: linear-gradient(135deg, var(--sc-color-warning) 0%, var(--sc-color-warning) 100%);
   color: var(--sc-color-text);
   padding: 1rem;
   border-radius: 8px;
@@ -4857,7 +4857,7 @@ select {
 
 /* 未保存更改横幅 */
 .unsaved-changes-banner {
-  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  background: linear-gradient(135deg, var(--sc-color-warning) 0%, var(--sc-color-warning) 100%);
   color: white;
   padding: 1rem;
   border-radius: 8px;
@@ -4894,7 +4894,7 @@ select {
 .beacon-summary {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, #f0f8ff 100%);
+  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, var(--sc-color-bg-container) 100%);
   border-radius: 6px;
   border-left: 4px solid var(--sc-color-info);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -4978,14 +4978,14 @@ select {
 }
 
 .background-link {
-  color: #667eea;
+  color: var(--sc-color-primary);
   text-decoration: none;
   word-break: break-all;
   transition: color 0.2s;
 }
 
 .background-link:hover {
-  color: #764ba2;
+  color: var(--sc-color-primary-active);
   text-decoration: underline;
 }
 
@@ -5038,13 +5038,13 @@ select {
 }
 
 .map-background-file-input:hover {
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   background: #fff;
 }
 
 .map-background-file-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -5065,7 +5065,7 @@ select {
 
 .file-input-hint i {
   font-size: 1.2rem;
-  color: #667eea;
+  color: var(--sc-color-primary);
 }
 
 .background-preview {
@@ -5403,7 +5403,7 @@ select {
 }
 
 .modal-content h4 i {
-  color: #667eea;
+  color: var(--sc-color-primary);
 }
 
 .form-group {
@@ -5430,7 +5430,7 @@ select {
 
 .map-name-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -5490,13 +5490,13 @@ select {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
@@ -5539,12 +5539,12 @@ select {
 }
 
 .unified-stats-overview .stat-item.map-beacon-stats {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
 }
 
 .unified-stats-overview .stat-item.tracker-stats {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-primary) 100%);
   color: white;
 }
 
@@ -5581,7 +5581,7 @@ select {
 }
 
 .config-tab-button.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   transform: translateY(-2px);
@@ -5757,7 +5757,7 @@ select {
 }
 
 .save-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, #004085 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
@@ -5832,7 +5832,7 @@ select {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
 }
 
@@ -5940,7 +5940,7 @@ select {
 }
 
 .header-actions .edit-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, #004085 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
   transform: translateY(-1px);
 }
 
@@ -6049,7 +6049,7 @@ select {
 
 .mqtt-title i {
   font-size: 1.2rem;
-  color: #667eea;
+  color: var(--sc-color-primary);
 }
 
 .mqtt-title h3 {
@@ -6447,7 +6447,7 @@ select {
 
 .change-password-button {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--sc-color-warning) 0%, #ff8c00 100%);
+  background: linear-gradient(135deg, var(--sc-color-warning) 0%, var(--sc-color-warning) 100%);
   color: var(--sc-color-text);
   border: none;
   border-radius: 6px;
@@ -6462,7 +6462,7 @@ select {
 }
 
 .change-password-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e0a800 0%, #e67e22 100%);
+  background: linear-gradient(135deg, #e0a800 0%, var(--sc-color-warning) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
 }

@@ -1037,7 +1037,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
 }
 
@@ -1115,9 +1115,9 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: #667eea;
+  background: var(--sc-color-primary);
   color: white;
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
 }
@@ -1177,7 +1177,7 @@ onUnmounted(() => {
 }
 
 .btn-confirm {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
 }
 

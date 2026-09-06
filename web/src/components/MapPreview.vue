@@ -884,7 +884,7 @@ canvas {
 
 .loading-content i {
   font-size: 1.5rem;
-  color: #667eea;
+  color: var(--sc-color-primary);
 }
 
 .loading-content span {
@@ -900,7 +900,7 @@ canvas {
   margin-top: 1rem;
   padding: 1rem 0.5rem 0.5rem;
   border-top: 2px solid var(--sc-color-bg-layout);
-  background: linear-gradient(to bottom, transparent 0%, #fafbfc 100%);
+  background: linear-gradient(to bottom, transparent 0%, var(--sc-color-bg-container) 100%);
 }
 
 .page-button {
@@ -920,9 +920,9 @@ canvas {
 }
 
 .page-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
   color: white;
-  border-color: #667eea;
+  border-color: var(--sc-color-primary);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
