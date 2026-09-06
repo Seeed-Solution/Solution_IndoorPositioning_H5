@@ -1,6 +1,6 @@
 // 统一渲染: metric 段按配准投影到 Leaflet 图，与 wgs84 段跨段不连线。
 import { describe, it, expect } from 'vitest';
-import { segmentTrail, indoorSegments, outdoorSegments, COORD_METRIC, COORD_WGS84 }
+import { segmentTrail, indoorSegments, outdoorSegments, isOutdoorTracker, COORD_METRIC, COORD_WGS84 }
   from '../src/utils/trail.js';
 import { localToWgs84, isRegistered } from '../src/utils/affine.js';
 
@@ -48,5 +48,21 @@ describe('mixed indoor/outdoor trail', () => {
 
   it('an unregistered map contributes nothing', () => {
     expect(isRegistered({ name: 'Floor 3', width: 10, height: 10 })).toBe(false);
+  });
+});
+
+describe('isOutdoorTracker 与迟滞状态机的一致性', () => {
+  it('type 已判定为室内时, 残留的 lat/lon 不能把它算成室外', () => {
+    const tracker = { type: 'calculation', x: 1, y: 2, lat: 22.5, lon: 114.0 };
+    expect(isOutdoorTracker(tracker)).toBe(false);
+  });
+
+  it('type 为 wGS84 时是室外', () => {
+    expect(isOutdoorTracker({ type: 'wGS84', lat: 22.5, lon: 114.0 })).toBe(true);
+  });
+
+  it('没有 type 时回落到 lat/lon 是否存在', () => {
+    expect(isOutdoorTracker({ lat: 22.5, lon: 114.0 })).toBe(true);
+    expect(isOutdoorTracker({ x: 1, y: 2 })).toBe(false);
   });
 });

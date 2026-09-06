@@ -78,9 +78,16 @@ export function outdoorSegments(history) {
 /** tracker.type === 'wGS84' 走室外视图, 其余走室内。 */
 export const TRACKER_TYPE_WGS84 = 'wGS84';
 
+// 服务端 message_constant.TRACKER_STATE_TYPE_* 里的室内取值。室内外由
+// server/handler/indoor_outdoor.py 的迟滞状态机判定, 结论就写在 type 上。
+export const INDOOR_TRACKER_TYPES = ['approximate', 'calculation', 'unknown', 'ble_failed'];
+
 export function isOutdoorTracker(tracker) {
   if (!tracker) return false;
   if (tracker.type === TRACKER_TYPE_WGS84) return true;
+  // state.lat/lon 在离开室外后不会被清掉: 状态机已判定室内的设备, 不能因为
+  // 还留着上一次 GNSS fix 就被当成室外 (那会让它从室内地图上消失)。
+  if (INDOOR_TRACKER_TYPES.includes(tracker.type)) return false;
   return tracker.lat !== undefined && tracker.lat !== null
     && tracker.lon !== undefined && tracker.lon !== null;
 }
