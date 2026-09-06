@@ -1,6 +1,6 @@
 <template>
   <div id="app-shell">
-    <template v-if="isLoginPage || isFullscreenMode">
+    <template v-if="isLoginPage || isFullscreenMode || isDisplayMode">
       <div class="main-content fullscreen-content">
         <router-view />
       </div>
@@ -28,11 +28,14 @@ import AppShell from './components/AppShell.vue'
 import Toast from './components/Toast.vue'
 import { authService } from './services/authService.js'
 import { getCurrentUsername } from './services/userStore.js'
+import { isDisplayRoute } from './utils/mapUrlState.js'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const isLoginPage = computed(() => route.path === '/login')
+// 展示模式不套 AppShell: 侧栏与顶栏都要让位给铺满视口的地图（spec §9.2）
+const isDisplayMode = computed(() => isDisplayRoute({ path: route.path, query: route.query }))
 
 // 侧栏菜单（结构对齐 kit AppShell 的 menuItems）
 // 业务入口收敛成 Map + Config 两项; 室内/室外在 /map 内部用图层控件切换。

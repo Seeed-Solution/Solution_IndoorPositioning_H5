@@ -7,7 +7,7 @@ import OutdoorMapOverview from '@/views/OutdoorMapOverview.vue'; // Outdoor (WGS
 import MapWorkspaceView from '@/views/MapWorkspaceView.vue'; // 统一地图工作台 /map
 
 import { authService } from '@/services/authService.js';
-import { LEGACY_ROUTE_MAP, MAP_PATH, legacyRedirect, migrateLastVisitedPage } from '@/utils/mapUrlState.js';
+import { DISPLAY_PATH, LEGACY_ROUTE_MAP, MAP_PATH, legacyRedirect, migrateLastVisitedPage } from '@/utils/mapUrlState.js';
 
 const routes = [
   {
@@ -82,9 +82,6 @@ const getDefaultRoute = async () => {
     if (migrated && migrated !== stored) {
       localStorage.setItem('lastVisitedPage', migrated)
     }
-    if (migrated) {
-      return migrated
-    }
     
     // 示例逻辑3：根据时间段
     // const hour = new Date().getHours()
@@ -100,10 +97,13 @@ const getDefaultRoute = async () => {
     //   return '/config'
     // }
     
-    return MAP_PATH
+    // spec §9.1: 登录后的默认落点固定为展示模式。lastVisitedPage 仍然迁移并写回
+    // （旧值指向已下线的 /map-overview 之类，别的读取方拿到的也是新路径），
+    // 但不再决定落点：配置完一次就再也回不到展示模式不是想要的行为。
+    return DISPLAY_PATH
   } catch (error) {
     console.error('Error determining default route:', error)
-    return MAP_PATH
+    return DISPLAY_PATH
   }
 }
 

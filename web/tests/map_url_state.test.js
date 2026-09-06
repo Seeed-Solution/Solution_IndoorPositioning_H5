@@ -38,6 +38,7 @@ describe('parseMapQuery', () => {
       group: 'Warehouse',
       trails: false,
       panel: 'detail',
+      mode: 'workspace',
     });
   });
 
@@ -82,6 +83,7 @@ describe('serializeMapState', () => {
     const s = {
       layer: 'outdoor', map: 'F1', tracker: 'T1', q: 'a',
       status: 'offline', group: 'G', trails: false, panel: 'closed',
+      mode: 'display',
     };
     expect(parseMapQuery(serializeMapState(s))).toEqual(s);
     expect(sameMapState(s, parseMapQuery(serializeMapState(s)))).toBe(true);

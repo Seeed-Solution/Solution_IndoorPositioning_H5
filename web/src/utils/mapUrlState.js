@@ -10,6 +10,11 @@ export const LAYERS = [LAYER_INDOOR, LAYER_OUTDOOR];
 export const STATUSES = ['all', 'online', 'offline', 'starred'];
 export const PANELS = ['list', 'detail', 'closed'];
 
+// 同一个 /map 页面的两种模式: workspace 是三栏工作台, display 是全屏展示。
+export const MODE_WORKSPACE = 'workspace';
+export const MODE_DISPLAY = 'display';
+export const MODES = [MODE_WORKSPACE, MODE_DISPLAY];
+
 /** 缺省状态。序列化时与缺省相同的字段一律省略, URL 才不会长成一条噪声。 */
 export const DEFAULT_MAP_STATE = Object.freeze({
   layer: LAYER_INDOOR,
@@ -20,6 +25,7 @@ export const DEFAULT_MAP_STATE = Object.freeze({
   group: '',
   trails: true,
   panel: 'list',
+  mode: MODE_WORKSPACE,
 });
 
 const firstValue = (v) => (Array.isArray(v) ? v[0] : v);
@@ -60,6 +66,7 @@ export function parseMapQuery(query = {}) {
     group: asString(q.group),
     trails: parseTrails(q.trails),
     panel: oneOf(q.panel, PANELS, DEFAULT_MAP_STATE.panel),
+    mode: oneOf(q.mode, MODES, DEFAULT_MAP_STATE.mode),
   };
 }
 
@@ -75,6 +82,7 @@ export function serializeMapState(state = {}) {
   if (s.group) out.group = s.group;
   if (s.trails !== DEFAULT_MAP_STATE.trails) out.trails = s.trails ? '1' : '0';
   if (s.panel !== DEFAULT_MAP_STATE.panel) out.panel = s.panel;
+  if (s.mode !== DEFAULT_MAP_STATE.mode) out.mode = s.mode;
   return out;
 }
 
@@ -97,6 +105,19 @@ export function sameMapState(a, b) {
 // --------------------------------------------------------------------------- //
 
 export const MAP_PATH = '/map';
+
+/** 登录后的默认落点: 展示模式（spec §9.1）。 */
+export const DISPLAY_PATH = `${MAP_PATH}?mode=${MODE_DISPLAY}`;
+
+/** 某个 query 是否处在展示模式。 */
+export function isDisplayQuery(query = {}) {
+  return parseMapQuery(query).mode === MODE_DISPLAY;
+}
+
+/** 某条 route（path + query）是否是 /map 的展示模式。 */
+export function isDisplayRoute(route = {}) {
+  return stripBase(route.path || '') === MAP_PATH && isDisplayQuery(route.query || {});
+}
 
 /** 旧路径 -> 新路径 + query。不认识的路径返回 null。 */
 export const LEGACY_ROUTE_MAP = Object.freeze({
