@@ -594,7 +594,8 @@ onUnmounted(() => {
 
 <style scoped>
 .map-overview-container {
-  min-height: 100vh;
+  /* 页面被 AppShell 包在 64px 顶栏下面，写 100vh 会永远多出一屏高，逼出纵向滚动条 */
+  min-height: calc(100vh - var(--sc-layout-header-height));
   background-color: var(--sc-color-bg-layout);
   display: flex;
   flex-direction: column;
