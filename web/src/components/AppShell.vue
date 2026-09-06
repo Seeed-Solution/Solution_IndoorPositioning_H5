@@ -19,7 +19,7 @@
       </nav>
     </aside>
 
-    <div class="sc-main">
+    <div class="sc-main" @transitionend="onMainTransitionEnd">
       <header class="sc-header">
         <button
           type="button"
@@ -72,7 +72,22 @@ defineProps({
 
 defineEmits(['logout'])
 
-const collapsed = ref(false)
+// 窄屏默认折叠：侧栏是 fixed 定位，展开时会盖住内容区
+const isNarrowScreen = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(max-width: 768px)').matches
+    : false
+
+const collapsed = ref(isNarrowScreen())
+
+// 折叠/展开改的是内容区宽度，不是窗口尺寸，浏览器不会发 resize 事件。
+// 地图（Leaflet 的 trackResize、MapPreview 的 canvas）都只监听 window resize，
+// 不补这一下会留下灰块和点击偏移。等过渡结束再发，拿到的才是最终宽度。
+const onMainTransitionEnd = (event) => {
+  if (event.propertyName !== 'margin-left') return
+  if (event.target !== event.currentTarget) return
+  window.dispatchEvent(new Event('resize'))
+}
 </script>
 
 <style scoped>
@@ -312,12 +327,13 @@ const collapsed = ref(false)
     display: none;
   }
 
-  .sc-sider {
-    width: var(--sc-layout-sider-collapsed-width);
-    flex-basis: var(--sc-layout-sider-collapsed-width);
+  /* 窄屏展开时侧栏盖在内容上，内容区仍按折叠宽度让位，不再被挤掉一半 */
+  .sc-sider:not(.is-collapsed) {
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
   }
 
-  .sc-main {
+  .sc-main,
+  .sc-sider:not(.is-collapsed) + .sc-main {
     margin-left: var(--sc-layout-sider-collapsed-width);
   }
 }

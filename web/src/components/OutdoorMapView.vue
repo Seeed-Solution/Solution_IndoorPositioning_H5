@@ -561,15 +561,30 @@ const saveRegistration = async () => {
   }
 };
 
+// Leaflet 只在 window resize 时自己重算尺寸。容器尺寸还会被侧栏折叠、工具栏
+// 换行（切语言时文字变长）改掉，这些都不发 window 事件，不重算就是灰块加点击偏移。
+let containerObserver = null;
+
 onMounted(async () => {
   await nextTick();
   map = L.map(mapEl.value, { zoomControl: true }).setView([0, 0], 2);
   applyTileLayer();
   redraw();
+
+  if (typeof ResizeObserver !== 'undefined') {
+    containerObserver = new ResizeObserver(() => {
+      map?.invalidateSize({ animate: false });
+    });
+    containerObserver.observe(mapEl.value);
+  }
 });
 
 onBeforeUnmount(() => {
   destroyRegOverlay();
+  if (containerObserver) {
+    containerObserver.disconnect();
+    containerObserver = null;
+  }
   if (map) {
     map.remove();
     map = null;
