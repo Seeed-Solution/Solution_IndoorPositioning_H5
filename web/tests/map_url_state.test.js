@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_MAP_STATE,
+  DISPLAY_PATH,
+  MODE_DISPLAY,
+  isDisplayQuery,
+  isDisplayRoute,
   LEGACY_ROUTE_MAP,
   MAP_PATH,
   legacyRedirect,
@@ -149,5 +153,60 @@ describe('migrateLastVisitedPage', () => {
     expect(migrateLastVisitedPage('/')).toBeNull();
     expect(migrateLastVisitedPage(null)).toBeNull();
     expect(migrateLastVisitedPage('')).toBeNull();
+  });
+});
+
+describe('mode（展示模式）', () => {
+  it('缺省是 workspace, 序列化时省略', () => {
+    expect(parseMapQuery({}).mode).toBe('workspace');
+    expect(serializeMapState({ ...DEFAULT_MAP_STATE, mode: 'workspace' }).mode).toBeUndefined();
+  });
+
+  it('display 往返不丢', () => {
+    const q = serializeMapState({ ...DEFAULT_MAP_STATE, mode: MODE_DISPLAY });
+    expect(q).toEqual({ mode: 'display' });
+    expect(parseMapQuery(q).mode).toBe('display');
+  });
+
+  it('非法值回落到 workspace', () => {
+    expect(parseMapQuery({ mode: 'kiosk' }).mode).toBe('workspace');
+    expect(parseMapQuery({ mode: ['display', 'workspace'] }).mode).toBe('display');
+    expect(parseMapQuery({ mode: 'DISPLAY' }).mode).toBe('display');
+  });
+
+  it('mode 与其他状态并存, 互不影响', () => {
+    const state = {
+      ...DEFAULT_MAP_STATE, mode: MODE_DISPLAY, layer: 'outdoor', tracker: 'T1', trails: false,
+    };
+    const round = parseMapQuery(serializeMapState(state));
+    expect(round).toEqual(state);
+    expect(sameMapState(state, round)).toBe(true);
+  });
+
+  it('sameMapState 区分两种模式', () => {
+    expect(sameMapState(
+      { ...DEFAULT_MAP_STATE },
+      { ...DEFAULT_MAP_STATE, mode: MODE_DISPLAY },
+    )).toBe(false);
+  });
+
+  it('isDisplayQuery / isDisplayRoute', () => {
+    expect(isDisplayQuery({ mode: 'display' })).toBe(true);
+    expect(isDisplayQuery({})).toBe(false);
+    expect(isDisplayRoute({ path: '/map', query: { mode: 'display' } })).toBe(true);
+    expect(isDisplayRoute({ path: '/web/map', query: { mode: 'display' } })).toBe(true);
+    expect(isDisplayRoute({ path: '/config', query: { mode: 'display' } })).toBe(false);
+    expect(isDisplayRoute({ path: '/map', query: {} })).toBe(false);
+  });
+
+  it('默认落点常量就是展示模式的 /map', () => {
+    expect(DISPLAY_PATH).toBe('/map?mode=display');
+    const [path, qs] = DISPLAY_PATH.split('?');
+    expect(path).toBe(MAP_PATH);
+    expect(parseMapQuery(Object.fromEntries(new URLSearchParams(qs))).mode).toBe('display');
+  });
+
+  it('旧路由重定向不带 mode（旧书签仍进工作台）', () => {
+    expect(legacyRedirect('/outdoor-map').query.mode).toBeUndefined();
   });
 });

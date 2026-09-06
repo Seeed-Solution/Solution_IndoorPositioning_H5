@@ -14,6 +14,7 @@ function setup(initial = {}) {
   let hovered = '';
   const history = [];
   const focusCalls = { indoor: [], outdoor: [] };
+  const fitCalls = { indoor: 0, outdoor: 0 };
 
   const controller = createMapController({
     getTrackers: () => trackers,
@@ -28,6 +29,10 @@ function setup(initial = {}) {
       indoor: (id) => focusCalls.indoor.push(id),
       outdoor: (id) => focusCalls.outdoor.push(id),
     },
+    fitAllHandlers: initial.fitAllHandlers ?? {
+      indoor: () => { fitCalls.indoor += 1; },
+      outdoor: () => { fitCalls.outdoor += 1; },
+    },
   });
 
   return {
@@ -36,6 +41,7 @@ function setup(initial = {}) {
     trackers,
     history,
     focusCalls,
+    fitCalls,
     getHovered: () => hovered,
   };
 }
@@ -194,5 +200,40 @@ describe('setLayer / layerOf', () => {
     expect(controller.layerOf({ type: 'calculation', lat: 1, lon: 2 })).toBe('indoor');
     expect(controller.layerOf({ type: 'unknown', lat: 1, lon: 2 })).toBe('indoor');
     expect(controller.layerOf({ type: 'wGS84' })).toBe('outdoor');
+  });
+});
+
+describe('fitAll', () => {
+  it('按当前图层派发到对应实现', () => {
+    const { controller, fitCalls } = setup({ layer: 'indoor' });
+    expect(controller.fitAll()).toBe(true);
+    expect(fitCalls).toEqual({ indoor: 1, outdoor: 0 });
+  });
+
+  it('室外层走 Leaflet 那一侧', () => {
+    const { controller, fitCalls } = setup({ layer: 'outdoor' });
+    expect(controller.fitAll()).toBe(true);
+    expect(fitCalls).toEqual({ indoor: 0, outdoor: 1 });
+  });
+
+  it('没有对应实现时返回 false, 不抛', () => {
+    const { controller } = setup({ layer: 'outdoor', fitAllHandlers: {} });
+    expect(controller.fitAll()).toBe(false);
+  });
+
+  it('选项原样透传给实现', () => {
+    const seen = [];
+    const { controller } = setup({
+      layer: 'indoor',
+      fitAllHandlers: { indoor: (opts) => seen.push(opts) },
+    });
+    controller.fitAll({ paddingRatio: 0.2 });
+    expect(seen).toEqual([{ paddingRatio: 0.2 }]);
+  });
+
+  it('fitAll 不改动页面状态', () => {
+    const { controller, history } = setup({ layer: 'indoor' });
+    controller.fitAll();
+    expect(history).toEqual([]);
   });
 });
