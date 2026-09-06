@@ -1,6 +1,14 @@
 <template>
   <div class="sc-shell">
-    <aside class="sc-sider" :class="{ 'is-collapsed': collapsed }">
+    <div
+      v-if="isMobile && mobileMenuOpen"
+      class="sc-sider-scrim"
+      @click="mobileMenuOpen = false"
+    ></div>
+    <aside
+      class="sc-sider"
+      :class="{ 'is-collapsed': collapsed, 'is-offcanvas': isMobile, 'is-open': mobileMenuOpen }"
+    >
       <div class="sc-sider__logo">
         <i class="fas fa-map-marker-alt sc-sider__logo-icon"></i>
         <span v-if="!collapsed" class="sc-sider__logo-title">{{ $t('app.title', 'Indoor Positioning') }}</span>
@@ -12,6 +20,7 @@
           :to="item.to"
           class="sc-menu__item"
           :title="item.label"
+          @click="mobileMenuOpen = false"
         >
           <i :class="['fas', item.icon, 'sc-menu__icon']"></i>
           <span v-if="!collapsed" class="sc-menu__label">{{ item.label }}</span>
@@ -25,7 +34,7 @@
           type="button"
           class="sc-header__toggle"
           aria-label="toggle-sider"
-          @click="collapsed = !collapsed"
+          @click="onToggleSider"
         >
           <i class="fas fa-bars"></i>
         </button>
@@ -58,8 +67,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import LanguageSwitcher from './LanguageSwitcher.vue'
+import { LAYOUT_MOBILE, watchLayoutMode } from '@/utils/breakpoints.js'
 
 defineProps({
   menuItems: { type: Array, default: () => [] },
@@ -72,13 +83,40 @@ defineProps({
 
 defineEmits(['logout'])
 
-// 窄屏默认折叠：侧栏是 fixed 定位，展开时会盖住内容区
-const isNarrowScreen = () =>
-  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(max-width: 768px)').matches
-    : false
+// 断点只在挂载时读一次是拿不到旋屏/拖窗口的，这里挂 change 监听并在卸载时摘掉。
+const route = useRoute()
+const isMobile = ref(false)
+const collapsed = ref(false)
+const mobileMenuOpen = ref(false)
+let stopLayoutWatch = null
 
-const collapsed = ref(isNarrowScreen())
+const onToggleSider = () => {
+  if (isMobile.value) mobileMenuOpen.value = !mobileMenuOpen.value
+  else collapsed.value = !collapsed.value
+}
+
+onMounted(() => {
+  stopLayoutWatch = watchLayoutMode(
+    typeof window !== 'undefined' ? window : null,
+    (mode) => {
+      const narrow = mode === LAYOUT_MOBILE
+      isMobile.value = narrow
+      // 窄屏侧栏是 off-canvas 覆盖层，宽度按展开算；关掉时整条滑出视口
+      collapsed.value = false
+      if (!narrow) mobileMenuOpen.value = false
+    },
+  )
+})
+
+onUnmounted(() => {
+  if (stopLayoutWatch) {
+    stopLayoutWatch()
+    stopLayoutWatch = null
+  }
+})
+
+// 导航之后收起 off-canvas，否则新页面一直被侧栏盖着
+watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
 
 // 折叠/展开改的是内容区宽度，不是窗口尺寸，浏览器不会发 resize 事件。
 // 地图（Leaflet 的 trackResize、MapPreview 的 canvas）都只监听 window resize，
@@ -280,8 +318,9 @@ const onMainTransitionEnd = (event) => {
 .sc-content {
   flex: 1 1 auto;
   min-width: 0;
+  box-sizing: border-box;
   padding: var(--sc-layout-content-padding);
-  /* 宽内容（地图/表格）在内容区内部横向滚动，不让整页横向滚动 */
+  /* 溢出兜底：真正的修复在各页的 min-width:0 / 换行，这里只是外壳保护 */
   overflow-x: auto;
 }
 
@@ -321,20 +360,34 @@ const onMainTransitionEnd = (event) => {
   font-weight: 500;
 }
 
-@media (max-width: 768px) {
+.sc-sider-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--sc-z-sticky) - 1);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 767.98px) {
   .sc-user__name,
   .sc-logout__text {
     display: none;
   }
 
-  /* 窄屏展开时侧栏盖在内容上，内容区仍按折叠宽度让位，不再被挤掉一半 */
-  .sc-sider:not(.is-collapsed) {
+  /* <768: 侧栏整条滑出视口，内容区铺满，不再留 80px 让位 */
+  .sc-sider.is-offcanvas {
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
   }
 
+  .sc-sider.is-offcanvas.is-open {
+    transform: translateX(0);
+  }
+
   .sc-main,
-  .sc-sider:not(.is-collapsed) + .sc-main {
-    margin-left: var(--sc-layout-sider-collapsed-width);
+  .sc-sider + .sc-main,
+  .sc-sider.is-collapsed + .sc-main {
+    margin-left: 0;
   }
 }
 </style>

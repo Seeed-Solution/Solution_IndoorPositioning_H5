@@ -2,9 +2,13 @@
      /map: 定位业务的唯一入口。左栏常驻 tracker 列表, 中栏 indoor/outdoor
      图层画布, 右栏 tracker 详情。界面状态全部编码在 URL query 里。 -->
 <template>
-  <div class="map-workspace">
+  <div class="map-workspace" :class="[`is-${layoutMode}`, { 'has-detail': detailOpen, 'has-list': listOpen }]">
+    <!-- 遮罩: drawer 档位下点击关掉抽屉 -->
+    <div v-if="drawerLayout && (listOpen || detailOpen)" class="ws-scrim" @click="closePanels"></div>
+
     <!-- 左栏: 常驻 tracker 列表 -->
-    <aside class="ws-pane ws-pane--list" :class="{ 'is-open': listOpen }">
+    <aside class="ws-pane ws-pane--list" :class="{ 'is-open': listOpen, [`sheet-${sheetState}`]: drawerLayout }">
+      <div v-if="drawerLayout" class="ws-pane__grip" @click="cycleSheet"></div>
       <TrackerList
         :trackers="trackers"
         compact
@@ -19,6 +23,16 @@
     <!-- 中栏: 地图 -->
     <section class="ws-pane ws-pane--map">
     <div class="map-toolbar">
+      <button
+        v-if="drawerLayout"
+        type="button"
+        class="panel-toggle"
+        :title="t('map.toggleList', 'Tracker list')"
+        @click="togglePanel"
+      >
+        <i class="fas fa-list-ul"></i>
+      </button>
+
       <div class="layer-switch" role="group" aria-label="layer">
         <button
           type="button"
@@ -45,6 +59,12 @@
             {{ entry.map.name }}
           </option>
         </select>
+      </label>
+
+      <!-- 轨迹开关是两套地图共享的一个状态, 写进 URL -->
+      <label class="trails-toggle">
+        <input type="checkbox" :checked="state.trails" @change="toggleTrails" />
+        <span class="trails-toggle__text">{{ t('outdoorMap.showTrails', 'Show trails') }}</span>
       </label>
 
       <span class="map-badge" v-if="selectedTracker">{{ layerBadge }}</span>
@@ -97,7 +117,8 @@
     </section>
 
     <!-- 右栏: 详情抽屉 -->
-    <aside class="ws-pane ws-pane--detail" :class="{ 'is-open': detailOpen }">
+    <aside class="ws-pane ws-pane--detail" :class="{ 'is-open': detailOpen, [`sheet-${sheetState}`]: drawerLayout }">
+      <div v-if="drawerLayout" class="ws-pane__grip" @click="cycleSheet"></div>
       <TrackerDetailPanel
         :tracker="selectedTracker"
         @close="closeDetail"
@@ -120,6 +141,12 @@ import { loadDashboardConfiguration, loadTrackers } from '@/services/configApiSe
 import { buildWsUrl } from '@/config/api.js';
 import { parseMapQuery, serializeMapState, sameQuery } from '@/utils/mapUrlState.js';
 import { createMapController } from '@/controllers/mapPageController.js';
+import {
+  LAYOUT_DESKTOP,
+  LAYOUT_MOBILE,
+  usesDrawer,
+  watchLayoutMode,
+} from '@/utils/breakpoints.js';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -187,6 +214,37 @@ const acceptLayerSuggestion = () => {
 const dismissLayerSuggestion = () => { layerSuggestion.value = null; };
 
 const closeDetail = () => controller.clearSelection();
+
+const toggleTrails = () => replaceState({ trails: !state.value.trails });
+
+// --------------------------------------------------------------------------- //
+// 三档布局
+// --------------------------------------------------------------------------- //
+const layoutMode = ref(LAYOUT_DESKTOP);
+const drawerLayout = computed(() => usesDrawer(layoutMode.value));
+// <768 的底部 drawer 有 peek / half / full 三态
+const SHEET_STATES = ['peek', 'half', 'full'];
+const sheetState = ref('half');
+const cycleSheet = () => {
+  const i = SHEET_STATES.indexOf(sheetState.value);
+  sheetState.value = SHEET_STATES[(i + 1) % SHEET_STATES.length];
+};
+
+const closePanels = () => replaceState({ panel: 'closed' });
+const togglePanel = () => replaceState({ panel: state.value.panel === 'closed' ? 'list' : 'closed' });
+
+let stopLayoutWatch = null;
+
+// drawer 档位下默认不占屏: 进来先收起面板, 地图铺满
+watch(layoutMode, (mode, prev) => {
+  if (!prev) return;
+  if (usesDrawer(mode) && !usesDrawer(prev) && state.value.panel === 'list') {
+    replaceState({ panel: 'closed' });
+  }
+  if (mode === LAYOUT_DESKTOP && state.value.panel === 'closed') {
+    replaceState({ panel: 'list' });
+  }
+});
 
 const selectedMapName = computed({
   get() {
@@ -356,12 +414,23 @@ const connectWebSocket = () => {
 };
 
 onMounted(async () => {
+  stopLayoutWatch = watchLayoutMode(
+    typeof window !== 'undefined' ? window : null,
+    (mode) => { layoutMode.value = mode; },
+  );
+  if (drawerLayout.value && state.value.panel === 'list' && !route.query.panel) {
+    replaceState({ panel: 'closed' });
+  }
   await loadConfig();
   await preloadTrackers();
   connectWebSocket();
 });
 
 onUnmounted(() => {
+  if (stopLayoutWatch) {
+    stopLayoutWatch();
+    stopLayoutWatch = null;
+  }
   if (ws.value) {
     ws.value.onclose = null;
     ws.value.close();
@@ -416,6 +485,122 @@ defineExpose({ state, replaceState, pushState });
   display: block;
 }
 
+.ws-pane__grip {
+  height: 18px;
+  flex: 0 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+
+.ws-pane__grip::before {
+  content: '';
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--sc-color-border);
+}
+
+.ws-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.panel-toggle,
+.trails-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--sc-color-text-secondary);
+  white-space: nowrap;
+}
+
+.panel-toggle {
+  padding: 6px 10px;
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-bg-container);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+/* 768-1023: 地图主视图, 列表与详情都变成右侧 drawer */
+.map-workspace.is-tablet,
+.map-workspace.is-mobile {
+  position: relative;
+  display: block;
+}
+
+.map-workspace.is-tablet .ws-pane--map,
+.map-workspace.is-mobile .ws-pane--map {
+  height: 100%;
+}
+
+.map-workspace.is-tablet .ws-pane--list,
+.map-workspace.is-tablet .ws-pane--detail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  width: min(360px, 85vw);
+  display: none;
+  flex-direction: column;
+  background: var(--sc-color-bg-container);
+  border-left: 1px solid var(--sc-color-border);
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.12);
+}
+
+.map-workspace.is-tablet .ws-pane--list.is-open,
+.map-workspace.is-tablet .ws-pane--detail.is-open {
+  display: flex;
+}
+
+/* <768: 侧栏 off-canvas 由 AppShell 负责, 这里是底部 drawer 的 peek/half/full */
+.map-workspace.is-mobile .ws-pane--list,
+.map-workspace.is-mobile .ws-pane--detail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: none;
+  flex-direction: column;
+  border: none;
+  border-top: 1px solid var(--sc-color-border);
+  border-radius: 12px 12px 0 0;
+  background: var(--sc-color-bg-container);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.16);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: height 0.2s ease;
+}
+
+.map-workspace.is-mobile .ws-pane--list.is-open,
+.map-workspace.is-mobile .ws-pane--detail.is-open {
+  display: flex;
+}
+
+.map-workspace.is-mobile .sheet-peek { height: 30%; }
+.map-workspace.is-mobile .sheet-half { height: 55%; }
+.map-workspace.is-mobile .sheet-full { height: 92%; }
+
+.map-workspace.is-mobile .layer-btn__text,
+.map-workspace.is-mobile .floor-picker__label,
+.map-workspace.is-mobile .trails-toggle__text,
+.map-workspace.is-mobile .ws-badge {
+  /* 窄屏按钮图标化, 文字留给屏幕阅读器之外的宽屏 */
+  display: none;
+}
+
+.map-workspace.is-mobile .map-toolbar {
+  gap: 8px;
+  padding: 6px 8px;
+}
+
 .map-badge {
   padding: 3px 10px;
   border-radius: 999px;
@@ -428,6 +613,7 @@ defineExpose({ state, replaceState, pushState });
 .map-toolbar {
   display: flex;
   flex-wrap: wrap;
+  overflow-x: hidden;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;

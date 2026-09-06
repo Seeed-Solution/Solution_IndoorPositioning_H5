@@ -51,7 +51,13 @@
     "loadConfiguration": "Load configuration to display map.",
     "layerIndoor": "Indoor",
     "layerOutdoor": "Outdoor",
-    "floor": "Floor plan"
+    "floor": "Floor plan",
+    "layerSuggestion": "This tracker is currently on the other layer.",
+    "toggleList": "Tracker list",
+    "detailEmptyTitle": "No tracker selected",
+    "detailEmptyHint": "Pick a tracker from the list or the map.",
+    "fixSource": "Fix source",
+    "focusOnMap": "Center on map"
   },
   "config": {
     "saveToServer": "Save to Server",

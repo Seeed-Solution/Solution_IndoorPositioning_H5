@@ -51,7 +51,13 @@
     "loadConfiguration": "加载配置以显示地图。",
     "layerIndoor": "室内",
     "layerOutdoor": "室外",
-    "floor": "平面图"
+    "floor": "平面图",
+    "layerSuggestion": "该设备当前在另一个图层。",
+    "toggleList": "设备列表",
+    "detailEmptyTitle": "未选中设备",
+    "detailEmptyHint": "从列表或地图上选一个设备。",
+    "fixSource": "定位来源",
+    "focusOnMap": "在地图上居中"
   },
   "config": {
     "saveToServer": "保存配置到服务器",

@@ -604,6 +604,8 @@ onUnmounted(() => {
 /* 页面内容 */
 .page-content {
   flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 2rem;
   max-width: 1400px;
   margin: 1rem auto;
@@ -648,8 +650,12 @@ onUnmounted(() => {
 }
 
 /* 状态栏 */
+/* 溢出根因 1: 状态栏原来不换行, 内容一多就把父容器撑宽 */
 .status-bar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   background: white;
@@ -702,9 +708,17 @@ onUnmounted(() => {
   color: #f44336;
 }
 
+/* 溢出根因 2: 统计卡定宽横排 -> auto-fit grid, 窄屏自动折行 */
 .stats-section {
-  display: flex;
-  gap: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.stat-item {
+  min-width: 0;
 }
 
 .stat-item {
@@ -788,6 +802,7 @@ onUnmounted(() => {
 /* 主要内容区域 */
 .main-content-area {
   display: flex;
+  min-width: 0;
   height: 600px;
 }
 
@@ -808,6 +823,9 @@ onUnmounted(() => {
 
 .map-viewer-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
@@ -830,11 +848,15 @@ onUnmounted(() => {
 
 .map-dropdown {
   position: relative;
-  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
+/* 溢出根因 3: 下拉 min-width:250px 在窄屏直接顶出容器 */
 .map-select {
-  min-width: 250px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 0.75rem;
   border: 1px solid var(--sc-color-border);
   border-radius: 6px;

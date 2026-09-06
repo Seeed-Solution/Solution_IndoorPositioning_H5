@@ -880,16 +880,21 @@ defineExpose({
 <style scoped>
 .map-preview-container {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .content-columns {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 
 .map-view-wrapper {
-  flex-grow: 1;
-  min-height: 450px;
+  flex: 1 1 320px;
+  min-width: 0;
+  min-height: 320px;
   display: flex;
   flex-direction: column;
 }
@@ -912,6 +917,7 @@ defineExpose({
 .map-container {
   position: relative;
   width: 100%;
+  min-width: 0;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
@@ -919,9 +925,12 @@ defineExpose({
   align-items: center;
 }
 
+/* 溢出根因 4: 300px 定宽且 flex-shrink:0, 窄屏必然顶出容器 */
 .tracker-list-aside {
-  width: 300px;
-  flex-shrink: 0;
+  flex: 1 1 260px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background-color: var(--sc-color-bg-layout);
   padding: 0.75rem;
   border-radius: 4px;
