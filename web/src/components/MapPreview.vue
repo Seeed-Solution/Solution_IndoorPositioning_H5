@@ -135,6 +135,7 @@ import {
   worldToCanvas,
   zoomAt,
 } from '@/utils/canvasTransform.js';
+import { fitAllView, toBasePoint, viewChangedEnough } from '@/utils/displayCamera.js';
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { loadTrackers } from '@/services/configApiService.js';
@@ -173,6 +174,11 @@ const props = defineProps({
   hoveredId: {
     type: String,
     default: ''
+  },
+  // 展示模式: 标签显示设备名并放大到远距离可读（spec §9.2, >=16 px）
+  displayMode: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -534,10 +540,14 @@ const drawMap = (ctx) => {
       }
 
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.font = 'bold 11px Arial';
+      ctx.font = props.displayMode ? 'bold 18px Arial' : 'bold 11px Arial';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(id).substring(10), p.x + radius + 4, p.y);
+      ctx.fillText(
+        props.displayMode ? (tracker.device_name || String(id)) : String(id).substring(10),
+        p.x + radius + 4,
+        p.y,
+      );
 
       targets.push({ id, x: p.x, y: p.y, hitRadius: radius });
     } else if (tracker.radius && tracker.used_beacons && tracker.used_beacons.length > 0) {
@@ -558,9 +568,11 @@ const drawMap = (ctx) => {
         ctx.fill();
         ctx.stroke();
 
-        const displayId = String(id).length > 5 ? String(id).slice(-5) : String(id);
+        const displayId = props.displayMode
+          ? (tracker.device_name || String(id))
+          : (String(id).length > 5 ? String(id).slice(-5) : String(id));
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.font = 'bold 14px Arial';
+        ctx.font = props.displayMode ? 'bold 18px Arial' : 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(displayId, c.x, c.y);
@@ -774,6 +786,31 @@ const focusTracker = (id) => {
   return true;
 };
 
+/**
+ * fit-all：把当前平面图上所有 tracker 一并框进画布（展示模式相机）。
+ *
+ * hitTargets 是上一帧「带着当前 view」的 canvas 坐标，先反解回 base 空间再算，
+ * 这样连续调用不会自我放大。差异小于抖动阈值时不动，返回 false。
+ */
+const fitAllTrackers = ({ paddingRatio, jitterRatio } = {}) => {
+  const el = mapCanvas.value;
+  if (!el || hitTargets.length === 0) return false;
+  const points = hitTargets.map((h) => toBasePoint(h, view.value));
+  const next = fitAllView({
+    points,
+    viewWidth: el.width,
+    viewHeight: el.height,
+    paddingRatio,
+  });
+  if (!next) return false;
+  if (!viewChangedEnough(view.value, next, {
+    viewWidth: el.width, viewHeight: el.height, jitterRatio,
+  })) return false;
+  view.value = next;
+  redraw();
+  return true;
+};
+
 let resizeHandler;
 let containerObserver = null;
 
@@ -870,6 +907,7 @@ watch([
   trailsVisible,
   () => props.selectedId,
   () => props.hoveredId,
+  () => props.displayMode,
 ], () => {
   const ctx = mapCanvas.value?.getContext('2d');
   if (ctx) {
@@ -883,6 +921,7 @@ defineExpose({
   isTrackerInCurrentMap,
   waitForReady,
   focusTracker,
+  fitAllTrackers,
   resetZoom,
 });
 

@@ -15,6 +15,7 @@ import { LAYER_INDOOR, LAYER_OUTDOOR } from '@/utils/mapUrlState.js';
  * @param {() => string} [deps.getHovered]
  * @param {(id: string) => void} [deps.setHovered]
  * @param {{indoor?: (id, tracker) => void, outdoor?: (id, tracker) => void}} [deps.focusHandlers]
+ * @param {{indoor?: () => void, outdoor?: () => void}} [deps.fitAllHandlers]  展示模式的 fit-all 相机
  */
 export function createMapController({
   getTrackers,
@@ -23,6 +24,7 @@ export function createMapController({
   getHovered = () => '',
   setHovered = () => {},
   focusHandlers = {},
+  fitAllHandlers = {},
 } = {}) {
   const trackers = () => getTrackers?.() || {};
   const state = () => getState?.() || {};
@@ -101,6 +103,19 @@ export function createMapController({
     return want === state().layer ? null : want;
   };
 
+  /**
+   * 展示模式相机：把当前图层的所有 tracker 一并入画。
+   * 具体怎么框由两套地图各自实现（canvas 改视图变换 / Leaflet fitBounds），
+   * controller 只负责按当前图层派发。没有对应实现时返回 false。
+   */
+  const fitAll = (options) => {
+    const layer = state().layer === LAYER_OUTDOOR ? LAYER_OUTDOOR : LAYER_INDOOR;
+    const handler = fitAllHandlers[layer];
+    if (typeof handler !== 'function') return false;
+    handler(options);
+    return true;
+  };
+
   const setLayer = (layer) => {
     const next = layer === LAYER_OUTDOOR ? LAYER_OUTDOOR : LAYER_INDOOR;
     if (next === state().layer) return false;
@@ -114,6 +129,7 @@ export function createMapController({
     selectTracker,
     clearSelection,
     focusTracker,
+    fitAll,
     hoverTracker,
     reconcile,
     suggestLayerFor,

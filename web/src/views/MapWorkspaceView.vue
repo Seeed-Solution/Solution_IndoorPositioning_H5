@@ -2,12 +2,15 @@
      /map: 定位业务的唯一入口。左栏常驻 tracker 列表, 中栏 indoor/outdoor
      图层画布, 右栏 tracker 详情。界面状态全部编码在 URL query 里。 -->
 <template>
-  <div class="map-workspace" :class="[`is-${layoutMode}`, { 'has-detail': detailOpen, 'has-list': listOpen }]">
+  <div
+    class="map-workspace"
+    :class="[`is-${layoutMode}`, { 'has-detail': detailOpen, 'has-list': listOpen, 'is-display': displayMode }]"
+  >
     <!-- 遮罩: drawer 档位下点击关掉抽屉 -->
-    <div v-if="drawerLayout && (listOpen || detailOpen)" class="ws-scrim" @click="closePanels"></div>
+    <div v-if="!displayMode && drawerLayout && (listOpen || detailOpen)" class="ws-scrim" @click="closePanels"></div>
 
-    <!-- 左栏: 常驻 tracker 列表 -->
-    <aside class="ws-pane ws-pane--list" :class="{ 'is-open': listOpen, [`sheet-${sheetState}`]: drawerLayout }">
+    <!-- 左栏: 常驻 tracker 列表。展示模式下整条不渲染 -->
+    <aside v-if="!displayMode" class="ws-pane ws-pane--list" :class="{ 'is-open': listOpen, [`sheet-${sheetState}`]: drawerLayout }">
       <div v-if="drawerLayout" class="ws-pane__grip" @click="cycleSheet"></div>
       <TrackerList
         :trackers="trackers"
@@ -28,7 +31,31 @@
 
     <!-- 中栏: 地图 -->
     <section class="ws-pane ws-pane--map">
-    <div class="map-toolbar">
+    <!-- 展示模式浮层: 左上信息带 + 右上齿轮（spec §9.2） -->
+    <div v-if="displayMode" class="display-overlay">
+      <div class="display-band">
+        <span class="display-band__map">{{ displayLayerText }}</span>
+        <span class="display-band__stat is-online">
+          <i class="fas fa-circle"></i>{{ onlineCount }} {{ t('tracker.trackerList.online', 'Online') }}
+        </span>
+        <span class="display-band__stat is-offline">
+          <i class="fas fa-circle"></i>{{ offlineCount }} {{ t('tracker.trackerList.offline', 'Offline') }}
+        </span>
+        <span class="display-band__time">{{ updatedAtText }}</span>
+      </div>
+      <button
+        v-if="showConfigGear"
+        type="button"
+        class="display-gear"
+        :title="t('nav.mapBeaconConfig', 'Configuration')"
+        aria-label="configuration"
+        @click="exitDisplayMode"
+      >
+        <i class="fas fa-cog"></i>
+      </button>
+    </div>
+
+    <div v-if="!displayMode" class="map-toolbar">
       <button
         v-if="drawerLayout"
         type="button"
@@ -78,7 +105,7 @@
       <span class="ws-badge" :class="wsStatus">{{ wsStatusText }}</span>
     </div>
 
-    <div v-if="layerSuggestion" class="layer-suggestion">
+    <div v-if="layerSuggestion && !displayMode" class="layer-suggestion">
       <span>{{ t('map.layerSuggestion', 'This tracker is currently on the other layer.') }}</span>
       <button type="button" class="layer-suggestion__accept" @click="acceptLayerSuggestion">
         {{ layerSuggestion === 'outdoor' ? t('map.layerOutdoor', 'Outdoor') : t('map.layerIndoor', 'Indoor') }}
@@ -112,6 +139,7 @@
         :show-trails="state.trails"
         :selected-id="state.tracker"
         :hovered-id="hoveredId"
+        :display-mode="displayMode"
         @select-tracker="onSelectTracker"
         @hover-tracker="onHoverTracker"
       />
@@ -122,8 +150,8 @@
     </div>
     </section>
 
-    <!-- 右栏: 详情抽屉 -->
-    <aside class="ws-pane ws-pane--detail" :class="{ 'is-open': detailOpen, [`sheet-${sheetState}`]: drawerLayout }">
+    <!-- 右栏: 详情抽屉。展示模式下不渲染 -->
+    <aside v-if="!displayMode" class="ws-pane ws-pane--detail" :class="{ 'is-open': detailOpen, [`sheet-${sheetState}`]: drawerLayout }">
       <div v-if="drawerLayout" class="ws-pane__grip" @click="cycleSheet"></div>
       <TrackerDetailPanel
         :tracker="selectedTracker"
@@ -145,7 +173,10 @@ import TrackerDetailPanel from '@/components/TrackerDetailPanel.vue';
 import { isOutdoorTracker } from '@/utils/trail.js';
 import { loadDashboardConfiguration, loadTrackers } from '@/services/configApiService.js';
 import { buildWsUrl } from '@/config/api.js';
-import { parseMapQuery, serializeMapState, sameQuery } from '@/utils/mapUrlState.js';
+import { MODE_DISPLAY, parseMapQuery, serializeMapState, sameQuery } from '@/utils/mapUrlState.js';
+import { createFitScheduler } from '@/utils/displayCamera.js';
+import { loadDisplayConfig } from '@/config/display.js';
+import { getCurrentUsername } from '@/services/userStore.js';
 import { createMapController } from '@/controllers/mapPageController.js';
 import {
   LAYOUT_DESKTOP,
@@ -166,6 +197,43 @@ const wsStatus = ref('disconnected');
 const ws = ref(null);
 
 const hoveredId = ref('');
+
+// --------------------------------------------------------------------------- //
+// 展示模式 (spec §9)
+// --------------------------------------------------------------------------- //
+const displayConfig = loadDisplayConfig();
+const displayMode = computed(() => state.value.mode === MODE_DISPLAY);
+// 访客没有配置权限, 不给齿轮 (spec §9.6)
+const showConfigGear = computed(() => getCurrentUsername() !== 'guest');
+const lastUpdateAt = ref(null);
+
+const visibleTrackers = computed(() => {
+  const all = Object.values(trackers.value || {});
+  if (state.value.layer === 'outdoor') return all.filter((tr) => isOutdoorTracker(tr));
+  const name = selectedMap.value?.map?.name;
+  return all.filter((tr) => !isOutdoorTracker(tr) && (!name || tr.map === name));
+});
+
+// 在线判定沿用列表页的口径: 完全依赖后端 online 字段
+const onlineCount = computed(
+  () => visibleTrackers.value.filter((tr) => tr.online === 'online').length,
+);
+const offlineCount = computed(() => visibleTrackers.value.length - onlineCount.value);
+
+const displayLayerText = computed(() => {
+  if (state.value.layer === 'outdoor') return t('map.layerOutdoor', 'Outdoor');
+  const name = selectedMap.value?.map?.name;
+  return name || t('map.layerIndoor', 'Indoor');
+});
+
+const updatedAtText = computed(() => {
+  if (!lastUpdateAt.value) return '--:--:--';
+  return new Date(lastUpdateAt.value).toLocaleTimeString();
+});
+
+const exitDisplayMode = () => {
+  router.push('/config');
+};
 
 const wsStatusText = computed(() => t(`mapOverview.connectionStatus.${wsStatus.value}`, wsStatus.value));
 
@@ -201,6 +269,22 @@ const controller = createMapController({
     indoor: (id) => { nextTick(() => indoorMapRef.value?.focusTracker?.(id)); },
     outdoor: (id) => { nextTick(() => outdoorMapRef.value?.focusTracker?.(id)); },
   },
+  // 展示模式的 fit-all: 同样等一次 DOM flush, 新出现的设备要先画出来才有位置
+  fitAllHandlers: {
+    indoor: () => {
+      nextTick(() => indoorMapRef.value?.fitAllTrackers?.({
+        paddingRatio: displayConfig.fitPaddingRatio,
+        jitterRatio: displayConfig.fitJitterRatio,
+      }));
+    },
+    outdoor: () => { nextTick(() => outdoorMapRef.value?.fitAllTrackers?.()); },
+  },
+});
+
+// tracker 集合/位置每几秒就动一次, 每次都重框会一直抖: 合并到防抖窗口里跑一次
+const fitScheduler = createFitScheduler({
+  delayMs: displayConfig.fitDebounceMs,
+  onFit: () => { if (displayMode.value) controller.fitAll(); },
 });
 
 const onSelectTracker = (id) => {
@@ -246,6 +330,8 @@ let stopLayoutWatch = null;
 // drawer 档位下默认不占屏: 进来先收起面板, 地图铺满
 watch(layoutMode, (mode, prev) => {
   if (!prev) return;
+  // 展示模式没有面板, 别往 URL 里写 panel
+  if (displayMode.value) return;
   if (usesDrawer(mode) && !usesDrawer(prev) && state.value.panel === 'list') {
     replaceState({ panel: 'closed' });
   }
@@ -352,7 +438,20 @@ const preloadTrackers = async () => {
 };
 
 // 轮询/WebSocket 刷新后保持选择: 设备还在就不动, 没了才清掉
-watch(trackers, () => controller.reconcile());
+watch(trackers, () => {
+  controller.reconcile();
+  lastUpdateAt.value = Date.now();
+  if (displayMode.value) fitScheduler.schedule();
+});
+
+// 进出展示模式、换图层、换楼层都立刻重框一次, 不等防抖窗口
+watch([displayMode, () => state.value.layer, selectedMapName], () => {
+  if (!displayMode.value) {
+    fitScheduler.cancel();
+    return;
+  }
+  nextTick(() => controller.fitAll());
+});
 
 const mergeTrackerUpdate = (id, patch) => {
   const prev = trackers.value[id] || {};
@@ -426,15 +525,17 @@ onMounted(async () => {
     typeof window !== 'undefined' ? window : null,
     (mode) => { layoutMode.value = mode; },
   );
-  if (drawerLayout.value && state.value.panel === 'list' && !route.query.panel) {
+  if (!displayMode.value && drawerLayout.value && state.value.panel === 'list' && !route.query.panel) {
     replaceState({ panel: 'closed' });
   }
   await loadConfig();
   await preloadTrackers();
   connectWebSocket();
+  if (displayMode.value) nextTick(() => controller.fitAll());
 });
 
 onUnmounted(() => {
+  fitScheduler.cancel();
   if (stopLayoutWatch) {
     stopLayoutWatch();
     stopLayoutWatch = null;
@@ -446,10 +547,106 @@ onUnmounted(() => {
   }
 });
 
-defineExpose({ state, replaceState, pushState });
+defineExpose({ state, replaceState, pushState, displayMode });
 </script>
 
 <style scoped>
+/* --------------------------------------------------------------------- */
+/* 展示模式: 地图铺满视口, 只留左上信息带与右上齿轮 (spec §9.2)            */
+/* --------------------------------------------------------------------- */
+.map-workspace.is-display {
+  display: block;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+}
+
+.map-workspace.is-display .ws-pane--map {
+  height: 100%;
+}
+
+.display-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  pointer-events: none;
+}
+
+.display-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  font-size: 16px;
+  color: var(--sc-color-text-primary);
+}
+
+.display-band__map {
+  font-weight: 600;
+}
+
+.display-band__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.display-band__stat i {
+  font-size: 8px;
+}
+
+.display-band__stat.is-online i { color: var(--sc-color-success, #188038); }
+.display-band__stat.is-offline i { color: var(--sc-color-text-tertiary, #9aa0a6); }
+
+.display-band__time {
+  color: var(--sc-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.display-gear {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  color: var(--sc-color-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.display-gear:hover {
+  color: var(--sc-color-primary);
+}
+
+/* 窄屏信息带缩一点, 但字号不低于 14 保证远距离可读 */
+.map-workspace.is-display.is-mobile .display-band {
+  gap: 10px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
 .map-workspace {
   /* >=1024: 240-320 列表 / minmax(0,1fr) 地图 / 280-360 详情。
      详情关掉时第三列宽度归零, 地图吃掉它。 */

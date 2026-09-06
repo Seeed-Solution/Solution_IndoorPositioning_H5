@@ -612,7 +612,23 @@ const focusTracker = (id) => {
   return true;
 };
 
-defineExpose({ focusTracker });
+/**
+ * fit-all：把当前图层的所有 marker 一并框进视口（展示模式相机）。
+ * 用 fitBounds 而不是 flyTo：这里要的就是"全都看得见"。
+ */
+const fitAllTrackers = ({ paddingPx = 60 } = {}) => {
+  if (!map || markerRegistry.size === 0) return false;
+  const points = [];
+  markerRegistry.forEach((marker) => {
+    const ll = marker?.getLatLng?.();
+    if (ll) points.push(ll);
+  });
+  if (points.length === 0) return false;
+  map.fitBounds(L.latLngBounds(points), { padding: [paddingPx, paddingPx], maxZoom: 18 });
+  return true;
+};
+
+defineExpose({ focusTracker, fitAllTrackers });
 
 // Leaflet 只在 window resize 时自己重算尺寸。容器尺寸还会被侧栏折叠、工具栏
 // 换行（切语言时文字变长）改掉，这些都不发 window 事件，不重算就是灰块加点击偏移。
