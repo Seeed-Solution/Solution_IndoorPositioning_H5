@@ -577,6 +577,16 @@ defineExpose({ state, replaceState, pushState, displayMode });
   height: 100%;
 }
 
+/* MapPreview 的内层默认按 320 px 起的 flex 高度排, 展示模式要一路撑到底,
+   否则画布只占视口上面一条。 */
+.map-workspace.is-display .map-stage :deep(.map-preview-container),
+.map-workspace.is-display .map-stage :deep(.content-columns),
+.map-workspace.is-display .map-stage :deep(.map-view-wrapper),
+.map-workspace.is-display .map-stage :deep(.map-container) {
+  height: 100%;
+  min-height: 0;
+}
+
 .display-overlay {
   position: absolute;
   top: 0;
