@@ -14,6 +14,8 @@
   --info-bg-color: var(--sc-status-normal-bg);
   --light-blue-accent-color: var(--sc-color-info);
   --light-color: var(--sc-color-bg-layout);
+  /* 登录页访客按钮 hover 用；此前没定义过，hover 一直没效果 */
+  --hover-light-color: var(--sc-status-normal-bg);
   --dark-color: var(--sc-color-text);
   --text-color: var(--sc-color-text);
   --text-secondary-color: var(--sc-color-text-secondary);
