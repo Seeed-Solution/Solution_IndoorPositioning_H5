@@ -11,9 +11,9 @@
 | 2 | 统一页面骨架：紧凑 TrackerList、详情面板、三栏 | `073ac6b` | 完成 |
 | 3 | 联动实现：controller、canvas 命中/zoom-pan/tooltip、Leaflet marker registry | `ace6ed8` | 完成 |
 | 4 | 轨迹与响应式：共享 trail 开关、三档布局、AppShell off-canvas、溢出修复 | `567d7a8` | 完成 |
-| 5 | 测试与发布兼容：Playwright 三视口、nginx 301、文档 | 见 git log | 完成 |
+| 5 | 测试与发布兼容：Playwright 三视口、nginx 301、文档 | `8e8e4f5` | 完成 |
 
-打包页 URL 改动在 `sensecraft-solutions-wt/indoor_positioning_ble_lorawan`，单独一条 commit。
+打包页 URL 改动在 `sensecraft-solutions-wt/indoor_positioning_ble_lorawan`（`1028b4d`），单独一条 commit。
 
 ## URL 契约
 
