@@ -52,18 +52,42 @@
       <span class="ws-badge" :class="wsStatus">{{ wsStatusText }}</span>
     </div>
 
+    <div v-if="layerSuggestion" class="layer-suggestion">
+      <span>{{ t('map.layerSuggestion', 'This tracker is currently on the other layer.') }}</span>
+      <button type="button" class="layer-suggestion__accept" @click="acceptLayerSuggestion">
+        {{ layerSuggestion === 'outdoor' ? t('map.layerOutdoor', 'Outdoor') : t('map.layerIndoor', 'Indoor') }}
+      </button>
+      <button type="button" class="layer-suggestion__dismiss" @click="dismissLayerSuggestion">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
     <div class="map-stage">
       <OutdoorMapView
         v-if="state.layer === 'outdoor'"
+        ref="outdoorMapRef"
+        interactive
         :trackers="trackers"
         :outdoor="outdoorConfig"
         :maps="availableMaps"
+        :show-trails="state.trails"
+        :selected-id="state.tracker"
+        :hovered-id="hoveredId"
         @registration-saved="onRegistrationSaved"
+        @select-tracker="onSelectTracker"
+        @hover-tracker="onHoverTracker"
       />
       <MapPreview
         v-else-if="selectedMap"
+        ref="indoorMapRef"
+        interactive
         :config="selectedMap"
         :trackers="indoorTrackersForSelectedMap"
+        :show-trails="state.trails"
+        :selected-id="state.tracker"
+        :hovered-id="hoveredId"
+        @select-tracker="onSelectTracker"
+        @hover-tracker="onHoverTracker"
       />
       <div v-else class="map-empty">
         <i class="fas fa-map-marked-alt"></i>
@@ -84,7 +108,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import MapPreview from '@/components/MapPreview.vue';
@@ -95,6 +119,7 @@ import { isOutdoorTracker } from '@/utils/trail.js';
 import { loadDashboardConfiguration, loadTrackers } from '@/services/configApiService.js';
 import { buildWsUrl } from '@/config/api.js';
 import { parseMapQuery, serializeMapState, sameQuery } from '@/utils/mapUrlState.js';
+import { createMapController } from '@/controllers/mapPageController.js';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -123,21 +148,45 @@ const layerBadge = computed(() => {
   return tr.type === 'approximate' ? 'Indoor · BLE' : 'Indoor · Calculated';
 });
 
+const indoorMapRef = ref(null);
+const outdoorMapRef = ref(null);
+const layerSuggestion = ref(null);
+
+const controller = createMapController({
+  getTrackers: () => trackers.value,
+  getState: () => state.value,
+  setState: (patch, opts = {}) => {
+    if (opts.history === 'replace') replaceState(patch);
+    else pushState(patch);
+  },
+  getHovered: () => hoveredId.value,
+  setHovered: (id) => { hoveredId.value = id || ''; },
+  focusHandlers: {
+    indoor: (id) => indoorMapRef.value?.focusTracker?.(id),
+    outdoor: (id) => outdoorMapRef.value?.focusTracker?.(id),
+  },
+});
+
 const onSelectTracker = (id) => {
-  if (!id || !trackers.value?.[id]) return;
-  pushState({ tracker: id, panel: 'detail' });
+  if (!controller.selectTracker(id)) return;
+  // 设备当下落在另一个图层时只提示, 不自动换层（spec §5）
+  layerSuggestion.value = controller.suggestLayerFor(id);
 };
 
-const onHoverTracker = (id) => {
-  hoveredId.value = id || '';
+const onHoverTracker = (id) => controller.hoverTracker(id);
+
+const onFocusTracker = (id) => controller.focusTracker(id);
+
+const acceptLayerSuggestion = () => {
+  if (!layerSuggestion.value) return;
+  controller.setLayer(layerSuggestion.value);
+  layerSuggestion.value = null;
+  nextTick(() => controller.focusTracker(state.value.tracker));
 };
 
-const onFocusTracker = (id) => {
-  // 图层实现的 focus 在阶段 3 接入; 这里先保证选择状态一致。
-  onSelectTracker(id);
-};
+const dismissLayerSuggestion = () => { layerSuggestion.value = null; };
 
-const closeDetail = () => replaceState({ panel: 'list' });
+const closeDetail = () => controller.clearSelection();
 
 const selectedMapName = computed({
   get() {
@@ -186,7 +235,10 @@ const replaceState = (patch) => {
   if (!applyingFromRoute) writeQuery(state.value, 'replace');
 };
 
-const setLayer = (layer) => pushState({ layer });
+const setLayer = (layer) => {
+  layerSuggestion.value = null;
+  pushState({ layer });
+};
 
 watch(() => route.query, (q) => {
   applyingFromRoute = true;
@@ -232,6 +284,9 @@ const preloadTrackers = async () => {
     trackers.value = {};
   }
 };
+
+// 轮询/WebSocket 刷新后保持选择: 设备还在就不动, 没了才清掉
+watch(trackers, () => controller.reconcile());
 
 const mergeTrackerUpdate = (id, patch) => {
   const prev = trackers.value[id] || {};
@@ -432,6 +487,38 @@ defineExpose({ state, replaceState, pushState });
 
 .ws-badge.connected {
   color: var(--sc-color-success);
+}
+
+.layer-suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  min-width: 0;
+  background: var(--sc-status-warning-bg, #fff7e6);
+  border-bottom: 1px solid var(--sc-color-border);
+  font-size: 13px;
+  color: var(--sc-color-text-secondary);
+}
+
+.layer-suggestion__accept {
+  padding: 3px 10px;
+  border: 1px solid var(--sc-color-primary);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-color-primary);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.layer-suggestion__dismiss {
+  border: none;
+  background: transparent;
+  color: var(--sc-color-text-tertiary);
+  cursor: pointer;
+  box-shadow: none;
 }
 
 .map-stage {

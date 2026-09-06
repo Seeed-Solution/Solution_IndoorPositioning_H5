@@ -4,7 +4,36 @@
     <div class="content-columns">
       <div class="map-view-wrapper">
         <div class="map-container">
-          <canvas ref="mapCanvas" :width="canvasWidth" :height="canvasHeight" style="border: 1px solid #ccc;"></canvas>
+          <canvas
+            ref="mapCanvas"
+            :width="canvasWidth"
+            :height="canvasHeight"
+            :class="{ 'is-interactive': interactive, 'is-panning': isPanning }"
+            style="border: 1px solid #ccc;"
+            @pointerdown="onPointerDown"
+            @pointermove="onPointerMove"
+            @pointerup="onPointerUp"
+            @pointercancel="onPointerUp"
+            @pointerleave="onPointerLeave"
+            @wheel.prevent="onWheel"
+            @dblclick="onDoubleClick"
+          ></canvas>
+          <!-- Tooltip 用 DOM 浮层, 不画进 canvas: 文字缩放不失真, 也能选中复制 -->
+          <div
+            v-if="interactive && tooltip"
+            class="canvas-tooltip"
+            :style="{ left: tooltip.left + 'px', top: tooltip.top + 'px' }"
+          >
+            <div class="canvas-tooltip__name">{{ tooltip.name }}</div>
+            <div class="canvas-tooltip__row">{{ tooltip.status }}</div>
+            <div class="canvas-tooltip__row">{{ tooltip.source }}</div>
+            <div class="canvas-tooltip__row">{{ tooltip.time }}</div>
+          </div>
+          <div v-if="interactive" class="canvas-zoom-controls">
+            <button type="button" @click="zoomButton(1.25)" title="Zoom in"><i class="fas fa-plus"></i></button>
+            <button type="button" @click="zoomButton(0.8)" title="Zoom out"><i class="fas fa-minus"></i></button>
+            <button type="button" @click="resetZoom" title="Reset view"><i class="fas fa-compress"></i></button>
+          </div>
           <!-- 加载指示器 -->
           <div v-if="isLoadingTrackers" class="loading-overlay">
             <div class="loading-content">
@@ -20,7 +49,7 @@
           </div>
         </div>
       </div>
-      <aside class="tracker-list-aside">
+      <aside v-if="!interactive" class="tracker-list-aside">
         <!-- Tracker 列表视图 -->
         <div class="tracker-list-view">
           <div class="tracker-list-header">
@@ -93,6 +122,19 @@
 
 <script setup>
 import { indoorSegments } from '@/utils/trail.js';
+import {
+  applyView,
+  canvasToWorld,
+  clampZoom,
+  cssRadiusToCanvas,
+  cssToCanvasPoint,
+  fitTransform,
+  hitTest,
+  panBy,
+  resetView,
+  worldToCanvas,
+  zoomAt,
+} from '@/utils/canvasTransform.js';
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { loadTrackers } from '@/services/configApiService.js';
@@ -113,10 +155,28 @@ const props = defineProps({
   initialShowTrails: {
     type: Boolean,
     default: false
+  },
+  // 受控轨迹开关: 传了就以它为准（/map 的共享开关），不传沿用 initialShowTrails
+  showTrails: {
+    type: Boolean,
+    default: null
+  },
+  // 交互模式: 命中检测 / zoom-pan / tooltip / 选中态。旧页面不传, 行为不变。
+  interactive: {
+    type: Boolean,
+    default: false
+  },
+  selectedId: {
+    type: String,
+    default: ''
+  },
+  hoveredId: {
+    type: String,
+    default: ''
   }
 });
 
-const emit = defineEmits(['trails-toggled']);
+const emit = defineEmits(['trails-toggled', 'select-tracker', 'hover-tracker']);
 
 const mapCanvas = ref(null);
 
@@ -179,6 +239,18 @@ const trackerList = computed(() => {
 const canvasWidth = ref(600); // Default canvas width
 const canvasHeight = ref(450); // Default canvas height
 const localShowTrails = ref(props.initialShowTrails); // Initialize with prop
+const trailsVisible = computed(
+  () => (props.showTrails === null ? localShowTrails.value : props.showTrails),
+);
+
+// 视图叠加变换 {zoom, panX, panY}: 命中和绘制共用, 见 utils/canvasTransform.js
+const view = ref(resetView());
+const isPanning = ref(false);
+const tooltip = ref(null);
+// 每次绘制记录 tracker 在 canvas backing 空间的中心与命中半径
+let hitTargets = [];
+let panOrigin = null;
+let pointerMoved = false;
 
 // 告警历史弹窗相关状态
 const showAlarmModal = ref(false);
@@ -190,6 +262,12 @@ watch(() => props.initialShowTrails, (newValue) => {
   localShowTrails.value = newValue;
 });
 
+// 换地图就复位视图, 否则上一张图的缩放会带到新图上
+watch(() => props.config?.map?.name, () => {
+  view.value = resetView();
+  tooltip.value = null;
+});
+
 const updateCanvasSize = () => {
   const mapContainer = mapCanvas.value?.parentElement;
   if (mapContainer) {
@@ -197,8 +275,9 @@ const updateCanvasSize = () => {
     const containerHeight = mapContainer.clientHeight;
 
     // 计算可用空间，减少预留空间（因为隐藏了map-info）
-    const availableWidth = Math.max(containerWidth - 20, 400); // 减少边距，最小宽度 400px
-    const availableHeight = Math.max(containerHeight - 50, 300); // 减少上下元素空间，最小高度 300px
+    // 不再给 canvas 兜 400px 最小宽度: 那是窄屏横向溢出的直接来源。
+    const availableWidth = Math.max(containerWidth - 20, 1);
+    const availableHeight = Math.max(containerHeight - 50, 200);
 
     // 直接使用可用空间，不强制固定宽高比
     canvasWidth.value = Math.floor(availableWidth);
@@ -348,209 +427,150 @@ const drawMap = (ctx) => {
   ctx.canvas.width = canvasWidth.value;
   ctx.canvas.height = canvasHeight.value;
 
-  // Calculate the dimensions for the 80% content area
-  const contentAreaWidth = canvasWidth.value * 0.9;
-  const contentAreaHeight = canvasHeight.value * 0.9;
+  const hasImage = !!(mapImage.value && mapImage.value.complete && mapImage.value.height);
+  const imageAspect = hasImage ? (mapImage.value.width / mapImage.value.height) : null;
 
-  // Use actual data bounds for scaling
-  const dataWidth = maxX - minX;
-  const dataHeight = maxY - minY;
+  // 贴合变换 + 视图叠加: 绘制与命中检测共用同一个 t
+  const base = fitTransform({
+    minX, minY, maxX, maxY,
+    canvasWidth: canvasWidth.value,
+    canvasHeight: canvasHeight.value,
+    padding: 0.9,
+    imageAspect,
+  });
+  const t = applyView(base, view.value);
+  const z = clampZoom(view.value.zoom);
+  const toPx = (x, y) => worldToCanvas(t, x, y);
 
-  // Calculate scale to fit map into the content area, maintaining aspect ratio
-  let currentScale;
-  if (dataWidth <= 0 || dataHeight <= 0) {
-    // Avoid division by zero or negative scales if map dimensions are invalid
-    currentScale = 1;
-  } else {
-    const scaleX = contentAreaWidth / dataWidth;
-    const scaleY = contentAreaHeight / dataHeight;
-    currentScale = Math.min(scaleX, scaleY);
-  }
-
-  // Prevent scale from being zero or negative if map dimensions are very large or contentArea is small
-  if (currentScale <= 0) {
-      currentScale = 1; // Fallback to a minimal positive scale
-  }
-
-  // Calculate the actual pixel dimensions of the scaled map content
-  const renderedMapWidth = dataWidth * currentScale;
-  const renderedMapHeight = dataHeight * currentScale;
-
-  // Calculate offsets to center the scaled map content within the canvas
-  const offsetX = (canvasWidth.value - renderedMapWidth) / 2;
-  const offsetY = (canvasHeight.value - renderedMapHeight) / 2;
-
-  // Clear canvas
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
 
-  // 计算背景图的尺寸和位置（用于后续坐标系对齐）
-  let bgImageX = offsetX; // 默认使用 offsetX
-  let bgImageY = offsetY;
-  let bgImageWidth = renderedMapWidth;
-  let bgImageHeight = renderedMapHeight;
-  
-  if (mapImage.value && mapImage.value.complete) {
-    // 背景图占满高度，宽度按原始比例计算（不允许拉伸）
-    bgImageHeight = renderedMapHeight; // 高度占满
-    const bgImageAspectRatio = mapImage.value.width / mapImage.value.height; // 背景图原始宽高比
-    bgImageWidth = bgImageHeight * bgImageAspectRatio; // 宽度按原始比例计算
-    
-    // 计算居中位置
-    bgImageX = (canvasWidth.value - bgImageWidth) / 2; // 水平居中
-    bgImageY = offsetY; // 垂直位置与渲染地图一致
-  }
-
-  // --- Draw Map Background Image (先绘制背景图，不翻转Y轴) ---
-  if (mapImage.value && mapImage.value.complete) {
-    // 绘制背景图（保持原始宽高比，不拉伸）
+  // --- Draw Map Background Image ---
+  if (hasImage) {
+    const imgHeight = (maxY - minY) * base.scale * z;
+    const imgWidth = imgHeight * imageAspect;
     ctx.drawImage(
       mapImage.value,
-      0, 0, // 源图片起始位置
-      mapImage.value.width, mapImage.value.height, // 源图片尺寸
-      bgImageX, bgImageY, // 目标位置（居中）
-      bgImageWidth, bgImageHeight // 目标尺寸（保持原始宽高比）
+      0, 0, mapImage.value.width, mapImage.value.height,
+      base.originX * z + view.value.panX,
+      base.originY * z + view.value.panY,
+      imgWidth, imgHeight,
     );
   }
 
-  // --- 翻转Y轴，让坐标系统变成数学坐标系（Y轴向上）用于绘制其他内容 ---
-  ctx.save();
-  // Translate to the bottom-left corner of the centered content box, then flip Y
-  // 使用 bgImageX 而不是 offsetX，确保与背景图对齐
-  ctx.translate(bgImageX, canvasHeight.value - bgImageY);
-  ctx.scale(1, -1);
-
-   // --- Draw Beacons ---
-   beacons.forEach(beacon => {
-    const beaconX = (beacon.x - minX) * currentScale;
-    const beaconY = (beacon.y - minY) * currentScale;
+  // --- Draw Beacons ---
+  beacons.forEach((beacon) => {
+    const p = toPx(beacon.x, beacon.y);
     ctx.beginPath();
-    ctx.arc(beaconX, beaconY, 5, 0, 2 * Math.PI); // Draw beacon as a small circle (radius 5px)
+    ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
     ctx.fillStyle = 'orange';
     ctx.fill();
     ctx.fillStyle = 'black';
     ctx.font = '10px Arial';
-     // Draw text upright despite flipped context
-    ctx.save();
-    ctx.translate(beaconX, beaconY);
-    ctx.scale(1, -1); // Flip text back
-    ctx.fillText(beacon.displayName || `B(${beacon.major},${beacon.minor})`, 8, 4);
-    ctx.restore();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(beacon.displayName || `B(${beacon.major},${beacon.minor})`, p.x + 8, p.y);
   });
 
-   // --- Draw Trackers ---
-   filteredTrackers.value.forEach(tracker => {
-       console.log(`[DEBUG] 处理tracker: ${tracker.trackerId}, info:`, tracker);
-       if (tracker && tracker.x !== null && tracker.y !== null && tracker.type === "calculation") {
-           // 精确定位绘制
-           const trackerX = (tracker.x - minX) * currentScale;
-           const trackerY = (tracker.y - minY) * currentScale;
-
-           // Draw tracker circle with transparency
-           ctx.beginPath();
-           ctx.arc(trackerX, trackerY, 8, 0, 2 * Math.PI); // Slightly larger circle
-
-           // Change color based on SOS status
-           console.log(`[DEBUG] Tracker ${tracker.trackerId}: sos=${tracker.sos}, type=${typeof tracker.sos}, sos===1=${tracker.sos === 1}`);
-           if (tracker.sos === 1) {
-             ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Red with 80% opacity for SOS
-             ctx.strokeStyle = 'rgba(220, 0, 0, 1)'; // Darker red border for SOS
-             console.log(`[DEBUG] Drawing ${tracker.trackerId} as SOS (RED)`);
-           } else {
-             ctx.fillStyle = 'rgba(0, 123, 255, 0.7)'; // Blue with 70% opacity (normal)
-             ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)'; // Darker blue border (normal)
-             console.log(`[DEBUG] Drawing ${tracker.trackerId} as NORMAL (BLUE)`);
-           }
-
-           ctx.fill();
-
-           // Add border for better visibility
-           ctx.lineWidth = 2;
-           ctx.stroke();
-
-           // Draw text to the right of the circle
-           ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Dark text with slight transparency
-           ctx.font = 'bold 11px Arial';
-           ctx.textAlign = 'left';
-           ctx.textBaseline = 'middle';
-
-           // Draw text upright despite flipped context
-           ctx.save();
-           ctx.translate(trackerX + 12, trackerY); // Position text to the right of circle
-           ctx.scale(1, -1); // Flip text back
-           ctx.fillText(tracker.trackerId.substring(10), 0, 0); // Show more chars
-           ctx.restore();
-
-           console.log(`tracker(${tracker.trackerId}) 绘制成功`)
-         return
-       } else if (tracker.radius && tracker.used_beacons && tracker.used_beacons.length > 0) {
-           // 区域定位绘制
-           const beacon = tracker.used_beacons[0]; // 使用第一个检测到的beacon
-           if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
-             const centerX = (beacon.configured_x - minX) * currentScale;
-             const centerY = (beacon.configured_y - minY) * currentScale;
-             const radius = tracker.radius * currentScale;
-
-             // 根据SOS状态绘制不同颜色的圆圈
-             ctx.beginPath();
-             ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-             if (tracker.sos === 1) {
-               ctx.fillStyle = 'rgba(255, 182, 193, 0.3)'; // 浅红色，半透明
-               ctx.strokeStyle = 'rgba(220, 53, 69, 0.6)'; // 深红色边框
-             } else {
-               ctx.fillStyle = 'rgba(144, 238, 144, 0.3)'; // 浅绿色，半透明
-               ctx.strokeStyle = 'rgba(34, 139, 34, 0.6)'; // 深绿色边框
-             }
-             ctx.lineWidth = 2;
-             ctx.fill();
-             ctx.stroke();
-
-             // 在圆圈内显示tracker ID的后5位
-             const trackerId = tracker.trackerId;
-             const displayId = trackerId.length > 5 ? trackerId.substring(trackerId.length - 5) : trackerId;
-
-             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // 黑色文字
-             ctx.font = 'bold 14px Arial';
-             ctx.textAlign = 'center';
-             ctx.textBaseline = 'middle';
-
-             // Draw text upright despite flipped context
-             ctx.save();
-             ctx.translate(centerX, centerY);
-             ctx.scale(1, -1); // Flip text back
-             ctx.fillText(displayId, 0, 0);
-             ctx.restore();
-
-             console.log(`tracker(${tracker.trackerId}) 区域定位绘制成功, radius: ${tracker.radius}, center: (${beacon.configured_x}, ${beacon.configured_y})`);
-             return;
-           }
-       }
-       console.log(`tracker(${tracker.trackerId}) 绘制失败, 无定位信息`)
-   });
-
-
-  // --- Draw Tracker Trails (if enabled) ---
-  if (localShowTrails.value) {
-    filteredTrackers.value.forEach(tracker => {
+  // --- Draw Tracker Trails (轨迹先画, 当前点和选中环压在上面) ---
+  if (trailsVisible.value) {
+    filteredTrackers.value.forEach((tracker) => {
       // 统一时间轴按坐标系切段: 这里只画室内 (metric) 段。
       // 室外 (wgs84) 段由 OutdoorMapView 的 Leaflet 图层负责,
       // 段与段之间不连线, 所以进出楼的切换点不会被画成一条直线。
-      indoorSegments(tracker.position_history).forEach(segment => {
+      indoorSegments(tracker.position_history).forEach((segment) => {
         if (segment.points.length < 2) return;
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)'; // Light blue, semi-transparent
-        ctx.lineWidth = 2; // Thinner than current tracker dot
-        const firstPoint = segment.points[0];
-        ctx.moveTo((firstPoint.x - minX) * currentScale, (firstPoint.y - minY) * currentScale);
-        for (let i = 1; i < segment.points.length; i++) {
-          const point = segment.points[i];
-          ctx.lineTo((point.x - minX) * currentScale, (point.y - minY) * currentScale);
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+        ctx.lineWidth = 2;
+        const first = toPx(segment.points[0].x, segment.points[0].y);
+        ctx.moveTo(first.x, first.y);
+        for (let i = 1; i < segment.points.length; i += 1) {
+          const pt = toPx(segment.points[i].x, segment.points[i].y);
+          ctx.lineTo(pt.x, pt.y);
         }
         ctx.stroke();
       });
     });
   }
 
-  ctx.restore(); // Restore original context state
+  // --- Draw Trackers ---
+  const targets = [];
+  const selected = props.interactive ? props.selectedId : '';
+  const hovered = props.interactive ? props.hoveredId : '';
+
+  filteredTrackers.value.forEach((tracker) => {
+    const id = tracker.trackerId;
+    const isSelected = !!selected && id === selected;
+    const isHovered = !!hovered && id === hovered;
+    // 有选中时其余降到 40% 透明度; SOS 仍保留红色语义, 只是变淡。
+    const dim = props.interactive && !!selected && !isSelected;
+    ctx.save();
+    if (dim) ctx.globalAlpha = 0.4;
+
+    if (tracker && tracker.x !== null && tracker.y !== null && tracker.type === 'calculation') {
+      const p = toPx(tracker.x, tracker.y);
+      const radius = (isSelected ? 8 * 1.4 : 8) * (isHovered ? 1.15 : 1);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, 2 * Math.PI);
+      if (tracker.sos === 1) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.strokeStyle = 'rgba(220, 0, 0, 1)';
+      } else {
+        ctx.fillStyle = 'rgba(0, 123, 255, 0.7)';
+        ctx.strokeStyle = 'rgba(0, 123, 255, 0.9)';
+      }
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius + 4, 0, 2 * Math.PI);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = tracker.sos === 1 ? '#d93025' : '#1a73e8';
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(id).substring(10), p.x + radius + 4, p.y);
+
+      targets.push({ id, x: p.x, y: p.y, hitRadius: radius });
+    } else if (tracker.radius && tracker.used_beacons && tracker.used_beacons.length > 0) {
+      const beacon = tracker.used_beacons[0];
+      if (beacon.configured_x !== undefined && beacon.configured_y !== undefined) {
+        const c = toPx(beacon.configured_x, beacon.configured_y);
+        const radius = tracker.radius * t.k;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, radius, 0, 2 * Math.PI);
+        if (tracker.sos === 1) {
+          ctx.fillStyle = 'rgba(255, 182, 193, 0.3)';
+          ctx.strokeStyle = 'rgba(220, 53, 69, 0.6)';
+        } else {
+          ctx.fillStyle = 'rgba(144, 238, 144, 0.3)';
+          ctx.strokeStyle = 'rgba(34, 139, 34, 0.6)';
+        }
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.fill();
+        ctx.stroke();
+
+        const displayId = String(id).length > 5 ? String(id).slice(-5) : String(id);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(displayId, c.x, c.y);
+
+        // 区域圆只把圆心附近算成命中目标: 用整个半径的话一个大圆会盖住整张图
+        targets.push({ id, x: c.x, y: c.y, hitRadius: 10 });
+      }
+    }
+    ctx.restore();
+  });
+
+  hitTargets = targets;
 };
 
 // 加载地图背景图的函数
@@ -592,7 +612,159 @@ const loadMapBackgroundImage = () => {
   img.src = buildImageUrl(props.config.map.background);
 };
 
+// --------------------------------------------------------------------------- //
+// 指针交互: 命中检测 / zoom-pan / tooltip
+// --------------------------------------------------------------------------- //
+const HIT_TOLERANCE_CSS = 12;   // spec: 12 CSS px
+const DRAG_THRESHOLD_CSS = 4;
+
+const redraw = () => {
+  const ctx = mapCanvas.value?.getContext('2d');
+  if (ctx) drawMap(ctx);
+};
+
+const canvasPointFromEvent = (event) => {
+  const el = mapCanvas.value;
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  return {
+    point: cssToCanvasPoint(rect, el.width, el.height, event.clientX, event.clientY),
+    tolerance: cssRadiusToCanvas(rect, el.width, el.height, HIT_TOLERANCE_CSS),
+    rect,
+  };
+};
+
+const pickTracker = (event) => {
+  const ctx = canvasPointFromEvent(event);
+  if (!ctx) return null;
+  return hitTest(hitTargets, ctx.point, ctx.tolerance);
+};
+
+const trackerById = (id) => filteredTrackers.value.find((tr) => tr.trackerId === id) || null;
+
+const statusLabel = (tracker) => {
+  if (tracker?.online === 'online') return t('tracker.trackerList.online');
+  if (tracker?.online === 'offline') return t('tracker.trackerList.offline');
+  if (tracker?.online === 'unknown') return t('common.unknown');
+  return tracker?.sos === 1 ? t('tracker.sosAlert') : t('common.unknown');
+};
+
+const sourceLabel = (tracker) => {
+  if (tracker?.type === 'approximate') return 'Indoor · BLE';
+  if (tracker?.type === 'calculation') return 'Indoor · Calculated';
+  return `Indoor · ${tracker?.type || 'unknown'}`;
+};
+
+const updateTooltip = (id, event) => {
+  const tracker = trackerById(id);
+  if (!tracker || !mapCanvas.value) {
+    tooltip.value = null;
+    return;
+  }
+  const rect = mapCanvas.value.getBoundingClientRect();
+  tooltip.value = {
+    left: event.clientX - rect.left + 14,
+    top: event.clientY - rect.top + 14,
+    name: tracker.device_name || tracker.trackerId,
+    status: statusLabel(tracker),
+    source: sourceLabel(tracker),
+    time: tracker.timestamp ? new Date(tracker.timestamp).toLocaleString() : '—',
+  };
+};
+
+const onPointerDown = (event) => {
+  if (!props.interactive) return;
+  pointerMoved = false;
+  panOrigin = { x: event.clientX, y: event.clientY, view: { ...view.value } };
+  mapCanvas.value?.setPointerCapture?.(event.pointerId);
+};
+
+const onPointerMove = (event) => {
+  if (!props.interactive) return;
+  if (panOrigin) {
+    const dx = event.clientX - panOrigin.x;
+    const dy = event.clientY - panOrigin.y;
+    if (!pointerMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD_CSS) pointerMoved = true;
+    if (pointerMoved) {
+      isPanning.value = true;
+      const el = mapCanvas.value;
+      const rect = el.getBoundingClientRect();
+      const sx = el.width / Math.max(rect.width, 1);
+      const sy = el.height / Math.max(rect.height, 1);
+      view.value = panBy(panOrigin.view, dx * sx, dy * sy);
+      tooltip.value = null;
+      redraw();
+      return;
+    }
+  }
+  const id = pickTracker(event);
+  emit('hover-tracker', id);
+  if (id) updateTooltip(id, event);
+  else tooltip.value = null;
+};
+
+const onPointerUp = (event) => {
+  if (!props.interactive) return;
+  mapCanvas.value?.releasePointerCapture?.(event.pointerId);
+  const wasDrag = pointerMoved;
+  panOrigin = null;
+  pointerMoved = false;
+  isPanning.value = false;
+  if (wasDrag) return;
+  const id = pickTracker(event);
+  if (id) emit('select-tracker', id);
+};
+
+const onPointerLeave = () => {
+  if (!props.interactive) return;
+  panOrigin = null;
+  pointerMoved = false;
+  isPanning.value = false;
+  tooltip.value = null;
+  emit('hover-tracker', null);
+};
+
+const onWheel = (event) => {
+  if (!props.interactive) return;
+  const ctx = canvasPointFromEvent(event);
+  if (!ctx) return;
+  const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+  view.value = zoomAt(view.value, ctx.point, factor);
+  tooltip.value = null;
+  redraw();
+};
+
+const zoomButton = (factor) => {
+  const el = mapCanvas.value;
+  if (!el) return;
+  view.value = zoomAt(view.value, { x: el.width / 2, y: el.height / 2 }, factor);
+  redraw();
+};
+
+const resetZoom = () => {
+  view.value = resetView();
+  redraw();
+};
+
+const onDoubleClick = () => {
+  if (!props.interactive) return;
+  resetZoom();
+};
+
+/** 把某个 tracker 挪到画布中心（不改缩放）。/map 的 focusTracker 走这里。 */
+const focusTracker = (id) => {
+  const tracker = trackerById(id);
+  const el = mapCanvas.value;
+  if (!tracker || !el) return false;
+  const target = hitTargets.find((h) => h.id === id);
+  if (!target) return false;
+  view.value = panBy(view.value, el.width / 2 - target.x, el.height / 2 - target.y);
+  redraw();
+  return true;
+};
+
 let resizeHandler;
+let containerObserver = null;
 
 // 等待组件初始化完成的方法（用于父组件等待布局计算完成）
 const waitForReady = async () => {
@@ -653,13 +825,22 @@ onMounted(async () => {
     });
   };
   window.addEventListener('resize', resizeHandler);
+
+  // 侧栏折叠、drawer 开合都改容器宽度但不发 window resize
+  if (typeof ResizeObserver !== 'undefined' && mapCanvas.value?.parentElement) {
+    containerObserver = new ResizeObserver(() => resizeHandler());
+    containerObserver.observe(mapCanvas.value.parentElement);
+  }
 });
 
 onUnmounted(() => {
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
   }
-
+  if (containerObserver) {
+    containerObserver.disconnect();
+    containerObserver = null;
+  }
 });
 
 // Watch for changes in background image URL
@@ -671,18 +852,27 @@ watch(() => props.config?.map?.background, (newUrl, oldUrl) => {
 });
 
 // Watch for changes in config, trackers, trail visibility and redraw
-watch([() => props.config, () => props.trackers, mergedTrackers, localShowTrails], () => {
-   const ctx = mapCanvas.value?.getContext('2d');
-   if (ctx) {
-       drawMap(ctx);
-   }
+watch([
+  () => props.config,
+  () => props.trackers,
+  mergedTrackers,
+  trailsVisible,
+  () => props.selectedId,
+  () => props.hoveredId,
+], () => {
+  const ctx = mapCanvas.value?.getContext('2d');
+  if (ctx) {
+    drawMap(ctx);
+  }
 }, { deep: true });
 
 
 // 暴露方法给父组件使用
 defineExpose({
   isTrackerInCurrentMap,
-  waitForReady
+  waitForReady,
+  focusTracker,
+  resetZoom,
 });
 
 </script>
@@ -855,6 +1045,66 @@ canvas {
     display: block; /* Prevents extra space below canvas */
     max-width: 100%;
     height: auto;
+}
+
+canvas.is-interactive {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+canvas.is-panning {
+  cursor: grabbing;
+}
+
+.canvas-tooltip {
+  position: absolute;
+  z-index: 900;
+  pointer-events: none;
+  max-width: 220px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(32, 33, 36, 0.92);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.canvas-tooltip__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-tooltip__row {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.canvas-zoom-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.canvas-zoom-controls button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--sc-color-border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--sc-color-text);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.canvas-zoom-controls button:hover {
+  border-color: var(--sc-color-primary);
+  color: var(--sc-color-primary);
 }
 
 .loading-overlay {

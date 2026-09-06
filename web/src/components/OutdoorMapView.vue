@@ -12,8 +12,8 @@
           <option v-for="src in tileSources" :key="src.id" :value="src.id">{{ src.name }}</option>
         </select>
       </label>
-      <label class="trail-toggle">
-        <input type="checkbox" v-model="showTrails" />
+      <label v-if="!interactive" class="trail-toggle">
+        <input type="checkbox" v-model="localShowTrails" />
         {{ t('outdoorMap.showTrails') || 'Show trails' }}
       </label>
       <span v-if="activeSource && activeSource.gcj02Correction" class="gcj-warning">
@@ -135,14 +135,26 @@ const props = defineProps({
   // dashboard_config.json 的 outdoor 段, 缺失时自动补 OSM
   outdoor: { type: Object, default: null },
   initialShowTrails: { type: Boolean, default: true },
+  // 受控轨迹开关（/map 的共享开关）。null 表示沿用组件自身的 initialShowTrails。
+  showTrails: { type: Boolean, default: null },
+  // 交互模式: marker registry + 选中/悬停联动，由页面级 controller 驱动
+  interactive: { type: Boolean, default: false },
+  selectedId: { type: String, default: '' },
+  hoveredId: { type: String, default: '' },
   // dashboard_config.json 的 maps 数组, 配准模式需要地图米数与背景图。
   maps: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['registration-saved']);
+const emit = defineEmits(['registration-saved', 'select-tracker', 'hover-tracker']);
 
 const mapEl = ref(null);
-const showTrails = ref(props.initialShowTrails);
+const localShowTrails = ref(props.initialShowTrails);
+const showTrails = computed(
+  () => (props.showTrails === null ? localShowTrails.value : props.showTrails),
+);
+
+/** id -> circleMarker。focusTracker / 选中态都靠它，不重建整层。 */
+const markerRegistry = new Map();
 
 const outdoorConfig = computed(() => normalizeOutdoorConfig(props.outdoor));
 const tileSources = computed(() => outdoorConfig.value.tileSources);
@@ -227,8 +239,24 @@ const redraw = () => {
   if (!map) return;
   if (overlay) map.removeLayer(overlay);
   overlay = L.layerGroup().addTo(map);
+  markerRegistry.clear();
 
   const bounds = [];
+  const selected = props.interactive ? props.selectedId : '';
+  const hovered = props.interactive ? props.hoveredId : '';
+
+  /** 当前点 marker 统一在这里登记并绑事件, 室内投影点和室外 GNSS 点都走它。 */
+  const registerMarker = (marker, tracker) => {
+    const id = tracker.trackerId;
+    if (!id) return marker;
+    markerRegistry.set(id, marker);
+    if (props.interactive) {
+      marker.on('click', () => emit('select-tracker', id));
+      marker.on('mouseover', () => emit('hover-tracker', id));
+      marker.on('mouseout', () => emit('hover-tracker', null));
+    }
+    return marker;
+  };
 
   // 每个 tracker 无条件画两类历史段: metric 段按配准投影, wgs84 段原样连线。
   // 两类互不依赖 tracker 的"当前"状态, 只有当前点 marker 的样式才按
@@ -254,15 +282,19 @@ const redraw = () => {
       if (!latlng) return;
       bounds.push(latlng);
 
-      L.circleMarker(latlng, {
-        radius: 7,
+      const isSelected = !!selected && tracker.trackerId === selected;
+      const isHovered = !!hovered && tracker.trackerId === hovered;
+      const dim = !!selected && !isSelected;
+      registerMarker(L.circleMarker(latlng, {
+        radius: (isSelected ? 7 * 1.4 : 7) * (isHovered ? 1.15 : 1),
         color: isSos ? '#d93025' : '#1a73e8',
         fillColor: isSos ? '#d93025' : '#1a73e8',
-        fillOpacity: 0.9,
-        weight: 2,
+        fillOpacity: dim ? 0.4 : 0.9,
+        opacity: dim ? 0.4 : 1,
+        weight: isSelected ? 4 : 2,
       })
         .bindTooltip(tracker.device_name || tracker.trackerId, { permanent: false })
-        .addTo(overlay);
+        .addTo(overlay), tracker);
 
       // 精度圈
       const accuracy = Number(tracker.accuracy ?? tracker.position?.accuracy);
@@ -280,17 +312,21 @@ const redraw = () => {
       if (!latlng) return;
       bounds.push(latlng);
 
-      L.circleMarker(latlng, {
-        radius: 6,
+      const isSelected = !!selected && tracker.trackerId === selected;
+      const isHovered = !!hovered && tracker.trackerId === hovered;
+      const dim = !!selected && !isSelected;
+      registerMarker(L.circleMarker(latlng, {
+        radius: (isSelected ? 6 * 1.4 : 6) * (isHovered ? 1.15 : 1),
         color: isSos ? '#d93025' : '#188038',
         fillColor: '#ffffff',
-        fillOpacity: 0.9,
-        weight: 2,
+        fillOpacity: dim ? 0.4 : 0.9,
+        opacity: dim ? 0.4 : 1,
+        weight: isSelected ? 4 : 2,
         dashArray: '3,2',
       })
         .bindTooltip(`${tracker.device_name || tracker.trackerId} · ${tracker.map}`,
           { permanent: false })
-        .addTo(overlay);
+        .addTo(overlay), tracker);
     }
   });
 
@@ -561,6 +597,22 @@ const saveRegistration = async () => {
   }
 };
 
+/**
+ * 把某个 tracker 居中。用 flyTo / panTo，不复用只跑一次的初始 fitBounds ——
+ * fitBounds 会把整层重新框一遍，用户手动调过的缩放全丢。
+ */
+const focusTracker = (id) => {
+  const marker = markerRegistry.get(id);
+  if (!marker || !map) return false;
+  const latlng = marker.getLatLng();
+  const zoom = Math.max(map.getZoom(), 17);
+  if (typeof map.flyTo === 'function') map.flyTo(latlng, zoom, { duration: 0.5 });
+  else map.panTo(latlng);
+  return true;
+};
+
+defineExpose({ focusTracker });
+
 // Leaflet 只在 window resize 时自己重算尺寸。容器尺寸还会被侧栏折叠、工具栏
 // 换行（切语言时文字变长）改掉，这些都不发 window 事件，不重算就是灰块加点击偏移。
 let containerObserver = null;
@@ -596,7 +648,8 @@ watch(() => props.outdoor, () => {
   activeSourceId.value = outdoorConfig.value.defaultSource;
   applyTileLayer();
 });
-watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true });
+watch([() => props.trackers, () => props.maps, showTrails,
+  () => props.selectedId, () => props.hoveredId], redraw, { deep: true });
 </script>
 
 <style scoped>
