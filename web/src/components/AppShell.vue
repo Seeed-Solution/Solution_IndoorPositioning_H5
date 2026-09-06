@@ -17,7 +17,6 @@
           <span v-if="!collapsed" class="sc-menu__label">{{ item.label }}</span>
         </router-link>
       </nav>
-      <div v-if="!collapsed && versionText" class="sc-sider__version">{{ versionText }}</div>
     </aside>
 
     <div class="sc-main">
@@ -67,7 +66,6 @@ defineProps({
   breadcrumb: { type: Array, default: () => [] },
   pageTitle: { type: String, default: '' },
   currentUsername: { type: String, default: '' },
-  versionText: { type: String, default: '' },
   // 地图页内容区自带布局，不加内容 padding
   flush: { type: Boolean, default: false },
 })
@@ -167,13 +165,6 @@ const collapsed = ref(false)
   width: 16px;
   text-align: center;
   flex: 0 0 16px;
-}
-
-.sc-sider__version {
-  margin-top: auto;
-  padding: 12px 16px;
-  font-size: 12px;
-  color: var(--sc-color-text-tertiary);
 }
 
 .sc-main {

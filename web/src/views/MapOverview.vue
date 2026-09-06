@@ -600,36 +600,6 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-/* 顶部导航标签 */
-.top-nav-tabs {
-  display: flex;
-  justify-content: center;
-  background-color: white;
-  border-bottom: 1px solid var(--sc-color-border);
-  padding: 0;
-}
-
-.nav-tab {
-  padding: 1rem 2rem;
-  text-decoration: none;
-  color: var(--sc-color-text-secondary);
-  font-weight: 500;
-  border-bottom: 3px solid transparent;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.nav-tab:hover {
-  color: var(--sc-color-success);
-  background-color: rgba(76, 175, 80, 0.05);
-}
-
-.nav-tab.active {
-  color: var(--sc-color-success);
-  border-bottom-color: var(--sc-color-success);
-  font-weight: 600;
-}
-
 /* 页面内容 */
 .page-content {
   flex: 1;
@@ -937,11 +907,6 @@ onUnmounted(() => {
   .stats-section {
     justify-content: space-around;
     gap: 1rem;
-  }
-  
-  .nav-tab {
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
   }
   
   .section-header {
