@@ -5,6 +5,7 @@
     </div>
     <div class="login-card">
       <div class="login-header">
+        <i class="fas fa-map-marker-alt login-logo"></i>
         <h1>{{ $t('login.title', '室内定位') }}</h1>
         <p class="login-subtitle">{{ $t('login.subtitle', '请输入您的用户名和密码') }}</p>
       </div>
@@ -314,8 +315,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--background-color);
-  padding: 1rem;
+  /* 对齐 kit LoginPage：独立页 + 135° 渐变背景（bgLayout -> #e8f4d4） */
+  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, #e8f4d4 100%);
+  padding: var(--sc-layout-content-padding);
   position: relative;
 }
 
@@ -328,17 +330,25 @@ onMounted(() => {
 
 .login-card {
   background-color: var(--card-background);
-  border-radius: var(--border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
+  border-radius: var(--sc-radius-lg);
+  box-shadow: 0 1px 3px 0 rgba(140, 192, 32, 0.1);
+  padding: var(--sc-layout-content-padding);
   width: 100%;
-  max-width: 400px;
-  border: 1px solid var(--border-color);
+  /* kit LoginPage 的卡片宽度 */
+  max-width: 380px;
+  border: 1px solid var(--sc-color-border);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--sc-layout-content-padding);
+}
+
+.login-logo {
+  font-size: 28px;
+  color: var(--sc-color-primary);
+  margin-bottom: 12px;
+  display: block;
 }
 
 .login-header h1 {
@@ -385,7 +395,7 @@ onMounted(() => {
 .form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(115, 199, 77, 0.1);
+  box-shadow: 0 0 0 3px rgba(140, 192, 32, 0.2);
 }
 
 .form-group input:disabled {
