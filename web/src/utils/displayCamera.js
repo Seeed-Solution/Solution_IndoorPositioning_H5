@@ -121,7 +121,11 @@ export function viewChangedEnough(prev, next, {
 export function createFitScheduler({
   delayMs = 2000,
   onFit,
-  timers = { setTimeout, clearTimeout },
+  // 同 idleReturn.js: 直接透传 window.setTimeout 会因为 this 不对而抛
+  timers = {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h) => clearTimeout(h),
+  },
 } = {}) {
   let handle = null;
 

@@ -25,7 +25,12 @@ export function createIdleWatcher({
   target = typeof window !== 'undefined' ? window : null,
   minutes = 5,
   onIdle,
-  timers = { setTimeout, clearTimeout },
+  // 注意不能写成 { setTimeout, clearTimeout }: 那样调用时 this 是这个对象,
+  // 浏览器的 window.setTimeout 会抛 Illegal invocation。
+  timers = {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h) => clearTimeout(h),
+  },
 } = {}) {
   const ms = Number(minutes) > 0 ? Number(minutes) * MINUTE_MS : 0;
   let handle = null;
