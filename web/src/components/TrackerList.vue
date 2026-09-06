@@ -594,7 +594,7 @@ const groups = computed(() => {
 
 const filters = computed(() => {
   const online = trackerList.value.filter(t => t.status === 'online').length
-  const offline = trackerList.value.filter(t => t.status === 'offline').length
+  const offline = trackerList.value.filter(t => isOfflineLike(t.status)).length
   const starred = trackerList.value.filter(t => t.starred).length
   
   return [
@@ -613,7 +613,7 @@ const filteredTrackersBeforePaging = computed(() => {
   if (activeFilter.value === 'online') {
     filtered = filtered.filter(t => t.status === 'online')
   } else if (activeFilter.value === 'offline') {
-    filtered = filtered.filter(t => t.status === 'offline')
+    filtered = filtered.filter(t => isOfflineLike(t.status))
   } else if (activeFilter.value === 'starred') {
     filtered = filtered.filter(t => t.starred)
   }
@@ -685,7 +685,8 @@ const getPluralizationParams = (count) => {
 
 // 方法 - 完全依赖后端online字段
 const getTrackerStatus = (tracker) => {
-  // 完全依赖后端的online字段：'online'=在线，'offline'/'unknown'=离线
+  // 完全依赖后端的online字段：'online'/'offline'/'unknown' 三档原样透出，
+  // 徽标按四态上色；unknown 在筛选和计数上仍按离线算（见 isOfflineLike）。
   if (tracker.online === 'online') {
     return 'online'
   } else if (tracker.online === 'offline') {
@@ -706,6 +707,10 @@ const STATUS_BADGE_CLASS = {
 }
 
 const getStatusBadgeClass = (status) => STATUS_BADGE_CLASS[status] ?? 'sc-status-offline'
+
+// unknown 是"设备没上报"，在"离线"这一档里可见，否则它只在"全部"里出现，
+// 三档计数之和也对不上总数。
+const isOfflineLike = (status) => status === 'offline' || status === 'unknown'
 
 const getStatusIcon = (status) => {
   const key = status === 'online' ? 'online' : status === 'unknown' ? 'unknown' : 'offline'
