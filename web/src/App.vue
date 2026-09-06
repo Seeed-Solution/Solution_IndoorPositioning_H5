@@ -1,29 +1,21 @@
 <template>
   <div id="app-shell">
-    <nav v-if="!isLoginPage && !isFullscreenMode" class="main-nav">
-      <div class="nav-links">
-        <!-- <router-link to="/" class="nav-link">Live Map</router-link> REMOVE THIS -->
-        <router-link to="/config-tracker" class="nav-link">{{ $t('nav.mapTracker') }}</router-link>
-<!--        <router-link to="/config-local" class="nav-link">{{ $t('nav.localMode') }}</router-link>-->
-        <router-link to="/map-overview" class="nav-link">{{ $t('nav.mapDashboard') }}</router-link>
-        <!-- <router-link to="/map-dashboard?fullscreen=true" class="nav-link">{{ $t('nav.mapDashboard') }}</router-link> OLD ROUTE - COMMENTED FOR FUTURE USE -->
-        <router-link to="/config" class="nav-link">{{ $t('nav.mapBeaconConfig') }}</router-link>
+    <template v-if="isLoginPage || isFullscreenMode">
+      <div class="main-content fullscreen-content">
+        <router-view />
       </div>
-      <div class="nav-right">
-        <div v-if="currentUsername" class="username-display">
-          <i class="fas fa-user"></i>
-          <span class="username-text">{{ currentUsername }}</span>
-        </div>
-        <LanguageSwitcher />
-        <button @click="handleLogout" class="logout-button" :title="$t('common.logout', '登出')">
-          <i class="fas fa-sign-out-alt"></i>
-          <span class="logout-text">{{ $t('common.logout', '登出') }}</span>
-        </button>
-      </div>
-    </nav>
-    <div class="main-content" :class="{ 'fullscreen-content': isFullscreenMode }">
+    </template>
+    <AppShell
+      v-else
+      :menu-items="menuItems"
+      :breadcrumb="breadcrumb"
+      :page-title="pageTitle"
+      :current-username="currentUsername"
+      :flush="isMapPage"
+      @logout="handleLogout"
+    >
       <router-view />
-    </div>
+    </AppShell>
     <Toast />
   </div>
 </template>
@@ -32,7 +24,7 @@
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import AppShell from './components/AppShell.vue'
 import Toast from './components/Toast.vue'
 import { authService } from './services/authService.js'
 import { getCurrentUsername } from './services/userStore.js'
@@ -41,6 +33,24 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const isLoginPage = computed(() => route.path === '/login')
+
+// 侧栏菜单（结构对齐 kit AppShell 的 menuItems）
+const menuItems = computed(() => [
+  { key: 'tracker', to: '/config-tracker', icon: 'fa-satellite-dish', label: t('nav.mapTracker') },
+  { key: 'indoor', to: '/map-overview', icon: 'fa-map', label: t('nav.mapDashboard') },
+  { key: 'outdoor', to: '/outdoor-map', icon: 'fa-globe-asia', label: t('nav.outdoorMap', 'Outdoor Map') },
+  { key: 'config', to: '/config', icon: 'fa-sliders-h', label: t('nav.mapBeaconConfig') },
+])
+
+const currentMenuItem = computed(() => menuItems.value.find((item) => item.to === route.path))
+const pageTitle = computed(() => currentMenuItem.value?.label ?? '')
+const breadcrumb = computed(() =>
+  currentMenuItem.value ? [{ title: t('app.title', 'Indoor Positioning') }, { title: currentMenuItem.value.label }] : []
+)
+
+// 地图页内容区自带布局与全屏控件，外壳不加 padding
+const MAP_ROUTES = ['/map-overview', '/outdoor-map']
+const isMapPage = computed(() => MAP_ROUTES.includes(route.path))
 
 // 当前用户名（从全局状态获取）
 const currentUsername = ref(getCurrentUsername())
@@ -125,165 +135,12 @@ const handleLogout = async () => {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  /* background-color: var(--background-color); /* Optionally set body bg here if not taking full page */
 }
 
-.main-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background-color: var(--card-background); /* Changed from --dark-color to white */
-  padding: 0.75rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.08); /* Adjusted shadow for white bg */
-  border-bottom: 1px solid var(--border-color); /* Added a light border like SenseCraft */
-}
-
-.main-content {
-  /* 为固定导航栏留出空间 */
-  margin-top: 70px; /* 导航栏高度 + 一些余量 */
-}
-
+/* 登录页与全屏地图不套外壳，内容自己铺满 */
 .main-content.fullscreen-content {
-  /* 全屏模式下不需要顶部边距 */
   margin-top: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
-
-.nav-links {
-  display: flex;
-  justify-content: center;
-  flex: 1;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.username-display {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.8rem;
-  color: var(--secondary-color);
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.username-display i {
-  color: var(--primary-color);
-  font-size: 0.9rem;
-}
-
-.username-text {
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-@media (max-width: 768px) {
-  .username-text {
-    display: none;
-  }
-  
-  .username-display {
-    padding: 0.4rem 0.6rem;
-  }
-}
-
-.nav-link {
-  color: var(--secondary-color); /* Medium gray for inactive links */
-  text-decoration: none;
-  padding: 0.85rem 1.3rem; /* Adjusted padding for larger font */
-  margin: 0 0.5rem;
-  border-radius: var(--border-radius);
-  transition: color 0.2s ease, border-bottom-color 0.2s ease;
-  font-weight: 600; /* Bolder font weight */
-  font-size: 1.05rem; /* Further increased font size */
-  border-bottom: 3px solid transparent; /* Increased border thickness slightly */
-}
-
-.nav-link:hover {
-  color: var(--primary-color); /* Green on hover */
-}
-
-.nav-link.router-link-exact-active {
-  color: var(--primary-color); /* Green text for active tab */
-  border-bottom-color: var(--primary-color); /* Green underline for active tab */
-  /* font-weight: 700; */ /* Active link is already 600, ensure it stands out or keep same */
-}
-
-/* 统一的导航右侧控件样式 */
-.nav-control {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--secondary-color);
-  padding: 0.4rem 0.8rem;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  height: 36px;
-  box-sizing: border-box;
-}
-
-.logout-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--secondary-color);
-  padding: 0.4rem 0.8rem;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  height: 36px;
-  box-sizing: border-box;
-  line-height: 1;
-}
-
-.logout-button i {
-  display: flex;
-  align-items: center;
-  line-height: 1;
-}
-
-.logout-button:hover {
-  border-color: var(--danger-color);
-  color: var(--danger-color);
-  background-color: rgba(245, 108, 108, 0.05);
-}
-
-.logout-text {
-  font-size: 0.85rem;
-  font-weight: 500;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-}
-
-@media (max-width: 768px) {
-  .logout-text {
-    display: none;
-  }
-  
-  .logout-button {
-    padding: 0.4rem 0.6rem;
-  }
-}
-
-/* The <router-view /> itself doesn't need styling unless it's wrapped */
-/* Content inside router-view should have its own padding via .page-container or similar */
 </style>

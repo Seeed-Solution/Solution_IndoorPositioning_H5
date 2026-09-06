@@ -3,7 +3,8 @@
     "mapBeaconConfig": "Configuration",
     "localMode": "Local Mode",
     "mapTracker": "Tracker",
-    "mapDashboard": "Map Dashboard"
+    "mapDashboard": "Map Dashboard",
+    "outdoorMap": "Outdoor Map"
   },
   "mapDashboard": {
     "title": "Map Overview",
@@ -817,5 +818,8 @@
     "transitionExit": "Exit",
     "transitionBoth": "Enter and exit",
     "fenceRequired": "Please select or draw a geofence."
+  },
+  "app": {
+    "title": "Indoor Positioning"
   }
 }

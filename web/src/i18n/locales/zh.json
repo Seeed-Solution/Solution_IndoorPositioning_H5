@@ -3,7 +3,8 @@
     "mapBeaconConfig": "系统设置",
     "localMode": "本地模式",
     "mapTracker": "追踪器",
-    "mapDashboard": "地图仪表盘"
+    "mapDashboard": "地图仪表盘",
+    "outdoorMap": "室外地图"
   },
   "mapDashboard": {
     "title": "地图总览",
@@ -812,5 +813,8 @@
     "transitionExit": "离开",
     "transitionBoth": "进入与离开",
     "fenceRequired": "请选择或绘制一个地理围栏。"
+  },
+  "app": {
+    "title": "室内定位"
   }
 }
