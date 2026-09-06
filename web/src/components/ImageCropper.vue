@@ -1037,7 +1037,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
 }
 
@@ -1177,7 +1177,7 @@ onUnmounted(() => {
 }
 
 .btn-confirm {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
 }
 

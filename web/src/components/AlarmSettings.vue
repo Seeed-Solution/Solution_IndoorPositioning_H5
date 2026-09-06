@@ -1631,7 +1631,7 @@ onBeforeUnmount(() => {
 
 .create-alarm-btn {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1646,7 +1646,7 @@ onBeforeUnmount(() => {
 }
 
 .create-alarm-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
 }
@@ -1821,7 +1821,7 @@ onBeforeUnmount(() => {
 }
 
 .status-input:checked + .status-slider {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
 }
 
 .status-input:checked + .status-slider:before {
@@ -1874,27 +1874,27 @@ onBeforeUnmount(() => {
 }
 
 .edit-btn {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   border: none;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .edit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .delete-btn {
-  background: linear-gradient(135deg, var(--sc-color-text-secondary) 0%, var(--sc-color-text) 100%);
+  background: var(--sc-color-text-secondary);
   color: white;
   border: none;
   box-shadow: 0 2px 4px rgba(74, 85, 104, 0.3);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-text-secondary) 0%, var(--sc-color-text) 100%);
+  background: var(--sc-color-text-secondary);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(74, 85, 104, 0.4);
 }
@@ -2616,7 +2616,7 @@ onBeforeUnmount(() => {
 }
 
 .save-btn {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -2631,7 +2631,7 @@ onBeforeUnmount(() => {
 }
 
 .save-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
@@ -2755,7 +2755,7 @@ onBeforeUnmount(() => {
 }
 
 .delete-confirm-btn {
-  background: linear-gradient(135deg, var(--sc-color-error) 0%, var(--sc-color-error) 100%);
+  background: var(--sc-color-error);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -2772,7 +2772,7 @@ onBeforeUnmount(() => {
 }
 
 .delete-confirm-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-error) 0%, var(--sc-color-error) 100%);
+  background: var(--sc-color-error);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
 }
@@ -2858,7 +2858,7 @@ onBeforeUnmount(() => {
 }
 
 .error-confirm-btn {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
+  background: var(--sc-color-info);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -2875,7 +2875,7 @@ onBeforeUnmount(() => {
 }
 
 .error-confirm-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
+  background: var(--sc-color-info);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }

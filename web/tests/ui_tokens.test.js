@@ -83,4 +83,22 @@ describe('sensecraft-ui-kit token 层', () => {
     }
     expect(offenders).toEqual([])
   })
+
+  it('组件 <style> 里不再用主色/语义色渐变做大面积底色', () => {
+    // kit 的观感是平面：主色只出现在按钮、数字、下划线等强调处，不做渐变色块。
+    // 唯一例外是登录页整页背景（对齐 kit LoginPage 的 135° 渐变）。
+    const offenders = []
+    for (const file of listFiles(srcRoot, '.vue')) {
+      const rel = path.relative(webRoot, file)
+      if (rel.endsWith('views/LoginView.vue')) continue
+      for (const block of styleBlocks(fs.readFileSync(file, 'utf-8'))) {
+        for (const match of block.match(/linear-gradient\([^;]*/g) ?? []) {
+          if (/--sc-color-(primary|success|warning|error|info)/.test(match)) {
+            offenders.push(`${rel}: ${match.split('\n')[0].slice(0, 80)}`)
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
 })

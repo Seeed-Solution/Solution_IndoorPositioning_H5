@@ -4556,18 +4556,20 @@ select {
 }
 
 .stat-item {
+  /* 对齐 kit 的统计卡：白底 + 边框，主色只落在数字上，不做大面积色块 */
   text-align: center;
   padding: 1rem;
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
-  color: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: var(--sc-color-bg-container);
+  color: var(--sc-color-text);
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-lg);
+  box-shadow: 0 1px 3px 0 rgba(140, 192, 32, 0.1);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--sc-color-primary);
+  box-shadow: 0 2px 8px 0 rgba(140, 192, 32, 0.18);
 }
 
 .stat-number {
@@ -4575,11 +4577,12 @@ select {
   font-weight: bold;
   line-height: 1;
   margin-bottom: 0.5rem;
+  color: var(--sc-color-primary);
 }
 
 .stat-label {
   font-size: 0.9rem;
-  opacity: 0.9;
+  color: var(--sc-color-text-secondary);
 }
 
 /* 地图选择器样式 */
@@ -4601,7 +4604,7 @@ select {
 
 .export-config-btn {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   border: none;
   border-radius: 6px;
@@ -4618,7 +4621,7 @@ select {
 }
 
 .export-config-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
@@ -4629,7 +4632,7 @@ select {
 
 .refresh-config-btn {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-primary) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 6px;
@@ -4646,7 +4649,7 @@ select {
 }
 
 .refresh-config-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-primary-hover) 100%);
+  background: var(--sc-color-success);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(17, 153, 142, 0.4);
 }
@@ -4785,13 +4788,13 @@ select {
 }
 
 .save-button {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: 1px solid transparent;
 }
 
 .save-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
 }
@@ -4811,7 +4814,7 @@ select {
 
 /* 创建新地图模式横幅 */
 .create-mode-banner {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   padding: 1rem;
   border-radius: 8px;
@@ -4835,7 +4838,7 @@ select {
 
 /* 编辑模式横幅 */
 .edit-mode-banner {
-  background: linear-gradient(135deg, var(--sc-color-warning) 0%, var(--sc-color-warning) 100%);
+  background: var(--sc-color-warning);
   color: var(--sc-color-text);
   padding: 1rem;
   border-radius: 8px;
@@ -4857,7 +4860,7 @@ select {
 
 /* 未保存更改横幅 */
 .unsaved-changes-banner {
-  background: linear-gradient(135deg, var(--sc-color-warning) 0%, var(--sc-color-warning) 100%);
+  background: var(--sc-color-warning);
   color: white;
   padding: 1rem;
   border-radius: 8px;
@@ -4894,7 +4897,7 @@ select {
 .beacon-summary {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, var(--sc-color-bg-container) 100%);
+  background: var(--sc-color-bg-layout);
   border-radius: 6px;
   border-left: 4px solid var(--sc-color-info);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -4924,7 +4927,7 @@ select {
 
 .import-json-btn {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 6px;
@@ -4939,7 +4942,7 @@ select {
 }
 
 .import-json-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
 }
@@ -5490,13 +5493,13 @@ select {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
@@ -5538,14 +5541,12 @@ select {
   gap: 1rem;
 }
 
-.unified-stats-overview .stat-item.map-beacon-stats {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
-  color: white;
+.unified-stats-overview .stat-item.map-beacon-stats .stat-number {
+  color: var(--sc-color-primary);
 }
 
-.unified-stats-overview .stat-item.tracker-stats {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-primary) 100%);
-  color: white;
+.unified-stats-overview .stat-item.tracker-stats .stat-number {
+  color: var(--sc-color-success);
 }
 
 /* 配置项切换标签样式 */
@@ -5553,38 +5554,42 @@ select {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 2rem;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--sc-color-border);
   padding-bottom: 0.5rem;
   justify-content: center;
 }
 
 .config-tab-button {
-  padding: 0.75rem 2rem;
+  /* antd 下划线式 Tab：平面、无填充，选中态靠主色文字 + 下边框 */
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 8px 8px 0 0;
-  background: var(--sc-color-bg-layout);
-  color: var(--sc-color-text);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sc-color-text-secondary);
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: color 0.2s ease, border-color 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   position: relative;
+  margin-bottom: -0.5rem;
+  box-shadow: none;
 }
 
 .config-tab-button:hover:not(.active) {
-  background: var(--sc-color-border);
-  color: var(--sc-color-text);
-  transform: translateY(-2px);
+  background: transparent;
+  color: var(--sc-color-primary);
+  box-shadow: none;
 }
 
 .config-tab-button.active {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  transform: translateY(-2px);
+  background: transparent;
+  color: var(--sc-color-primary);
+  border-bottom-color: var(--sc-color-primary);
+  box-shadow: none;
 }
 
 .config-tab-button i {
@@ -5657,7 +5662,7 @@ select {
 
 .add-button {
   padding: 0.75rem 1.2rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 6px;
@@ -5671,7 +5676,7 @@ select {
 }
 
 .add-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
 }
@@ -5752,12 +5757,12 @@ select {
 }
 
 .save-button {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
+  background: var(--sc-color-info);
   color: white;
 }
 
 .save-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
+  background: var(--sc-color-info);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
@@ -5867,7 +5872,7 @@ select {
 
 .server-config-actions .save-button {
   padding: 0.75rem 2rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 6px;
@@ -5930,7 +5935,7 @@ select {
 
 .header-actions .edit-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
+  background: var(--sc-color-info);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5940,7 +5945,7 @@ select {
 }
 
 .header-actions .edit-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
+  background: var(--sc-color-info);
   transform: translateY(-1px);
 }
 
@@ -5951,7 +5956,7 @@ select {
 
 .header-actions .save-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5993,7 +5998,7 @@ select {
 
 .header-actions .restart-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-error) 0%, var(--sc-color-error) 100%);
+  background: var(--sc-color-error);
   color: white;
   border: none;
   border-radius: 4px;
@@ -6007,7 +6012,7 @@ select {
 }
 
 .header-actions .restart-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-error) 0%, #a71e2a 100%);
+  background: var(--sc-color-error);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
 }
@@ -6104,7 +6109,7 @@ select {
 }
 
 .toggle-input:checked + .toggle-slider {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
 }
 
 .toggle-input:checked + .toggle-slider:before {
@@ -6252,7 +6257,7 @@ select {
 
 .add-header-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   color: white;
   border: none;
   border-radius: 4px;
@@ -6447,7 +6452,7 @@ select {
 
 .change-password-button {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--sc-color-warning) 0%, var(--sc-color-warning) 100%);
+  background: var(--sc-color-warning);
   color: var(--sc-color-text);
   border: none;
   border-radius: 6px;
@@ -6462,7 +6467,7 @@ select {
 }
 
 .change-password-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e0a800 0%, var(--sc-color-warning) 100%);
+  background: #e0a800;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
 }
@@ -6812,12 +6817,12 @@ select {
 
 .success-btn {
   min-width: 120px;
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   box-shadow: 0 3px 6px rgba(40, 167, 69, 0.3);
 }
 
 .success-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
+  background: var(--sc-color-success);
   transform: translateY(-2px);
   box-shadow: 0 5px 12px rgba(40, 167, 69, 0.4);
 }

@@ -2504,7 +2504,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, var(--sc-color-bg-container) 100%);
+  background: var(--sc-color-bg-layout);
   border: 1px solid #b3e5fc;
   border-radius: 6px;
   margin-bottom: 1rem;

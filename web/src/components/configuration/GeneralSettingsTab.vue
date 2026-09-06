@@ -186,13 +186,13 @@ defineExpose({ loadSettings, getCurrentSettings });
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .primary-btn:hover {
-  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }

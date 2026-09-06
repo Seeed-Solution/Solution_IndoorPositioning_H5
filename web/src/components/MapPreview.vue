@@ -920,7 +920,7 @@ canvas {
 }
 
 .page-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   border-color: var(--sc-color-primary);
   transform: translateY(-1px);

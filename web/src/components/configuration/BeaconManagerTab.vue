@@ -641,28 +641,28 @@ th {
 
 /* Primary按钮和Edit按钮样式 */
 .primary-btn, .edit-btn {
-  background: linear-gradient(135deg, var(--sc-color-primary) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary);
   color: white;
   border: none;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .primary-btn:hover:not(:disabled), .edit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-primary-hover) 0%, var(--sc-color-primary-active) 100%);
+  background: var(--sc-color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 /* Delete按钮样式 */
 .delete-btn {
-  background: linear-gradient(135deg, var(--sc-color-text-secondary) 0%, var(--sc-color-text) 100%);
+  background: var(--sc-color-text-secondary);
   color: white;
   border: none;
   box-shadow: 0 2px 4px rgba(74, 85, 104, 0.3);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--sc-color-text-secondary) 0%, var(--sc-color-text) 100%);
+  background: var(--sc-color-text-secondary);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(74, 85, 104, 0.4);
 }
