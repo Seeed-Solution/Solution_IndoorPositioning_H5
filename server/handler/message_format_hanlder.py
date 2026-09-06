@@ -123,19 +123,18 @@ async def parse_sensecap_payload(topic: str, payload_bytes: bytes) -> Optional[T
         battery = -1
 
         # 除了3000之外所有消息直接返回空, 收到3000, 汇总成完整的定位包
-        match measurement_id:
-            case _ if measurement_id in (MEASUREMENT_LONGITUDE, MEASUREMENT_LATITUDE, MEASUREMENT_BEACONS):
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
-                return None
-            case _ if measurement_id == MEASUREMENT_SOS:
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value", 0))
-                return None
-            case _ if measurement_id == MEASUREMENT_BATTERY:
-                battery = data.get("value", -1)
-                UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value", -1))
-                await asyncio.sleep(1)
-            case _:
-                return None
+        if measurement_id in (MEASUREMENT_LONGITUDE, MEASUREMENT_LATITUDE, MEASUREMENT_BEACONS):
+            UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value"))
+            return None
+        elif measurement_id == MEASUREMENT_SOS:
+            UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=data.get("value", 0))
+            return None
+        elif measurement_id == MEASUREMENT_BATTERY:
+            battery = data.get("value", -1)
+            UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id, value=battery)
+            await asyncio.sleep(1)
+        else:
+            return None
 
         sos = UplinkCollector.get(dev_eui=device_eui, measurement_id=MEASUREMENT_SOS, default_value=0)
         longitude = UplinkCollector.get(dev_eui=device_eui, measurement_id=MEASUREMENT_LONGITUDE)
@@ -145,10 +144,6 @@ async def parse_sensecap_payload(topic: str, payload_bytes: bytes) -> Optional[T
         loc = build_gnss_loc(longitude, latitude)
         detected_beacons_list = parse_beacon_list(beacon_values, device_eui)
         loc_type = resolve_loc_type(loc, detected_beacons_list)
-
-        if loc:
-            UplinkCollector.set(dev_eui=device_eui, measurement_id='loc', value=loc)
-            UplinkCollector.set(dev_eui=device_eui, measurement_id='locType', value=loc_type)
 
         # 同一个包里同时带 GNSS 和 BLE 时, 生成一个组合报告, 两类数据都保留.
         return TrackerReport(
@@ -209,20 +204,18 @@ async def parse_chirpstack_payload(topic: str, payload_bytes: bytes) -> Optional
                 UplinkCollector.set(dev_eui=device_eui, measurement_id=measurement_id,
                                     value=measurement_value)
 
-            match measurement_id:
-                case _ if measurement_id == MEASUREMENT_BATTERY:
-                    battery = entry.get('measurementValue', -1)
-                case _ if measurement_id == MEASUREMENT_LONGITUDE:
-                    longitude = entry.get('measurementValue')
-                case _ if measurement_id == MEASUREMENT_LATITUDE:
-                    latitude = entry.get('measurementValue')
-                case _ if measurement_id == MEASUREMENT_BEACONS:
-                    beacon_values = entry.get('measurementValue') or []
-                case _ if measurement_id == MEASUREMENT_EVENTS:
-                    event_list = entry.get('measurementValue') or []
-                    for event in event_list:
-                        if isinstance(event, dict) and event.get("id", 0) == 7:
-                            sos_value = 1
+            if measurement_id == MEASUREMENT_BATTERY:
+                battery = entry.get('measurementValue', -1)
+            elif measurement_id == MEASUREMENT_LONGITUDE:
+                longitude = entry.get('measurementValue')
+            elif measurement_id == MEASUREMENT_LATITUDE:
+                latitude = entry.get('measurementValue')
+            elif measurement_id == MEASUREMENT_BEACONS:
+                beacon_values = measurement_value or []
+            elif measurement_id == MEASUREMENT_EVENTS:
+                for event in measurement_value or []:
+                    if isinstance(event, dict) and event.get("id", 0) == 7:
+                        sos_value = 1
 
         loc = build_gnss_loc(longitude, latitude)
         detected_beacons_list = parse_beacon_list(beacon_values, device_eui)

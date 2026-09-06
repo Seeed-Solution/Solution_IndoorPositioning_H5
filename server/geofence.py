@@ -19,7 +19,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from shapely.geometry import shape
+from shapely.geometry import Point, shape
 from shapely.prepared import prep
 
 import logging
@@ -122,8 +122,6 @@ class Geofence:
         if self.kind == GEOFENCE_KIND_CIRCLE:
             c_lat, c_lon = self.center
             return haversine_m(lat, lon, c_lat, c_lon) <= float(self.radius_m)
-        from shapely.geometry import Point
-
         x = _wrap_lon(lon) if self.wrap else lon
         return bool(self._prepared.covers(Point(x, lat)))
 
@@ -136,8 +134,6 @@ class Geofence:
         if self.kind == GEOFENCE_KIND_CIRCLE:
             c_lat, c_lon = self.center
             return abs(haversine_m(lat, lon, c_lat, c_lon) - float(self.radius_m))
-        from shapely.geometry import Point
-
         x = _wrap_lon(lon) if self.wrap else lon
         deg = self._geom.boundary.distance(Point(x, lat))
         # 度 -> 米: 纬向恒定, 经向按 cos(lat) 收缩; 取两者的几何折中(保守用较小值).

@@ -211,10 +211,8 @@ export function registrationFromCorners(footprint, corners) {
     throw new GeoreferenceError('degenerate image footprint');
   }
 
-  // 局部 +Y 顺时针偏离正北的角度。
-  let rotationDeg = Math.atan2(dE, dN) / DEG;
-  if (rotationDeg > 180) rotationDeg -= 360;
-  if (rotationDeg <= -180) rotationDeg += 360;
+  // 局部 +Y 顺时针偏离正北的角度。atan2 的值域已经是 (-180, 180]，不用再归一化。
+  const rotationDeg = Math.atan2(dE, dN) / DEG;
   const scale = lenY / localH;
 
   // 局部原点 (0,0) 相对 BL 的位移，再换回经纬度。

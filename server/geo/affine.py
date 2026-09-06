@@ -29,7 +29,7 @@ WGS84_A = 6378137.0                     # 长半轴 (m)
 WGS84_F = 1.0 / 298.257223563           # 扁率
 WGS84_E2 = WGS84_F * (2.0 - WGS84_F)    # 第一偏心率平方
 
-# 与 server/models.py 的 GEOREF_POLAR_LIMIT_DEG 保持同一个数值。
+# 配准公式与阈值的唯一定义处；server/models.py 与 web/src/utils/affine.js 跟随它。
 GEOREF_POLAR_LIMIT_DEG = 85.0
 
 
@@ -56,7 +56,8 @@ def validate_registration(registration) -> Tuple[float, float, float, float]:
     lat0 = _check_finite("origin_lat", get("origin_lat"))
     lon0 = _check_finite("origin_lon", get("origin_lon"))
     rotation_deg = _check_finite("rotation_deg", get("rotation_deg", 0.0) or 0.0)
-    scale = _check_finite("scale", 1.0 if get("scale", 1.0) is None else get("scale", 1.0))
+    scale = get("scale", 1.0)
+    scale = _check_finite("scale", 1.0 if scale is None else scale)
 
     if not -90.0 <= lat0 <= 90.0:
         raise GeoreferenceError("origin_lat must be within [-90, 90]")

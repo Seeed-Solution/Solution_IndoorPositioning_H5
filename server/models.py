@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass, asdict
 import json
+import math
 
 import server.constant.event_constant as event_constant
 
@@ -53,7 +54,8 @@ class WebUIMapEntity(BaseModel):
 
 # 平面图与室外地图的配准。缺失即纯室内模式。
 # 高纬度下"每度经度的米数"随纬度剧烈变化，切平面近似失效，直接拒绝配准。
-GEOREF_POLAR_LIMIT_DEG = 85.0
+# 阈值与转换公式同源，定义在 server/geo/affine.py，这里只做 re-export。
+from server.geo.affine import GEOREF_POLAR_LIMIT_DEG  # noqa: E402
 
 
 class MapRegistration(BaseModel):
@@ -72,7 +74,7 @@ class MapRegistration(BaseModel):
     @field_validator("origin_lat", "origin_lon", "rotation_deg", "scale", mode="after")
     @classmethod
     def _finite(cls, value: float) -> float:
-        if not isinstance(value, (int, float)) or value != value or value in (float("inf"), float("-inf")):
+        if not isinstance(value, (int, float)) or not math.isfinite(value):
             raise ValueError("registration fields must be finite numbers")
         return float(value)
 
