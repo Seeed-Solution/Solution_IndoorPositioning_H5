@@ -12,7 +12,8 @@
     "build:remote": "VITE_LOCAL_CONTAINER=false vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "axios": "^1.8.4",
@@ -24,6 +25,7 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@vitejs/plugin-vue": "^5.2.2",
     "vite": "^6.3.1",
     "vitest": "^2.1.9"

@@ -1586,14 +1586,82 @@ onUnmounted(() => {
 
 <style scoped>
 /* --- 紧凑模式（/map 左栏） --- */
-.tracker-list-card.is-compact,
+/* 紧凑模式靠 flex 分高度, 不用 height:100%: 抽屉里还有一个 grip 兄弟节点,
+   写死 100% 会整体溢出, 列表被挤成 0 高后内容会盖到 tabs / 分页上。 */
+.tracker-list-card.is-compact {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .tracker-list-card.is-compact > .card-content {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
-  height: 100%;
+  overflow: hidden;
   box-sizing: border-box;
+}
+
+/* 头部/搜索/筛选/分页都不参与收缩, 剩下的全给列表 */
+.tracker-list-card.is-compact > .card-content > .tracker-list-header,
+.tracker-list-card.is-compact > .card-content > .tracker-search,
+.tracker-list-card.is-compact > .card-content > .tracker-filter-tabs,
+.tracker-list-card.is-compact > .card-content > .tracker-pagination {
+  flex: 0 0 auto;
+}
+
+.tracker-list-card.is-compact .tracker-filter-tabs {
+  flex-wrap: wrap;
+}
+
+/* 240-320px 的栏宽里，标题横排会把分组下拉顶出卡片，这里改成两行 */
+.tracker-list-card.is-compact .tracker-list-header {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tracker-list-card.is-compact .tracker-list-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.tracker-list-card.is-compact .tracker-filter-controls {
+  flex: 1 1 100%;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tracker-list-card.is-compact .group-filter-dropdown {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tracker-list-card.is-compact .group-filter-button {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.tracker-list-card.is-compact .filter-tab {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.tracker-list-card.is-compact .tracker-pagination {
+  padding: 8px 0 0;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .tracker-search {

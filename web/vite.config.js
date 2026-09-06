@@ -25,6 +25,11 @@ console.log(`[Vite Config] Note: Proxy only works in development mode`)
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
+  // vitest 只跑 tests/ 下的单测; tests-e2e/ 是 Playwright 的, 由 npx playwright test 跑
+  test: {
+    include: ['tests/**/*.test.js'],
+    exclude: ['node_modules/**', 'dist/**', 'tests-e2e/**'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

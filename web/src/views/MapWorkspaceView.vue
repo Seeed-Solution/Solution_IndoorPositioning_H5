@@ -584,6 +584,15 @@ defineExpose({ state, replaceState, pushState });
   display: flex;
 }
 
+/* 抽屉里的卡片按 flex 分高度, 不能让它被内容撑出抽屉 */
+.map-workspace.is-tablet .ws-pane--list > :not(.ws-pane__grip),
+.map-workspace.is-tablet .ws-pane--detail > :not(.ws-pane__grip),
+.map-workspace.is-mobile .ws-pane--list > :not(.ws-pane__grip),
+.map-workspace.is-mobile .ws-pane--detail > :not(.ws-pane__grip) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .map-workspace.is-mobile .sheet-peek { height: 30%; }
 .map-workspace.is-mobile .sheet-half { height: 55%; }
 .map-workspace.is-mobile .sheet-full { height: 92%; }
