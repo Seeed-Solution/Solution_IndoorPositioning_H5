@@ -12,8 +12,14 @@
       <TrackerList
         :trackers="trackers"
         compact
+        :search="state.q"
+        :status="state.status"
+        :group="state.group"
         :selected-id="state.tracker"
         :hovered-id="hoveredId"
+        @update:search="replaceState({ q: $event })"
+        @update:status="replaceState({ status: $event })"
+        @update:group="replaceState({ group: $event })"
         @select-tracker="onSelectTracker"
         @hover-tracker="onHoverTracker"
         @refresh-data="preloadTrackers"

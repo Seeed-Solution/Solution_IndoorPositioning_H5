@@ -589,6 +589,19 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  // 受控筛选: /map 把搜索词 / 状态页签 / 分组编码进 URL, 传 null 表示组件自管
+  search: {
+    type: String,
+    default: null
+  },
+  status: {
+    type: String,
+    default: null
+  },
+  group: {
+    type: String,
+    default: null
+  },
   // 与地图联动的选中/悬停 tracker id（受控 prop，组件自身不持有它们）
   selectedId: {
     type: String,
@@ -602,16 +615,17 @@ const props = defineProps({
 
 const emit = defineEmits([
   'edit-tracker', 'add-tracker', 'toggle-star', 'show-alert', 'refresh-data',
-  'select-tracker', 'hover-tracker'
+  'select-tracker', 'hover-tracker',
+  'update:search', 'update:status', 'update:group'
 ])
 
 // i18n - 只用于JavaScript函数中
 const { t } = useI18n()
 
 // 响应式数据
-const activeFilter = ref('all')
-const searchText = ref('')
-const selectedGroup = ref('')
+const activeFilter = ref(props.status || 'all')
+const searchText = ref(props.search || '')
+const selectedGroup = ref(props.group || '')
 const currentPage = ref(1)
 const itemsPerPage = ref(20)
 const itemsPerPageOptions = [5, 10, 20]
@@ -769,9 +783,20 @@ watch(() => props.selectedId, (id) => {
   })
 })
 
+// 受控筛选: 外部（URL）改了就跟着改, 内部改了就报出去。两个方向都先比值再赋值,
+// 值相同时不再往回写, 不会来回震荡。
+watch(() => [props.search, props.status, props.group], ([search, status, group]) => {
+  if (search !== null && search !== searchText.value) searchText.value = search
+  if (status !== null && status !== activeFilter.value) activeFilter.value = status
+  if (group !== null && group !== selectedGroup.value) selectedGroup.value = group
+})
+
 // 搜索/筛选变化后回到第一页, 否则会停在一个空白页
-watch([searchText, activeFilter, selectedGroup], () => {
+watch([searchText, activeFilter, selectedGroup], ([search, status, group]) => {
   currentPage.value = 1
+  if (props.search !== null && search !== props.search) emit('update:search', search)
+  if (props.status !== null && status !== props.status) emit('update:status', status)
+  if (props.group !== null && group !== props.group) emit('update:group', group)
 })
 
 // 辅助方法 - 处理复数形式的国际化文本
@@ -1559,11 +1584,6 @@ const handleClickOutside = (event) => {
     showGroupFilter.value = false
   }
 }
-
-// 监听筛选条件变化，重置到第一页并刷新数据
-watch([activeFilter, selectedGroup], () => {
-  currentPage.value = 1
-})
 
 // 监听trackers数据变化，重新计算设备统计
 watch(() => props.trackers, () => {
