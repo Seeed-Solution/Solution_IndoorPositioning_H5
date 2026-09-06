@@ -4532,7 +4532,7 @@ const handleAlarmStatusUpdate = (message) => {
   border-color: var(--primary-color-dark);
 }
 .tabs-navigation button:hover:not(.active) {
-  background-color: #e7f3ff; /* Light hover for non-active tabs */
+  background-color: var(--sc-color-bg-layout); /* Light hover for non-active tabs */
   color: var(--primary-color-dark);
 }
 
@@ -4665,9 +4665,9 @@ select {
 .no-maps-message {
   text-align: center;
   padding: 2rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: 8px;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .no-maps-message .hint {
@@ -4698,7 +4698,7 @@ select {
 
 .dropdown-label {
   font-weight: 600;
-  color: #495057;
+  color: var(--sc-color-text);
   white-space: nowrap;
   font-size: 1rem;
 }
@@ -4706,23 +4706,23 @@ select {
 .map-dropdown {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 8px;
   background: white;
   font-size: 1rem;
-  color: #495057;
+  color: var(--sc-color-text);
   cursor: pointer;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .map-dropdown:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .map-dropdown:hover {
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
 }
 
 /* 地图管理按钮样式 */
@@ -4734,10 +4734,10 @@ select {
 
 .action-button {
   padding: 0.6rem 1rem;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
   border-radius: 6px;
   background: white;
-  color: #495057;
+  color: var(--sc-color-text);
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
@@ -4749,8 +4749,8 @@ select {
 }
 
 .action-button:hover:not(:disabled) {
-  border-color: #007bff;
-  color: #007bff;
+  border-color: var(--sc-color-info);
+  color: var(--sc-color-info);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
 }
@@ -4762,44 +4762,44 @@ select {
 }
 
 .create-button:hover:not(:disabled) {
-  border-color: #28a745;
-  color: #28a745;
+  border-color: var(--sc-color-success);
+  color: var(--sc-color-success);
   box-shadow: 0 2px 4px rgba(40, 167, 69, 0.1);
 }
 
 .edit-button.active {
-  background: #007bff;
+  background: var(--sc-color-info);
   color: white;
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
 }
 
 .edit-button.active:hover {
-  background: #0056b3;
-  border-color: #0056b3;
+  background: var(--sc-color-info);
+  border-color: var(--sc-color-info);
 }
 
 .delete-button:hover:not(:disabled) {
-  border-color: #dc3545;
-  color: #dc3545;
+  border-color: var(--sc-color-error);
+  color: var(--sc-color-error);
   box-shadow: 0 2px 4px rgba(220, 53, 69, 0.1);
 }
 
 .save-button {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   border: 1px solid transparent;
 }
 
 .save-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
 }
 
 .cancel-button {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
-  border: 1px solid #6c757d;
+  border: 1px solid var(--sc-color-text-secondary);
 }
 
 .cancel-button:hover:not(:disabled) {
@@ -4811,7 +4811,7 @@ select {
 
 /* 创建新地图模式横幅 */
 .create-mode-banner {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   padding: 1rem;
   border-radius: 8px;
@@ -4835,8 +4835,8 @@ select {
 
 /* 编辑模式横幅 */
 .edit-mode-banner {
-  background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
-  color: #495057;
+  background: linear-gradient(135deg, var(--sc-color-warning) 0%, #ff8c00 100%);
+  color: var(--sc-color-text);
   padding: 1rem;
   border-radius: 8px;
   margin-top: 1rem;
@@ -4894,21 +4894,21 @@ select {
 .beacon-summary {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, #f0f8ff 100%);
   border-radius: 6px;
-  border-left: 4px solid #007bff;
+  border-left: 4px solid var(--sc-color-info);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .beacon-summary p {
   margin: 0;
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 0.9rem;
   font-weight: 500;
 }
 
 .beacon-summary i {
-  color: #007bff;
+  color: var(--sc-color-info);
   margin-right: 0.5rem;
 }
 
@@ -4924,7 +4924,7 @@ select {
 
 .import-json-btn {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -4939,7 +4939,7 @@ select {
 }
 
 .import-json-btn:hover {
-  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
 }
@@ -5000,8 +5000,8 @@ select {
   margin-top: 0.5rem;
   border-radius: 8px;
   overflow: hidden;
-  border: 2px solid #e9ecef;
-  background: #f8f9fa;
+  border: 2px solid var(--sc-color-border);
+  background: var(--sc-color-bg-layout);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -5019,17 +5019,17 @@ select {
 
 .input-help-small {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   margin-top: 0.25rem;
 }
 
 /* 背景图文件选择器样式 */
 .map-background-file-input {
   padding: 0.75rem;
-  border: 2px dashed #ced4da;
+  border: 2px dashed var(--sc-color-border);
   border-radius: 6px;
   font-size: 0.9rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   cursor: pointer;
   transition: all 0.3s ease;
   width: 100%;
@@ -5054,9 +5054,9 @@ select {
   gap: 0.5rem;
   padding: 1rem;
   margin-top: 0.5rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: 6px;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-size: 0.9rem;
   max-width: 100%; /* 防止超出容器 */
   box-sizing: border-box;
@@ -5074,7 +5074,7 @@ select {
   display: inline-block;
   border-radius: 6px;
   overflow: hidden;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   max-width: 100%; /* 防止预览图片超出容器 */
   box-sizing: border-box;
 }
@@ -5164,7 +5164,7 @@ select {
 
 .map-info-input {
   padding: 0.75rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 6px;
   font-size: 1rem;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
@@ -5186,12 +5186,12 @@ select {
   background-color: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 4px;
-  color: #dc2626;
+  color: var(--sc-color-error);
   font-size: 0.8rem;
 }
 
 .error-message-small i {
-  color: #dc2626;
+  color: var(--sc-color-error);
   font-size: 0.9rem;
 }
 
@@ -5204,13 +5204,13 @@ select {
   justify-content: center;
   align-items: center;
   min-height: 400px;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
 }
 
 .map-preview-canvas {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   background: white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -5218,7 +5218,7 @@ select {
 
 .map-preview-canvas.clickable {
   cursor: crosshair;
-  border-color: #28a745;
+  border-color: var(--sc-color-success);
   box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2);
 }
 
@@ -5229,7 +5229,7 @@ select {
 }
 
 .placement-hint {
-  color: #28a745;
+  color: var(--sc-color-success);
   font-size: 0.9rem;
   font-weight: 500;
   display: flex;
@@ -5238,7 +5238,7 @@ select {
 }
 
 .placement-hint i {
-  color: #28a745;
+  color: var(--sc-color-success);
 }
 
 /* 未选择地图时的提示信息 */
@@ -5414,14 +5414,14 @@ select {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--sc-color-text);
   font-size: 0.9rem;
 }
 
 .map-name-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--sc-color-border);
   border-radius: 8px;
   font-size: 1rem;
   transition: all 0.2s ease;
@@ -5442,7 +5442,7 @@ select {
 
 .char-counter {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--sc-color-text-secondary);
   font-weight: 500;
 }
 
@@ -5456,7 +5456,7 @@ select {
   background-color: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 6px;
-  color: #dc2626;
+  color: var(--sc-color-error);
   font-size: 0.85rem;
   display: flex;
   align-items: center;
@@ -5464,7 +5464,7 @@ select {
 }
 
 .error-message i {
-  color: #dc2626;
+  color: var(--sc-color-error);
 }
 
 .modal-actions {
@@ -5502,7 +5502,7 @@ select {
 }
 
 .btn-primary:disabled {
-  background: #9ca3af;
+  background: var(--sc-color-text-tertiary);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -5510,13 +5510,13 @@ select {
 
 .btn-secondary {
   background: #f3f4f6;
-  color: #374151;
+  color: var(--sc-color-text);
   border: 1px solid #d1d5db;
 }
 
 .btn-secondary:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
+  background: var(--sc-color-border);
+  border-color: var(--sc-color-text-tertiary);
   transform: translateY(-1px);
 }
 
@@ -5562,8 +5562,8 @@ select {
   padding: 0.75rem 2rem;
   border: none;
   border-radius: 8px 8px 0 0;
-  background: #f8f9fa;
-  color: #495057;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text);
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
@@ -5575,8 +5575,8 @@ select {
 }
 
 .config-tab-button:hover:not(.active) {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--sc-color-border);
+  color: var(--sc-color-text);
   transform: translateY(-2px);
 }
 
@@ -5622,13 +5622,13 @@ select {
 
 .section-description {
   margin: 0 0 1rem 0;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.4;
 }
 
 .tracker-list-management {
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: 8px;
   padding: 1.5rem;
 }
@@ -5642,7 +5642,7 @@ select {
 .tracker-input {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 6px;
   font-size: 0.9rem;
   font-family: monospace;
@@ -5657,7 +5657,7 @@ select {
 
 .add-button {
   padding: 0.75rem 1.2rem;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -5671,7 +5671,7 @@ select {
 }
 
 .add-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
 }
@@ -5684,7 +5684,7 @@ select {
 
 .tracker-list h4 {
   margin: 0 0 1rem 0;
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 1rem;
 }
 
@@ -5701,26 +5701,26 @@ select {
   align-items: center;
   padding: 0.75rem 1rem;
   background: white;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   border-radius: 6px;
   transition: all 0.2s ease;
 }
 
 .tracker-item:hover {
-  border-color: #adb5bd;
+  border-color: var(--sc-color-text-tertiary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tracker-eui {
   font-family: monospace;
   font-size: 0.9rem;
-  color: #495057;
+  color: var(--sc-color-text);
   font-weight: 500;
 }
 
 .remove-button {
   padding: 0.4rem 0.6rem;
-  background: #dc3545;
+  background: var(--sc-color-error);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5730,7 +5730,7 @@ select {
 }
 
 .remove-button:hover {
-  background: #c82333;
+  background: var(--sc-color-error);
   transform: translateY(-1px);
 }
 
@@ -5752,18 +5752,18 @@ select {
 }
 
 .save-button {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
   color: white;
 }
 
 .save-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, #004085 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
 
 .reload-button {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
 }
 
@@ -5775,7 +5775,7 @@ select {
 .empty-tracker-list {
   text-align: center;
   padding: 2rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .empty-icon {
@@ -5817,13 +5817,13 @@ select {
 .form-group label {
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--sc-color-text);
 }
 
 .form-input,
 .form-textarea {
   padding: 0.75rem;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   font-size: 0.9rem;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
@@ -5862,12 +5862,12 @@ select {
   text-align: center;
   margin-top: 2rem;
   padding-top: 2rem;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--sc-color-border);
 }
 
 .server-config-actions .save-button {
   padding: 0.75rem 2rem;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -5895,7 +5895,7 @@ select {
 .loading-state {
   text-align: center;
   padding: 3rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .loading-state i {
@@ -5910,7 +5910,7 @@ select {
 
 .header-actions .reload-button {
   padding: 0.5rem 1rem;
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5930,7 +5930,7 @@ select {
 
 .header-actions .edit-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, var(--sc-color-info) 100%);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5940,7 +5940,7 @@ select {
 }
 
 .header-actions .edit-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  background: linear-gradient(135deg, var(--sc-color-info) 0%, #004085 100%);
   transform: translateY(-1px);
 }
 
@@ -5951,7 +5951,7 @@ select {
 
 .header-actions .save-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5972,7 +5972,7 @@ select {
 
 .header-actions .cancel-button {
   padding: 0.5rem 1rem;
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -5993,7 +5993,7 @@ select {
 
 .header-actions .restart-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  background: linear-gradient(135deg, var(--sc-color-error) 0%, var(--sc-color-error) 100%);
   color: white;
   border: none;
   border-radius: 4px;
@@ -6007,7 +6007,7 @@ select {
 }
 
 .header-actions .restart-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+  background: linear-gradient(135deg, var(--sc-color-error) 0%, #a71e2a 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
 }
@@ -6025,10 +6025,10 @@ select {
 
 /* MQTT配置区域特殊样式 */
 .mqtt-config-section {
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
   border-radius: 8px;
   padding: 1.5rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   margin-bottom: 2rem;
 }
 
@@ -6038,7 +6038,7 @@ select {
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--sc-color-border);
 }
 
 .mqtt-title {
@@ -6054,7 +6054,7 @@ select {
 
 .mqtt-title h3 {
   margin: 0;
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 1.1rem;
   font-weight: 600;
 }
@@ -6085,7 +6085,7 @@ select {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: var(--sc-color-border);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -6104,7 +6104,7 @@ select {
 }
 
 .toggle-input:checked + .toggle-slider {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
 }
 
 .toggle-input:checked + .toggle-slider:before {
@@ -6113,17 +6113,17 @@ select {
 
 .toggle-label {
   font-weight: 500;
-  color: #495057;
+  color: var(--sc-color-text);
   min-width: 70px;
 }
 
 .mqtt-disabled-state {
   text-align: center;
   padding: 2rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   background: white;
   border-radius: 6px;
-  border: 2px dashed #dee2e6;
+  border: 2px dashed var(--sc-color-border);
 }
 
 .mqtt-disabled-state p {
@@ -6133,14 +6133,14 @@ select {
 
 .mqtt-disabled-state i {
   margin-right: 0.5rem;
-  color: #17a2b8;
+  color: var(--sc-color-info);
 }
 
 .mqtt-config-content {
   background: white;
   padding: 1.5rem;
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   animation: fadeIn 0.3s ease-in;
 }
 
@@ -6173,21 +6173,21 @@ select {
 
 .restriction-description i {
   margin-right: 0.5rem;
-  color: #17a2b8;
+  color: var(--sc-color-info);
 }
 
 /* Allow All状态样式调整 */
 .mqtt-disabled-state {
   text-align: center;
   padding: 2rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   background: white;
   border-radius: 6px;
-  border: 2px dashed #dee2e6;
+  border: 2px dashed var(--sc-color-border);
 }
 
 .mqtt-disabled-state .fas.fa-unlock {
-  color: #28a745;
+  color: var(--sc-color-success);
 }
 
 /* Webhook配置专用样式 */
@@ -6201,7 +6201,7 @@ select {
 .form-group-inline label {
   min-width: 100px;
   font-weight: 500;
-  color: #495057;
+  color: var(--sc-color-text);
   margin-bottom: 0;
 }
 
@@ -6215,16 +6215,16 @@ select {
 
 .webhook-headers-section h4 {
   margin: 0 0 1rem 0;
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 1rem;
   font-weight: 600;
 }
 
 .webhook-headers-management {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   border-radius: 6px;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
 }
 
 .header-add-section {
@@ -6241,7 +6241,7 @@ select {
 .header-value-input {
   flex: 1;
   padding: 0.5rem;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   font-size: 0.9rem;
 }
@@ -6252,7 +6252,7 @@ select {
 
 .add-header-button {
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   color: white;
   border: none;
   border-radius: 4px;
@@ -6274,14 +6274,14 @@ select {
 }
 
 .headers-list {
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid var(--sc-color-border);
   padding-top: 1rem;
 }
 
 .headers-list-title {
   margin-bottom: 0.75rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--sc-color-text);
 }
 
 .header-items {
@@ -6296,7 +6296,7 @@ select {
   justify-content: space-between;
   padding: 0.75rem;
   background: white;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
 }
 
@@ -6309,22 +6309,22 @@ select {
 
 .header-name {
   font-weight: 600;
-  color: #495057;
+  color: var(--sc-color-text);
   min-width: 120px;
 }
 
 .header-value {
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-family: 'Courier New', monospace;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   padding: 0.25rem 0.5rem;
   border-radius: 3px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
 }
 
 .remove-header-button {
   padding: 0.25rem 0.5rem;
-  background: #dc3545;
+  background: var(--sc-color-error);
   color: white;
   border: none;
   border-radius: 3px;
@@ -6334,19 +6334,19 @@ select {
 }
 
 .remove-header-button:hover {
-  background: #c82333;
+  background: var(--sc-color-error);
 }
 
 .empty-headers {
   text-align: center;
   padding: 2rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .empty-headers .empty-icon {
   font-size: 2rem;
   margin-bottom: 0.5rem;
-  color: #adb5bd;
+  color: var(--sc-color-text-tertiary);
 }
 
 .empty-headers p {
@@ -6435,20 +6435,20 @@ select {
 .password-placeholder {
   font-family: monospace;
   font-size: 1.1rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   letter-spacing: 2px;
 }
 
 .password-hint {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-style: italic;
 }
 
 .change-password-button {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
-  color: #495057;
+  background: linear-gradient(135deg, var(--sc-color-warning) 0%, #ff8c00 100%);
+  color: var(--sc-color-text);
   border: none;
   border-radius: 6px;
   font-weight: 500;
@@ -6485,7 +6485,7 @@ select {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--sc-color-border);
 }
 
 .modal-header h4 {
@@ -6499,7 +6499,7 @@ select {
 }
 
 .modal-header h4 i {
-  color: #ffc107;
+  color: var(--sc-color-warning);
 }
 
 .modal-close-button {
@@ -6507,15 +6507,15 @@ select {
   background: none;
   border: none;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-size: 1.2rem;
   transition: color 0.3s ease;
   border-radius: 4px;
 }
 
 .modal-close-button:hover {
-  color: #495057;
-  background: #f8f9fa;
+  color: var(--sc-color-text);
+  background: var(--sc-color-bg-layout);
 }
 
 .modal-body {
@@ -6527,7 +6527,7 @@ select {
   gap: 0.75rem;
   justify-content: flex-end;
   padding-top: 1rem;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--sc-color-border);
 }
 
 .password-modal .form-group {
@@ -6537,14 +6537,14 @@ select {
 .password-modal .form-group label {
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--sc-color-text);
   font-size: 0.9rem;
 }
 
 .password-modal .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--sc-color-border);
   border-radius: 6px;
   font-size: 0.95rem;
   transition: all 0.2s ease;
@@ -6553,18 +6553,18 @@ select {
 
 .password-modal .form-input:focus {
   outline: none;
-  border-color: #ffc107;
+  border-color: var(--sc-color-warning);
   box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.1);
 }
 
 .password-modal .form-input.error {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
   box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
 
 .password-modal .error-message {
   margin-top: 0.5rem;
-  color: #dc2626;
+  color: var(--sc-color-error);
   font-size: 0.8rem;
   font-weight: 500;
 }
@@ -6578,13 +6578,13 @@ select {
 
 .password-placeholder {
   flex: 1;
-  background-color: #f8f9fa;
-  color: #6c757d;
+  background-color: var(--sc-color-bg-layout);
+  color: var(--sc-color-text-secondary);
   cursor: not-allowed;
 }
 
 .set-credentials-btn {
-  background: #28a745;
+  background: var(--sc-color-success);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -6596,11 +6596,11 @@ select {
 }
 
 .set-credentials-btn:hover:not(:disabled) {
-  background: #218838;
+  background: var(--sc-color-success);
 }
 
 .set-credentials-btn:disabled {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   cursor: not-allowed;
 }
 
@@ -6614,7 +6614,7 @@ select {
 
 .credentials-modal .modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--sc-color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -6622,7 +6622,7 @@ select {
 
 .credentials-modal .modal-header h3 {
   margin: 0;
-  color: #1f2937;
+  color: var(--sc-color-text);
   font-size: 1.25rem;
 }
 
@@ -6632,14 +6632,14 @@ select {
 
 .credentials-modal .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--sc-color-border);
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
 }
 
 .credentials-modal .save-btn {
-  background: #007bff;
+  background: var(--sc-color-info);
   color: white;
   border: none;
   padding: 0.5rem 1.5rem;
@@ -6650,16 +6650,16 @@ select {
 }
 
 .credentials-modal .save-btn:hover:not(:disabled) {
-  background: #0056b3;
+  background: var(--sc-color-info);
 }
 
 .credentials-modal .save-btn:disabled {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   cursor: not-allowed;
 }
 
 .credentials-modal .cancel-btn {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
   border: none;
   padding: 0.5rem 1.5rem;
@@ -6676,7 +6676,7 @@ select {
 .credentials-modal .close-btn {
   background: none;
   border: none;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   cursor: pointer;
   font-size: 1.25rem;
   padding: 0.25rem;
@@ -6685,29 +6685,29 @@ select {
 }
 
 .credentials-modal .close-btn:hover {
-  color: #dc3545;
+  color: var(--sc-color-error);
 }
 
 .credentials-modal .error-message {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: var(--sc-status-danger-bg);
+  color: var(--sc-status-danger-fg);
+  border: 1px solid var(--sc-status-danger-bg);
   border-radius: 4px;
   font-size: 0.9rem;
 }
 
 /* 必填字段样式 */
 .required-indicator {
-  color: #dc3545;
+  color: var(--sc-color-error);
   font-weight: bold;
   margin-left: 2px;
 }
 
 /* 自动生成标签样式 */
 .auto-generated-label {
-  color: #17a2b8;
+  color: var(--sc-color-info);
   font-weight: normal;
   font-size: 0.85rem;
   margin-left: 0.5rem;
@@ -6716,10 +6716,10 @@ select {
 
 /* 只读输入框样式 */
 .readonly-input {
-  background-color: #f8f9fa !important;
-  color: #6c757d !important;
+  background-color: var(--sc-color-bg-layout) !important;
+  color: var(--sc-color-text-secondary) !important;
   cursor: not-allowed !important;
-  border-color: #dee2e6 !important;
+  border-color: var(--sc-color-border) !important;
 }
 
 .readonly-input:disabled {
@@ -6730,35 +6730,35 @@ select {
 .info-text {
   margin-top: 0.25rem;
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-style: italic;
   line-height: 1.4;
 }
 
 .form-input.error {
-  border-color: #dc3545 !important;
+  border-color: var(--sc-color-error) !important;
   box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
 }
 
 .error-message {
   display: block;
   margin-top: 0.5rem;
-  color: #dc3545;
+  color: var(--sc-color-error);
   font-size: 0.8rem;
   font-weight: 500;
 }
 
 /* 增强必填字段的视觉提示 */
 .form-group:has(.required-indicator) .form-input {
-  border-left: 3px solid #007bff;
+  border-left: 3px solid var(--sc-color-info);
 }
 
 .form-group:has(.required-indicator) .form-input:focus {
-  border-left: 3px solid #007bff;
+  border-left: 3px solid var(--sc-color-info);
 }
 
 .form-group:has(.required-indicator) .form-input.error {
-  border-left: 3px solid #dc3545;
+  border-left: 3px solid var(--sc-color-error);
 }
 
 /* 密码修改成功提示弹窗样式 */
@@ -6778,7 +6778,7 @@ select {
 
 .success-icon i {
   font-size: 3rem;
-  color: #28a745;
+  color: var(--sc-color-success);
   animation: successPulse 1s ease-in-out;
 }
 
@@ -6799,25 +6799,25 @@ select {
 
 .success-modal h3 {
   margin: 0 0 0.5rem 0;
-  color: #28a745;
+  color: var(--sc-color-success);
   font-size: 1.3rem;
   font-weight: 600;
 }
 
 .success-modal p {
   margin: 0 0 1.5rem 0;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-size: 1rem;
 }
 
 .success-btn {
   min-width: 120px;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   box-shadow: 0 3px 6px rgba(40, 167, 69, 0.3);
 }
 
 .success-btn:hover {
-  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  background: linear-gradient(135deg, var(--sc-color-success) 0%, var(--sc-color-success) 100%);
   transform: translateY(-2px);
   box-shadow: 0 5px 12px rgba(40, 167, 69, 0.4);
 }

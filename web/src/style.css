@@ -1,27 +1,33 @@
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
 
 :root {
-  --primary-color: #73C74D; /* More yellow-ish Green */
-  --primary-color-dark: #5EAE3E; /* Darker shade of new Green */
-  --secondary-color: #5F6368; /* Medium Gray for secondary text/elements */
-  --success-color: #73C74D; /* Using primary green for success */
-  --danger-color: #F56C6C; /* SenseCraft Danger Red */
-  --warning-color: #E6A23C; /* SenseCraft Warning Orange */
-  --info-color: #5F6368; /* Using secondary gray for info text */
-  --info-bg-color: #e7f3ff; /* Background for info banners */
-  --light-blue-accent-color: #AED6F1; /* Light blue for specific accent buttons */
-  --light-color: #f4f4f5; /* Light gray, similar to SenseCraft background */
-  --dark-color: #303133;  /* Dark Header/Text (kept dark gray for contrast if needed elsewhere) */
-  --text-color: #303133; /* Dark gray for general text */
-  --background-color: #f4f4f5; /* Page Background */
-  --card-background: #FFFFFF; /* White cards */
-  --card-header-background: #f7f7f7; /* Gray for card headers */
-  --border-color: #DCDFE6; /* Lighter gray borders */
-  --border-radius: 0.5rem; /* Increased border-radius for more rounded elements */
-  --box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+  /* 全部映射到 sensecraft-ui-kit 的 --sc-* token（见 styles/sc-tokens.css），
+     保留旧变量名是为了不改动 20+ 个组件里已有的 var(--primary-color) 引用。 */
+  --primary-color: var(--sc-color-primary);
+  --primary-color-dark: var(--sc-color-primary-active);
+  --primary-color-hover: var(--sc-color-primary-hover);
+  --secondary-color: var(--sc-color-text-secondary);
+  --success-color: var(--sc-color-success);
+  --danger-color: var(--sc-color-error);
+  --warning-color: var(--sc-color-warning);
+  --info-color: var(--sc-color-info);
+  --info-bg-color: var(--sc-status-normal-bg);
+  --light-blue-accent-color: var(--sc-color-info);
+  --light-color: var(--sc-color-bg-layout);
+  --dark-color: var(--sc-color-text);
+  --text-color: var(--sc-color-text);
+  --text-secondary-color: var(--sc-color-text-secondary);
+  --text-tertiary-color: var(--sc-color-text-tertiary);
+  --background-color: var(--sc-color-bg-layout);
+  --card-background: var(--sc-color-bg-container);
+  --card-header-background: var(--sc-color-bg-layout);
+  --border-color: var(--sc-color-border);
+  --border-radius: var(--sc-radius-md);
+  --border-radius-lg: var(--sc-radius-lg);
+  --box-shadow: 0 1px 3px 0 rgba(140, 192, 32, 0.1);
 
   /* Default font settings from original style.css, can be adjusted */
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--sc-font-sans);
   line-height: 1.5;
   font-weight: 400;
   
@@ -36,7 +42,7 @@
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* More specific font from app */
+  font-family: var(--sc-font-sans);
   margin: 0;
   background-color: var(--background-color);
   color: var(--text-color);
@@ -205,8 +211,8 @@ button:disabled, .button:disabled {
   color: var(--text-color); /* Dark text for contrast on light blue */
 }
 .button-light-blue:hover {
-  background-color: #97c5e6; /* Slightly darker blue on hover */
-  border-color: #97c5e6;
+  background-color: var(--sc-color-primary-hover);
+  border-color: var(--sc-color-primary-hover);
   color: var(--text-color);
 }
 
@@ -242,10 +248,10 @@ button:disabled, .button:disabled {
   align-items: center;
   gap: 0.5rem;
 }
-.status-display.success { background-color: #e6ffed; border-left: 4px solid var(--success-color); color: #1d6c32; }
-.status-display.info { background-color: #e7f3ff; border-left: 4px solid var(--info-color); color: #0c5460; }
-.status-display.error { background-color: #fff3f3; border-left: 4px solid var(--danger-color); color: #721c24; }
-.status-display.warning { background-color: #fff8e1; border-left: 4px solid var(--warning-color); color: #665120; }
+.status-display.success { background-color: var(--sc-status-normal-bg); border-left: 4px solid var(--sc-status-normal-fg); color: var(--sc-status-normal-fg); }
+.status-display.info { background-color: var(--sc-color-bg-layout); border-left: 4px solid var(--sc-color-info); color: var(--sc-color-info); }
+.status-display.error { background-color: var(--sc-status-danger-bg); border-left: 4px solid var(--sc-status-danger-fg); color: var(--sc-status-danger-fg); }
+.status-display.warning { background-color: var(--sc-status-warning-bg); border-left: 4px solid var(--sc-status-warning-fg); color: var(--sc-status-warning-fg); }
 
 
 /* MQTT Status Indicator specific styles (from LiveMapView) */
@@ -259,7 +265,7 @@ button:disabled, .button:disabled {
   gap: 0.3rem;
 }
 .mqtt-status-indicator.success { background-color: var(--success-color); }
-.mqtt-status-indicator.warn { background-color: var(--warning-color); color: #333; } 
+.mqtt-status-indicator.warn { background-color: var(--warning-color); color: var(--sc-color-text); } 
 .mqtt-status-indicator.error { background-color: var(--danger-color); }
 .mqtt-status-indicator.info { background-color: var(--info-color); }
 

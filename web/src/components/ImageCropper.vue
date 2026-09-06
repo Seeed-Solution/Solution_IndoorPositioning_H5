@@ -1072,8 +1072,8 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 16px;
   padding: 16px 20px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  background: var(--sc-color-bg-layout);
+  border-bottom: 1px solid var(--sc-color-border);
   align-items: center;
 }
 
@@ -1085,7 +1085,7 @@ onUnmounted(() => {
 
 .control-group label {
   font-size: 14px;
-  color: #495057;
+  color: var(--sc-color-text);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1094,18 +1094,18 @@ onUnmounted(() => {
   padding: 6px 12px;
   font-size: 14px;
   font-weight: 500;
-  color: #495057;
-  background: #f8f9fa;
+  color: var(--sc-color-text);
+  background: var(--sc-color-bg-layout);
   border-radius: 4px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
 }
 
 .action-btn {
   padding: 8px 16px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   background: white;
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1132,7 +1132,7 @@ onUnmounted(() => {
   width: 100%;
   min-height: 400px;
   max-height: 600px;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   overflow: hidden;
 }
 
@@ -1152,8 +1152,8 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  background: #f8f9fa;
-  border-top: 1px solid #e9ecef;
+  background: var(--sc-color-bg-layout);
+  border-top: 1px solid var(--sc-color-border);
 }
 
 .btn-cancel,
@@ -1168,12 +1168,12 @@ onUnmounted(() => {
 }
 
 .btn-cancel {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--sc-color-border);
+  color: var(--sc-color-text);
 }
 
 .btn-cancel:hover {
-  background: #dee2e6;
+  background: var(--sc-color-border);
 }
 
 .btn-confirm {
@@ -1188,20 +1188,20 @@ onUnmounted(() => {
 
 .preview-section {
   padding: 20px;
-  background: #f8f9fa;
-  border-top: 1px solid #e9ecef;
+  background: var(--sc-color-bg-layout);
+  border-top: 1px solid var(--sc-color-border);
 }
 
 .preview-section h4 {
   margin: 0 0 12px 0;
   font-size: 16px;
-  color: #495057;
+  color: var(--sc-color-text);
 }
 
 .preview-img {
   max-width: 100%;
   max-height: 300px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

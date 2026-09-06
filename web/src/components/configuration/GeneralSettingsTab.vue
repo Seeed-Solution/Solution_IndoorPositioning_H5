@@ -117,10 +117,10 @@ defineExpose({ loadSettings, getCurrentSettings });
 }
 
 .settings-display {
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
 }
 
 .setting-item {
@@ -146,7 +146,7 @@ defineExpose({ loadSettings, getCurrentSettings });
   background: white;
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   min-width: 60px;
 }
 
@@ -198,19 +198,19 @@ defineExpose({ loadSettings, getCurrentSettings });
 }
 
 .secondary-btn {
-  background: #f8f9fa;
-  color: #495057;
-  border: 1px solid #dee2e6;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text);
+  border: 1px solid var(--sc-color-border);
 }
 
 .secondary-btn:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
+  background: var(--sc-color-border);
+  border-color: var(--sc-color-text-tertiary);
 }
 
 .info {
   font-size: 0.85em;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   margin-top: 0.5rem;
   line-height: 1.4;
 }

@@ -525,8 +525,8 @@ defineExpose({ loadConfiguration, redrawMap });
 .upload-section {
   margin-bottom: 1rem;
   padding: 0.5rem;
-  border: 1px dashed #ccc;
-  background-color: #f9f9f9;
+  border: 1px dashed var(--sc-color-border);
+  background-color: var(--sc-color-bg-layout);
 }
 .upload-section label {
   display: block;
@@ -540,7 +540,7 @@ canvas {
 }
 .info {
   font-size: 0.9em;
-  color: #555;
+  color: var(--sc-color-text-secondary);
   margin-top: 0.5rem;
 }
 
@@ -578,9 +578,9 @@ button {
 
 .example-textarea {
   width: 100%;
-  background-color: #f8f9fa; /* Slightly different background for readonly */
-  color: #495057;
-  border: 1px solid #ced4da;
+  background-color: var(--sc-color-bg-layout); /* Slightly different background for readonly */
+  color: var(--sc-color-text);
+  border: 1px solid var(--sc-color-border);
   border-radius: var(--border-radius);
   padding: 0.5rem;
   font-family: monospace;

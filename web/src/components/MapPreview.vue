@@ -732,7 +732,7 @@ defineExpose({
 .tracker-list-aside {
   width: 300px;
   flex-shrink: 0;
-  background-color: #f9f9f9;
+  background-color: var(--sc-color-bg-layout);
   padding: 0.75rem;
   border-radius: 4px;
   border: 1px solid #eee;
@@ -742,7 +742,7 @@ defineExpose({
 
 .tracker-list-aside h4 {
   margin: 0;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .tracker-list-aside ul {
@@ -771,25 +771,25 @@ defineExpose({
   border-bottom: none;
 }
 .tracker-item strong {
-  color: #0056b3;
+  color: var(--sc-color-info);
   display: block;
   margin-bottom: 3px;
 }
 .tracker-pos {
-  color: #333;
+  color: var(--sc-color-text);
   font-size: 0.95em;
   margin-bottom: 3px;
 }
 .tracker-pos-area {
-  color: #28a745;
+  color: var(--sc-color-success);
   background-color: rgba(40, 167, 69, 0.1);
   padding: 4px 6px;
   border-radius: 4px;
-  border-left: 3px solid #28a745;
+  border-left: 3px solid var(--sc-color-success);
 }
 .tracker-beacon-info {
   font-size: 0.85em;
-  color: #666;
+  color: var(--sc-color-text-secondary);
   margin-top: 2px;
   font-style: italic;
 }
@@ -801,7 +801,7 @@ defineExpose({
 }
 .tracker-meta-group {
   font-size: 0.85em;
-  color: #555;
+  color: var(--sc-color-text-secondary);
 }
 .tracker-meta-item {
   margin-top: 2px;
@@ -820,7 +820,7 @@ defineExpose({
 .tracker-sos-time {
   font-size: 0.8em;
   font-weight: normal;
-  color: #666;
+  color: var(--sc-color-text-secondary);
   margin-top: 2px;
 }
 
@@ -829,8 +829,8 @@ defineExpose({
   padding: 4px 8px;
   font-size: 0.75em;
   background-color: #fff;
-  border: 1px solid #ccc;
-  color: #333;
+  border: 1px solid var(--sc-color-border);
+  color: var(--sc-color-text);
   border-radius: 3px;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -848,7 +848,7 @@ defineExpose({
     padding: 5px 8px;
     border-radius: 3px;
     font-size: 0.85em;
-    color: #666;
+    color: var(--sc-color-text-secondary);
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 canvas {
@@ -888,7 +888,7 @@ canvas {
 }
 
 .loading-content span {
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 0.9rem;
 }
 
@@ -899,7 +899,7 @@ canvas {
   align-items: center;
   margin-top: 1rem;
   padding: 1rem 0.5rem 0.5rem;
-  border-top: 2px solid #f1f3f4;
+  border-top: 2px solid var(--sc-color-bg-layout);
   background: linear-gradient(to bottom, transparent 0%, #fafbfc 100%);
 }
 
@@ -907,7 +907,7 @@ canvas {
   padding: 0.5rem 1rem;
   border: 1px solid #e3e6ea;
   background: white;
-  color: #495057;
+  color: var(--sc-color-text);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -930,18 +930,18 @@ canvas {
 .page-button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  background: #f8f9fa;
-  color: #adb5bd;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text-tertiary);
 }
 
 .page-info {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-weight: 500;
   background: white;
   padding: 0.25rem 0.75rem;
   border-radius: 6px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
   text-align: center;
 }
 

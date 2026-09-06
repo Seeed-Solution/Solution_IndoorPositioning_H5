@@ -307,15 +307,15 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e9ecef;
-  background: #f8f9fa;
+  border-bottom: 1px solid var(--sc-color-border);
+  background: var(--sc-color-bg-layout);
 }
 
 .modal-title {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .btn-close {
@@ -323,7 +323,7 @@ onMounted(() => {
   height: 32px;
   border: none;
   background: none;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   cursor: pointer;
   border-radius: 6px;
   display: flex;
@@ -334,8 +334,8 @@ onMounted(() => {
 }
 
 .btn-close:hover {
-  background: #e9ecef;
-  color: #333;
+  background: var(--sc-color-border);
+  color: var(--sc-color-text);
 }
 
 .modal-body {
@@ -356,14 +356,14 @@ onMounted(() => {
   display: block;
   font-size: 0.95rem;
   font-weight: 500;
-  color: #333;
+  color: var(--sc-color-text);
   margin-bottom: 0.5rem;
 }
 
 .form-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 8px;
   font-size: 0.95rem;
   transition: all 0.2s;
@@ -373,22 +373,22 @@ onMounted(() => {
 
 .form-input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .form-input.readonly {
-  background-color: #f8f9fa;
-  color: #6c757d;
+  background-color: var(--sc-color-bg-layout);
+  color: var(--sc-color-text-secondary);
   cursor: not-allowed;
 }
 
 .form-input.error {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
 }
 
 .form-input.error:focus {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
   box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
 
@@ -399,7 +399,7 @@ onMounted(() => {
 .form-select {
   width: 100%;
   padding: 0.75rem 2.5rem 0.75rem 1rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 8px;
   font-size: 0.95rem;
   transition: all 0.2s;
@@ -411,16 +411,16 @@ onMounted(() => {
 
 .form-select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .form-select.error {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
 }
 
 .form-select.error:focus {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
   box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
 
@@ -429,7 +429,7 @@ onMounted(() => {
   right: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   pointer-events: none;
   font-size: 0.8rem;
 }
@@ -460,14 +460,14 @@ onMounted(() => {
 .star-toggle-slider {
   width: 52px;
   height: 28px;
-  background-color: #ccc;
+  background-color: var(--sc-color-border);
   border-radius: 14px;
   position: relative;
   transition: background-color 0.3s;
 }
 
 .star-toggle-input:checked + .star-toggle-label .star-toggle-slider {
-  background-color: #007bff;
+  background-color: var(--sc-color-info);
 }
 
 .star-toggle-knob {
@@ -489,10 +489,10 @@ onMounted(() => {
 .error-message {
   margin-top: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
+  background-color: var(--sc-status-danger-bg);
+  border: 1px solid var(--sc-status-danger-bg);
   border-radius: 6px;
-  color: #721c24;
+  color: var(--sc-status-danger-fg);
   font-size: 0.85rem;
   display: flex;
   align-items: center;
@@ -503,17 +503,17 @@ onMounted(() => {
   content: "\f071";
   font-family: "Font Awesome 5 Free";
   font-weight: 900;
-  color: #dc3545;
+  color: var(--sc-color-error);
   flex-shrink: 0;
 }
 
 .general-error-message {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
+  background-color: var(--sc-status-danger-bg);
+  border: 1px solid var(--sc-status-danger-bg);
   border-radius: 8px;
-  color: #721c24;
+  color: var(--sc-status-danger-fg);
   font-size: 0.9rem;
   display: flex;
   align-items: center;
@@ -524,7 +524,7 @@ onMounted(() => {
   content: "\f071";
   font-family: "Font Awesome 5 Free";
   font-weight: 900;
-  color: #dc3545;
+  color: var(--sc-color-error);
   flex-shrink: 0;
 }
 
@@ -533,8 +533,8 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 1rem;
   padding: 1.5rem 2rem;
-  border-top: 1px solid #e9ecef;
-  background: #f8f9fa;
+  border-top: 1px solid var(--sc-color-border);
+  background: var(--sc-color-bg-layout);
 }
 
 .btn {
@@ -553,7 +553,7 @@ onMounted(() => {
 }
 
 .btn-cancel {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
 }
 
@@ -562,16 +562,16 @@ onMounted(() => {
 }
 
 .btn-save {
-  background: #007bff;
+  background: var(--sc-color-info);
   color: white;
 }
 
 .btn-save:hover:not(:disabled) {
-  background: #0056b3;
+  background: var(--sc-color-info);
 }
 
 .btn:disabled {
-  background: #adb5bd;
+  background: var(--sc-color-text-tertiary);
   cursor: not-allowed;
   opacity: 0.7;
 }

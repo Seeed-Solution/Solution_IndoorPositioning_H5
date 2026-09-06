@@ -1480,7 +1480,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .tracker-filter-controls {
@@ -1497,10 +1497,10 @@ onUnmounted(() => {
 .group-filter-button {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid var(--border-color, #ddd);
+  border: 2px solid var(--border-color, var(--sc-color-border));
   border-radius: var(--border-radius, 4px);
   background-color: var(--card-background, white);
-  color: var(--text-color, #333);
+  color: var(--text-color, var(--sc-color-text));
   font-size: 0.95rem;
   text-align: center;
   cursor: pointer;
@@ -1515,7 +1515,7 @@ onUnmounted(() => {
 }
 
 .group-filter-button:hover:not(:disabled) {
-  border-color: var(--primary-color, #0056b3);
+  border-color: var(--primary-color, var(--sc-color-info));
   box-shadow: 0 0 0 2px rgba(115, 199, 77, 0.1);
 }
 
@@ -1526,7 +1526,7 @@ onUnmounted(() => {
 
 .dropdown-icon {
   transition: transform 0.2s ease;
-  color: var(--secondary-color, #6c757d);
+  color: var(--secondary-color, var(--sc-color-text-secondary));
 }
 
 .dropdown-icon.rotated {
@@ -1540,12 +1540,12 @@ onUnmounted(() => {
 }
 
 .selected-icon {
-  color: var(--primary-color, #0056b3);
+  color: var(--primary-color, var(--sc-color-info));
   font-size: 0.8rem;
 }
 
 .selected-count {
-  color: var(--primary-color, #0056b3);
+  color: var(--primary-color, var(--sc-color-info));
   font-weight: 600;
   margin-left: 0.25rem;
 }
@@ -1559,9 +1559,9 @@ onUnmounted(() => {
 .btn-icon {
   width: 48px;
   height: 48px;
-  border: 2px solid var(--border-color, #ddd);
+  border: 2px solid var(--border-color, var(--sc-color-border));
   background-color: var(--card-background, white);
-  color: var(--text-color, #333);
+  color: var(--text-color, var(--sc-color-text));
   border-radius: var(--border-radius, 4px);
   cursor: pointer;
   display: flex;
@@ -1577,9 +1577,9 @@ onUnmounted(() => {
 }
 
 .btn-icon:hover {
-  border-color: var(--primary-color, #0056b3);
+  border-color: var(--primary-color, var(--sc-color-info));
   box-shadow: 0 0 0 2px rgba(115, 199, 77, 0.1);
-  color: var(--primary-color, #0056b3);
+  color: var(--primary-color, var(--sc-color-info));
 }
 
 .group-actions-dropdown {
@@ -1591,7 +1591,7 @@ onUnmounted(() => {
   top: 100%;
   right: 0;
   background-color: var(--card-background, white);
-  border: 2px solid var(--border-color, #ddd);
+  border: 2px solid var(--border-color, var(--sc-color-border));
   border-radius: var(--border-radius, 4px);
   box-shadow: var(--box-shadow, 0 4px 12px rgba(0, 0, 0, 0.15));
   z-index: 1000;
@@ -1607,7 +1607,7 @@ onUnmounted(() => {
   padding: 0.75rem 1rem;
   cursor: pointer;
   font-size: 0.95rem;
-  color: var(--text-color, #333);
+  color: var(--text-color, var(--sc-color-text));
   transition: background-color 0.2s;
   white-space: nowrap;
 }
@@ -1619,7 +1619,7 @@ onUnmounted(() => {
 .group-menu-item i {
   width: 16px;
   text-align: center;
-  color: var(--secondary-color, #6c757d);
+  color: var(--secondary-color, var(--sc-color-text-secondary));
   font-size: 0.85rem;
 }
 
@@ -1632,14 +1632,14 @@ onUnmounted(() => {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--sc-color-border);
 }
 
 .filter-tab {
   padding: 0.75rem 1rem;
   border: none;
   background: none;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
@@ -1651,17 +1651,17 @@ onUnmounted(() => {
 }
 
 .filter-tab:hover {
-  color: #0056b3;
+  color: var(--sc-color-info);
 }
 
 .filter-tab.active {
-  color: #0056b3;
-  border-bottom-color: #0056b3;
+  color: var(--sc-color-info);
+  border-bottom-color: var(--sc-color-info);
 }
 
 .filter-count {
-  background: #e9ecef;
-  color: #6c757d;
+  background: var(--sc-color-border);
+  color: var(--sc-color-text-secondary);
   padding: 0.2rem 0.5rem;
   border-radius: 12px;
   font-size: 0.8rem;
@@ -1669,7 +1669,7 @@ onUnmounted(() => {
 }
 
 .filter-tab.active .filter-count {
-  background: #0056b3;
+  background: var(--sc-color-info);
   color: white;
 }
 
@@ -1685,23 +1685,23 @@ onUnmounted(() => {
 }
 
 .tracker-table th {
-  background: #f8f9fa;
-  color: #495057;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text);
   font-weight: 600;
   padding: 0.75rem;
   text-align: left;
-  border-bottom: 2px solid #dee2e6;
+  border-bottom: 2px solid var(--sc-color-border);
   white-space: nowrap;
 }
 
 .tracker-table td {
   padding: 0.75rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--sc-color-border);
   vertical-align: middle;
 }
 
 .tracker-row:hover {
-  background-color: #f8f9fa;
+  background-color: var(--sc-color-bg-layout);
 }
 
 .device-info {
@@ -1710,18 +1710,18 @@ onUnmounted(() => {
 
 .device-name {
   font-weight: 600;
-  color: #333;
+  color: var(--sc-color-text);
   margin-bottom: 0.25rem;
 }
 
 .device-id {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .sos-indicator {
   display: inline-block;
-  background-color: #dc3545;
+  background-color: var(--sc-color-error);
   color: white;
   font-size: 0.7rem;
   font-weight: 600;
@@ -1741,7 +1741,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.group-badge.blue { background: #e3f2fd; color: #1976d2; }
+.group-badge.blue { background: var(--sc-color-bg-layout); color: #1976d2; }
 .group-badge.green { background: #e8f5e8; color: #2e7d32; }
 .group-badge.orange { background: #fff3e0; color: #f57c00; }
 .group-badge.purple { background: #f3e5f5; color: #7b1fa2; }
@@ -1758,11 +1758,11 @@ onUnmounted(() => {
 }
 
 .status-icon.status-online {
-  color: #28a745;
+  color: var(--sc-color-success);
 }
 
 .status-icon.status-offline {
-  color: #dc3545;
+  color: var(--sc-color-error);
 }
 
 .status-text {
@@ -1770,11 +1770,11 @@ onUnmounted(() => {
 }
 
 .status-text.online {
-  color: #28a745;
+  color: var(--sc-color-success);
 }
 
 .status-text.offline {
-  color: #dc3545;
+  color: var(--sc-color-error);
 }
 
 .position-info {
@@ -1783,13 +1783,13 @@ onUnmounted(() => {
 
 .position-coords {
   font-weight: 500;
-  color: #333;
+  color: var(--sc-color-text);
   margin-bottom: 0.25rem;
 }
 
 .position-time {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1801,14 +1801,14 @@ onUnmounted(() => {
 }
 
 .precise-label {
-  color: #28a745;
+  color: var(--sc-color-success);
   background: rgba(40, 167, 69, 0.1);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
 }
 
 .area-label {
-  color: #17a2b8;
+  color: var(--sc-color-info);
   background: rgba(23, 162, 184, 0.1);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
@@ -1826,12 +1826,12 @@ onUnmounted(() => {
 
 .signal-strength {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .battery-info {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .tracker-actions {
@@ -1855,7 +1855,7 @@ onUnmounted(() => {
 
 .btn-star {
   background: none;
-  color: #ffc107;
+  color: var(--sc-color-warning);
 }
 
 .btn-star:hover {
@@ -1868,27 +1868,27 @@ onUnmounted(() => {
 
 .btn-edit {
   background: none;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .btn-edit:hover {
-  background: #e9ecef;
-  color: #0056b3;
+  background: var(--sc-color-border);
+  color: var(--sc-color-info);
 }
 
 .btn-alert {
   background: none;
-  color: #dc3545;
+  color: var(--sc-color-error);
 }
 
 .btn-alert:hover {
-  background: #f8d7da;
+  background: var(--sc-status-danger-bg);
 }
 
 .no-trackers {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .no-trackers i {
@@ -1900,9 +1900,9 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1rem 0.5rem 1rem;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--sc-color-border);
   margin-top: 1rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: 0 0 8px 8px;
   min-height: 60px;
   flex-wrap: nowrap;
@@ -1910,7 +1910,7 @@ onUnmounted(() => {
 
 .pagination-info {
   font-size: 0.9rem;
-  color: #495057;
+  color: var(--sc-color-text);
   font-weight: 500;
   flex: 1;
   min-width: 120px;
@@ -1929,9 +1929,9 @@ onUnmounted(() => {
 .btn-page {
   width: 22px;
   height: 22px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   background: white;
-  color: #495057;
+  color: var(--sc-color-text);
   border-radius: 3px;
   cursor: pointer;
   display: inline-flex;
@@ -1943,20 +1943,20 @@ onUnmounted(() => {
 }
 
 .btn-page:hover:not(:disabled) {
-  background: #e9ecef;
-  border-color: #adb5bd;
+  background: var(--sc-color-border);
+  border-color: var(--sc-color-text-tertiary);
 }
 
 .btn-page:disabled {
-  background: #f8f9fa;
-  color: #adb5bd;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text-tertiary);
   cursor: not-allowed;
-  border-color: #e9ecef;
+  border-color: var(--sc-color-border);
 }
 
 .page-info {
   font-weight: 600;
-  color: #495057;
+  color: var(--sc-color-text);
   min-width: 24px;
   text-align: center;
   padding: 0 0.5rem;
@@ -1979,10 +1979,10 @@ onUnmounted(() => {
 }
 
 .items-per-page-select {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   background: white;
-  color: #495057;
+  color: var(--sc-color-text);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -2002,17 +2002,17 @@ onUnmounted(() => {
 
 .items-per-page-select:focus {
   outline: none;
-  border-color: #0056b3;
+  border-color: var(--sc-color-info);
   box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.1);
 }
 
 .items-per-page-select:hover {
-  border-color: #adb5bd;
+  border-color: var(--sc-color-text-tertiary);
 }
 
 .per-page-label {
   font-size: 0.9rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-weight: 500;
   line-height: 22px;
   height: 22px;
@@ -2050,14 +2050,14 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--sc-color-border);
 }
 
 .modal-title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .btn-close {
@@ -2065,7 +2065,7 @@ onUnmounted(() => {
   height: 32px;
   border: none;
   background: none;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   cursor: pointer;
   border-radius: 4px;
   display: flex;
@@ -2075,8 +2075,8 @@ onUnmounted(() => {
 }
 
 .btn-close:hover {
-  background: #f8f9fa;
-  color: #333;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text);
 }
 
 .modal-body {
@@ -2091,12 +2091,12 @@ onUnmounted(() => {
   display: block;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #333;
+  color: var(--sc-color-text);
   margin-bottom: 0.5rem;
 }
 
 .required-star {
-  color: #dc3545;
+  color: var(--sc-color-error);
   margin-right: 0.25rem;
 }
 
@@ -2107,7 +2107,7 @@ onUnmounted(() => {
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 4px;
   font-size: 0.9rem;
   transition: border-color 0.2s;
@@ -2116,21 +2116,21 @@ onUnmounted(() => {
 
 .form-input:focus {
   outline: none;
-  border-color: #0056b3;
+  border-color: var(--sc-color-info);
   box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.1);
 }
 
 .form-input.error {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
 }
 
 .form-input.error:focus {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
   box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
 }
 
 .form-input:disabled {
-  background-color: #f8f9fa;
+  background-color: var(--sc-color-bg-layout);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -2140,16 +2140,16 @@ onUnmounted(() => {
   right: 0.75rem;
   bottom: -1.5rem;
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .error-message {
   margin-top: 0.5rem;
   padding: 0.5rem;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
+  background-color: var(--sc-status-danger-bg);
+  border: 1px solid var(--sc-status-danger-bg);
   border-radius: 4px;
-  color: #721c24;
+  color: var(--sc-status-danger-fg);
   font-size: 0.85rem;
   display: flex;
   align-items: center;
@@ -2160,12 +2160,12 @@ onUnmounted(() => {
   content: "\f071";
   font-family: "Font Awesome 5 Free";
   font-weight: 900;
-  color: #dc3545;
+  color: var(--sc-color-error);
   flex-shrink: 0;
 }
 
 .note-section {
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   border-radius: 4px;
   padding: 1rem;
   margin-top: 1rem;
@@ -2173,7 +2173,7 @@ onUnmounted(() => {
 
 .note-label {
   font-weight: 500;
-  color: #333;
+  color: var(--sc-color-text);
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
 }
@@ -2183,12 +2183,12 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   line-height: 1.4;
 }
 
 .note-icon {
-  color: #17a2b8;
+  color: var(--sc-color-info);
   margin-top: 0.1rem;
   flex-shrink: 0;
 }
@@ -2198,8 +2198,8 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #e9ecef;
-  background: #f8f9fa;
+  border-top: 1px solid var(--sc-color-border);
+  background: var(--sc-color-bg-layout);
 }
 
 .btn {
@@ -2214,7 +2214,7 @@ onUnmounted(() => {
 }
 
 .btn-cancel {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
 }
 
@@ -2223,7 +2223,7 @@ onUnmounted(() => {
 }
 
 .btn-create {
-  background: #0056b3;
+  background: var(--sc-color-info);
   color: white;
 }
 
@@ -2232,7 +2232,7 @@ onUnmounted(() => {
 }
 
 .btn-create:disabled {
-  background: #adb5bd;
+  background: var(--sc-color-text-tertiary);
   cursor: not-allowed;
 }
 
@@ -2256,7 +2256,7 @@ onUnmounted(() => {
 .modal-subtitle {
   margin: 0.5rem 0 0 0;
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   line-height: 1.4;
 }
 
@@ -2271,7 +2271,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .btn-create-new {
@@ -2279,7 +2279,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: #0056b3;
+  background: var(--sc-color-info);
   color: white;
   border: none;
   border-radius: 4px;
@@ -2293,7 +2293,7 @@ onUnmounted(() => {
 }
 
 .groups-table-container {
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 1rem;
@@ -2306,22 +2306,22 @@ onUnmounted(() => {
 }
 
 .groups-table th {
-  background: #f8f9fa;
-  color: #495057;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text);
   font-weight: 600;
   padding: 0.75rem;
   text-align: left;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--sc-color-border);
 }
 
 .groups-table td {
   padding: 0.75rem;
-  border-bottom: 1px solid #f1f3f4;
+  border-bottom: 1px solid var(--sc-color-bg-layout);
   vertical-align: middle;
 }
 
 .group-row:hover {
-  background-color: #f8f9fa;
+  background-color: var(--sc-color-bg-layout);
 }
 
 .group-name-cell {
@@ -2336,8 +2336,8 @@ onUnmounted(() => {
 
 .system-badge {
   padding: 0.2rem 0.5rem;
-  background: #e9ecef;
-  color: #6c757d;
+  background: var(--sc-color-border);
+  color: var(--sc-color-text-secondary);
   font-size: 0.7rem;
   border-radius: 12px;
   font-weight: 500;
@@ -2355,7 +2355,7 @@ onUnmounted(() => {
 .form-input-inline {
   width: 100%;
   padding: 0.5rem;
-  border: 2px solid #0056b3;
+  border: 2px solid var(--sc-color-info);
   border-radius: 4px;
   font-size: 0.9rem;
   box-sizing: border-box;
@@ -2368,16 +2368,16 @@ onUnmounted(() => {
 }
 
 .form-input-inline.error {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
 }
 
 .form-input-inline.error:focus {
-  border-color: #dc3545;
+  border-color: var(--sc-color-error);
   box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
 }
 
 .form-input-inline:disabled {
-  background-color: #f8f9fa;
+  background-color: var(--sc-color-bg-layout);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -2387,7 +2387,7 @@ onUnmounted(() => {
   right: 0.5rem;
   bottom: -1.2rem;
   font-size: 0.7rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .device-count-cell {
@@ -2396,7 +2396,7 @@ onUnmounted(() => {
 }
 
 .device-count {
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-size: 0.85rem;
 }
 
@@ -2427,39 +2427,39 @@ onUnmounted(() => {
 
 .btn-edit {
   background: none;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .btn-edit:hover {
-  background: #e9ecef;
-  color: #0056b3;
+  background: var(--sc-color-border);
+  color: var(--sc-color-info);
 }
 
 .btn-delete {
   background: none;
-  color: #dc3545;
+  color: var(--sc-color-error);
 }
 
 .btn-delete:hover:not(:disabled) {
-  background: #f8d7da;
+  background: var(--sc-status-danger-bg);
 }
 
 .btn-delete:disabled {
-  color: #adb5bd;
+  color: var(--sc-color-text-tertiary);
   cursor: not-allowed;
 }
 
 .btn-save {
-  background: #28a745;
+  background: var(--sc-color-success);
   color: white;
 }
 
 .btn-save:hover {
-  background: #218838;
+  background: var(--sc-color-success);
 }
 
 .btn-cancel-edit {
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
 }
 
@@ -2469,13 +2469,13 @@ onUnmounted(() => {
 
 .system-note {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-style: italic;
 }
 
 .btn-close-modal {
   padding: 0.75rem 1.5rem;
-  background: #6c757d;
+  background: var(--sc-color-text-secondary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -2494,7 +2494,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  background: linear-gradient(135deg, var(--sc-color-bg-layout) 0%, #f3e5f5 100%);
   border: 1px solid #b3e5fc;
   border-radius: 6px;
   margin-bottom: 1rem;
@@ -2531,8 +2531,8 @@ onUnmounted(() => {
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: white;
-  color: #666;
-  border: 1px solid #ddd;
+  color: var(--sc-color-text-secondary);
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   font-size: 0.85rem;
   cursor: pointer;
@@ -2540,9 +2540,9 @@ onUnmounted(() => {
 }
 
 .btn-clear-selection:hover {
-  background: #f5f5f5;
+  background: var(--sc-color-bg-layout);
   border-color: #bbb;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .btn-clear-selection i {
@@ -2560,7 +2560,7 @@ onUnmounted(() => {
 .select-checkbox {
   width: 16px;
   height: 16px;
-  accent-color: var(--primary-color, #0056b3);
+  accent-color: var(--primary-color, var(--sc-color-info));
   cursor: pointer;
 }
 
@@ -2583,13 +2583,13 @@ onUnmounted(() => {
   margin: 0 0 1rem 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .selected-devices-list {
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   padding: 0.5rem;
 }
@@ -2599,7 +2599,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem;
-  border-bottom: 1px solid #f1f3f4;
+  border-bottom: 1px solid var(--sc-color-bg-layout);
   font-size: 0.9rem;
 }
 
@@ -2609,13 +2609,13 @@ onUnmounted(() => {
 
 .selected-device-item .device-name {
   font-weight: 500;
-  color: #333;
+  color: var(--sc-color-text);
 }
 
 .selected-device-item .device-group {
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
   font-size: 0.8rem;
-  background: #f8f9fa;
+  background: var(--sc-color-bg-layout);
   padding: 0.2rem 0.5rem;
   border-radius: 12px;
 }
@@ -2627,7 +2627,7 @@ onUnmounted(() => {
 .target-group-select {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--sc-color-border);
   border-radius: 4px;
   font-size: 0.9rem;
   background: white;
@@ -2636,12 +2636,12 @@ onUnmounted(() => {
 
 .target-group-select:focus {
   outline: none;
-  border-color: #0056b3;
+  border-color: var(--sc-color-info);
   box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.1);
 }
 
 .btn-move {
-  background: #0056b3;
+  background: var(--sc-color-info);
   color: white;
 }
 
@@ -2650,7 +2650,7 @@ onUnmounted(() => {
 }
 
 .btn-move:disabled {
-  background: #adb5bd;
+  background: var(--sc-color-text-tertiary);
   cursor: not-allowed;
 }
 

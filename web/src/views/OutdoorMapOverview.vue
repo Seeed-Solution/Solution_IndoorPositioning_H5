@@ -106,11 +106,11 @@ onUnmounted(() => {
 }
 
 .status-value.connected { color: #188038; }
-.status-value.disconnected { color: #d93025; }
+.status-value.disconnected { color: var(--sc-color-error); }
 
 .outdoor-wrapper {
   height: 70vh;
-  border: 1px solid #e3e5e8;
+  border: 1px solid var(--sc-color-border);
   border-radius: 6px;
   overflow: hidden;
 }

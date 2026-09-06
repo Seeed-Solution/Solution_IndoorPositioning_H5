@@ -333,8 +333,8 @@ watch(() => props.modelValue, (value) => {
 }
 
 .gf-btn-primary {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: var(--sc-color-info);
+  border-color: var(--sc-color-info);
   color: #fff;
 }
 
@@ -346,7 +346,7 @@ watch(() => props.modelValue, (value) => {
 
 .gf-hint {
   margin: 0;
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
   font-size: 12px;
 }
 
@@ -358,19 +358,19 @@ watch(() => props.modelValue, (value) => {
 .gf-map {
   height: 320px;
   width: 100%;
-  border: 1px solid #e3e5e8;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
 }
 
 .gf-error {
   margin: 0;
-  color: #d93025;
+  color: var(--sc-color-error);
   font-size: 12px;
 }
 
 .gf-list-title {
   font-size: 12px;
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
   margin-bottom: 4px;
 }
 
@@ -405,7 +405,7 @@ watch(() => props.modelValue, (value) => {
 }
 
 .gf-kind {
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
   font-size: 12px;
   margin-left: 8px;
 }
@@ -413,7 +413,7 @@ watch(() => props.modelValue, (value) => {
 .gf-del {
   border: none;
   background: none;
-  color: #d93025;
+  color: var(--sc-color-error);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;

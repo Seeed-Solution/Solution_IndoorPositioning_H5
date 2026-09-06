@@ -142,17 +142,17 @@ defineExpose({
 }
 
 .toast-success {
-  border-left-color: var(--primary-color, #73c74d);
+  border-left-color: var(--primary-color, var(--sc-color-primary));
   background-color: #f0f9ed;
 }
 
 .toast-error {
-  border-left-color: var(--danger-color, #f56c6c);
+  border-left-color: var(--danger-color, var(--sc-color-error));
   background-color: #fef0f0;
 }
 
 .toast-warning {
-  border-left-color: #e6a23c;
+  border-left-color: var(--sc-color-warning);
   background-color: #fdf6ec;
 }
 
@@ -172,15 +172,15 @@ defineExpose({
 }
 
 .toast-success .toast-icon {
-  color: var(--primary-color, #73c74d);
+  color: var(--primary-color, var(--sc-color-primary));
 }
 
 .toast-error .toast-icon {
-  color: var(--danger-color, #f56c6c);
+  color: var(--danger-color, var(--sc-color-error));
 }
 
 .toast-warning .toast-icon {
-  color: #e6a23c;
+  color: var(--sc-color-warning);
 }
 
 .toast-info .toast-icon {
@@ -195,7 +195,7 @@ defineExpose({
 .toast-message {
   font-size: 14px;
   line-height: 1.5;
-  color: var(--text-color, #333333);
+  color: var(--text-color, var(--sc-color-text));
   word-wrap: break-word;
 }
 
@@ -216,7 +216,7 @@ defineExpose({
 }
 
 .toast-close:hover {
-  color: var(--text-color, #333333);
+  color: var(--text-color, var(--sc-color-text));
   background-color: rgba(0, 0, 0, 0.05);
 }
 

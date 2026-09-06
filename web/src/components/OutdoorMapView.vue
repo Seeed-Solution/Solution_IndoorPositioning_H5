@@ -600,7 +600,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   padding: 8px 12px;
   font-size: 13px;
   background: #f7f8fa;
-  border-bottom: 1px solid #e3e5e8;
+  border-bottom: 1px solid var(--sc-color-border);
   flex-wrap: wrap;
 }
 
@@ -614,7 +614,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 
 .tracker-count {
   margin-left: auto;
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
 }
 
 .outdoor-body {
@@ -641,8 +641,8 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 }
 
 .reg-toggle.active {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: var(--sc-color-info);
+  border-color: var(--sc-color-info);
   color: #fff;
 }
 
@@ -653,7 +653,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   gap: 8px 14px;
   padding: 8px 12px;
   background: #fff;
-  border-bottom: 1px solid #e3e5e8;
+  border-bottom: 1px solid var(--sc-color-border);
   font-size: 13px;
 }
 
@@ -673,7 +673,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 }
 
 .reg-field span {
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -703,21 +703,21 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 }
 
 .reg-modes button.active {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: var(--sc-color-info);
+  border-color: var(--sc-color-info);
   color: #fff;
 }
 
 .reg-hint {
   flex-basis: 100%;
   margin: 0;
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
 }
 
 .reg-error {
   flex-basis: 100%;
   margin: 0;
-  color: #d93025;
+  color: var(--sc-color-error);
 }
 
 .reg-status {
@@ -743,8 +743,8 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
 }
 
 .reg-actions button.primary {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: var(--sc-color-info);
+  border-color: var(--sc-color-info);
   color: #fff;
 }
 
@@ -757,7 +757,7 @@ watch([() => props.trackers, () => props.maps, showTrails], redraw, { deep: true
   padding: 6px 10px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.9);
-  color: #5f6368;
+  color: var(--sc-color-text-secondary);
   font-size: 13px;
 }
 </style>

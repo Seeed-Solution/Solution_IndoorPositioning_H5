@@ -425,9 +425,9 @@ defineExpose({
   padding: 0.75rem;
   border-radius: 6px;
   font-size: 0.9em;
-  background-color: #f8d7da; 
-  border: 1px solid #f5c6cb; 
-  color: #721c24; 
+  background-color: var(--sc-status-danger-bg); 
+  border: 1px solid var(--sc-status-danger-bg); 
+  color: var(--sc-status-danger-fg); 
 }
 
 table {
@@ -436,7 +436,7 @@ table {
   margin-bottom: 1rem;
 }
 th, td {
-  border: 1px solid #ddd;
+  border: 1px solid var(--sc-color-border);
   padding: 8px;
   text-align: left;
 }
@@ -448,14 +448,14 @@ th {
   justify-content: center;
   align-items: center;
   min-height: 200px;
-  border: 2px dashed #e0e0e0;
+  border: 2px dashed var(--sc-color-border);
   border-radius: 8px;
   margin: 1rem 0;
 }
 
 .empty-state-content {
   text-align: center;
-  color: #6c757d;
+  color: var(--sc-color-text-secondary);
 }
 
 .empty-state-icon {
@@ -467,7 +467,7 @@ th {
 .empty-state h4 {
   margin: 0 0 0.5rem 0;
   font-size: 1.2rem;
-  color: #495057;
+  color: var(--sc-color-text);
 }
 
 .empty-state p {
@@ -507,7 +507,7 @@ th {
   margin-top: 0;
   margin-bottom: 20px;
   font-size: 1.3em;
-  color: #333;
+  color: var(--sc-color-text);
   flex-shrink: 0;
 }
 .modal-content form {
@@ -529,7 +529,7 @@ th {
   padding-right: 8px;
   margin-right: -8px;
   scrollbar-width: thin;
-  scrollbar-color: #888 #f1f1f1;
+  scrollbar-color: var(--sc-color-text-tertiary) #f1f1f1;
   touch-action: pan-y;
 }
 .modal-content .form-scrollable::-webkit-scrollbar {
@@ -541,30 +541,30 @@ th {
   margin: 5px 0;
 }
 .modal-content .form-scrollable::-webkit-scrollbar-thumb {
-  background: #888;
+  background: var(--sc-color-text-tertiary);
   border-radius: 4px;
 }
 .modal-content .form-scrollable::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--sc-color-text-secondary);
 }
 .modal-content form label {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
-  color: #555;
+  color: var(--sc-color-text-secondary);
 }
 .modal-content form input[type="text"],
 .modal-content form input[type="number"] {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 0.95em;
 }
 .modal-content form input[type="text"]:focus,
 .modal-content form input[type="number"]:focus {
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
   outline: none;
 }
 .modal-content form .coordinate-actions {
@@ -596,20 +596,20 @@ th {
   padding: 10px 18px;
 }
 .modal-actions button[type="submit"] {
-  background-color: #007bff;
+  background-color: var(--sc-color-info);
   color: white;
   border: none;
 }
 .modal-actions button[type="submit"]:hover {
-  background-color: #0056b3;
+  background-color: var(--sc-color-info);
 }
 .modal-actions button[type="button"] {
   background-color: #f0f0f0;
-  color: #333;
-  border: 1px solid #ccc;
+  color: var(--sc-color-text);
+  border: 1px solid var(--sc-color-border);
 }
 .modal-actions button[type="button"]:hover {
-  background-color: #e0e0e0;
+  background-color: var(--sc-color-border);
 }
 
 .beacon-actions-container {
