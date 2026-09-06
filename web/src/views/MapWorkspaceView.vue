@@ -175,6 +175,7 @@ import { loadDashboardConfiguration, loadTrackers } from '@/services/configApiSe
 import { buildWsUrl } from '@/config/api.js';
 import { MODE_DISPLAY, parseMapQuery, serializeMapState, sameQuery } from '@/utils/mapUrlState.js';
 import { createFitScheduler } from '@/utils/displayCamera.js';
+import { createWakeLock } from '@/utils/wakeLock.js';
 import { loadDisplayConfig } from '@/config/display.js';
 import { getCurrentUsername } from '@/services/userStore.js';
 import { createMapController } from '@/controllers/mapPageController.js';
@@ -234,6 +235,13 @@ const updatedAtText = computed(() => {
 const exitDisplayMode = () => {
   router.push('/config');
 };
+
+// 防熄屏: 只在展示模式里申请, 不支持/被拒静默 (spec §9.5)
+const wakeLock = createWakeLock();
+watch(displayMode, (on) => {
+  if (on) wakeLock.start();
+  else wakeLock.stop();
+});
 
 const wsStatusText = computed(() => t(`mapOverview.connectionStatus.${wsStatus.value}`, wsStatus.value));
 
@@ -531,11 +539,15 @@ onMounted(async () => {
   await loadConfig();
   await preloadTrackers();
   connectWebSocket();
-  if (displayMode.value) nextTick(() => controller.fitAll());
+  if (displayMode.value) {
+    wakeLock.start();
+    nextTick(() => controller.fitAll());
+  }
 });
 
 onUnmounted(() => {
   fitScheduler.cancel();
+  wakeLock.stop();
   if (stopLayoutWatch) {
     stopLayoutWatch();
     stopLayoutWatch = null;

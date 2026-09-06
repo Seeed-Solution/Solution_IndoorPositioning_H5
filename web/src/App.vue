@@ -28,7 +28,9 @@ import AppShell from './components/AppShell.vue'
 import Toast from './components/Toast.vue'
 import { authService } from './services/authService.js'
 import { getCurrentUsername } from './services/userStore.js'
-import { isDisplayRoute } from './utils/mapUrlState.js'
+import { DISPLAY_PATH, isDisplayRoute } from './utils/mapUrlState.js'
+import { createIdleWatcher } from './utils/idleReturn.js'
+import { loadDisplayConfig } from './config/display.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -110,6 +112,31 @@ onUnmounted(() => {
     observer.disconnect()
   }
 })
+
+// 空闲回展示模式 (spec §9.1): 非展示页面上 idleReturnMinutes 分钟没有
+// 指针/键盘/滚动动作就自动回去。登录页不计时, 0 分钟表示关闭。
+const displayConfig = loadDisplayConfig()
+const idleWatcher = createIdleWatcher({
+  minutes: displayConfig.idleReturnMinutes,
+  onIdle: () => {
+    if (isLoginPage.value || isDisplayMode.value) return
+    // replace: 空闲回退不该在历史里堆一层
+    router.replace(DISPLAY_PATH)
+  },
+})
+
+const syncIdleWatcher = () => {
+  if (!isLoginPage.value && !isDisplayMode.value) {
+    if (idleWatcher.running) idleWatcher.poke()
+    else idleWatcher.start()
+  } else {
+    idleWatcher.stop()
+  }
+}
+
+watch(() => route.fullPath, syncIdleWatcher)
+onMounted(syncIdleWatcher)
+onUnmounted(() => idleWatcher.stop())
 
 const handleLogout = async () => {
   try {
