@@ -79,9 +79,12 @@ export function createMapController({
 
   /**
    * 数据刷新后调用：选中的设备还在就什么都不做（选择必须扛得住 5s 轮询），
-   * 没了才清掉选择。
+   * 没了才清掉选择。悬停同理：设备被刷掉时 marker 直接消失，不会再有
+   * mouseout/pointerleave 把 hover 收回来，留着会让下一个同 id 的设备莫名放大。
    */
   const reconcile = () => {
+    const hovered = getHovered?.();
+    if (hovered && !lookup(hovered)) setHovered('');
     const id = state().tracker;
     if (!id) return;
     if (!lookup(id)) clearSelection();
@@ -101,6 +104,8 @@ export function createMapController({
   const setLayer = (layer) => {
     const next = layer === LAYER_OUTDOOR ? LAYER_OUTDOOR : LAYER_INDOOR;
     if (next === state().layer) return false;
+    // 换层要连 hover 一起收掉: 旧图层的 marker 被整体拆掉, mouseout 不会发出来
+    setHovered('');
     setState({ layer: next }, { history: 'push' });
     return true;
   };

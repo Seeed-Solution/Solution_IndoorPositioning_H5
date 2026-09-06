@@ -157,6 +157,20 @@ describe('reconcile', () => {
     ctx.controller.reconcile();
     expect(ctx.history).toHaveLength(0);
   });
+
+  it('悬停的设备消失后把 hover 清掉', () => {
+    ctx.controller.hoverTracker('T1');
+    expect(ctx.getHovered()).toBe('T1');
+    delete ctx.trackers.T1;
+    ctx.controller.reconcile();
+    expect(ctx.getHovered()).toBe('');
+  });
+
+  it('悬停的设备还在就不动 hover', () => {
+    ctx.controller.hoverTracker('T1');
+    ctx.controller.reconcile();
+    expect(ctx.getHovered()).toBe('T1');
+  });
 });
 
 describe('setLayer / layerOf', () => {
@@ -166,6 +180,13 @@ describe('setLayer / layerOf', () => {
     expect(history).toHaveLength(0);
     expect(controller.setLayer('outdoor')).toBe(true);
     expect(history[0].history).toBe('push');
+  });
+
+  it('换图层时清掉 hover', () => {
+    const { controller, getHovered } = setup({ layer: 'indoor' });
+    controller.hoverTracker('T1');
+    controller.setLayer('outdoor');
+    expect(getHovered()).toBe('');
   });
 
   it('layerOf 复用 isOutdoorTracker：室内类型带残留经纬度仍是室内', () => {
