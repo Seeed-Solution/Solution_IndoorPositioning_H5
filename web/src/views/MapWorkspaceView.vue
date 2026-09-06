@@ -188,9 +188,12 @@ const controller = createMapController({
   },
   getHovered: () => hoveredId.value,
   setHovered: (id) => { hoveredId.value = id || ''; },
+  // 居中要等一次 DOM flush: 两套地图都是先重绘再对外提供目标位置
+  // (canvas 的 hitTargets / Leaflet 的 markerRegistry)。选中刚好换了楼层、
+  // 换了图层或设备是这轮新出现的时候, 同步调用拿到的是上一帧的目标, 直接静默不居中。
   focusHandlers: {
-    indoor: (id) => indoorMapRef.value?.focusTracker?.(id),
-    outdoor: (id) => outdoorMapRef.value?.focusTracker?.(id),
+    indoor: (id) => { nextTick(() => indoorMapRef.value?.focusTracker?.(id)); },
+    outdoor: (id) => { nextTick(() => outdoorMapRef.value?.focusTracker?.(id)); },
   },
 });
 
