@@ -370,7 +370,8 @@
       "invalidTargetGroup": "选择的目标分组无效",
       "failedToMoveDevices": "移动设备失败",
       "failedToUpdateDevice": "更新设备失败",
-      "failedToSaveDevice": "保存设备信息失败，请重试"
+      "failedToSaveDevice": "保存设备信息失败，请重试",
+      "searchPlaceholder": "搜索名称或 EUI"
     },
     "editTrackerModal": {
       "title": "编辑设备信息",

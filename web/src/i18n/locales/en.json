@@ -369,7 +369,8 @@
       "invalidTargetGroup": "Invalid target group selected",
       "failedToMoveDevices": "Failed to move devices",
       "failedToUpdateDevice": "Failed to update device",
-      "failedToSaveDevice": "Failed to save device information. Please try again."
+      "failedToSaveDevice": "Failed to save device information. Please try again.",
+      "searchPlaceholder": "Search name or EUI"
     },
     "editTrackerModal": {
       "title": "Edit Device Information",

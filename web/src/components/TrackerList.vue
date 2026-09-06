@@ -1,5 +1,5 @@
 <template>
-  <div class="tracker-list-card card">
+  <div class="tracker-list-card card" :class="{ 'is-compact': compact }">
     <div class="card-content">
       <div class="tracker-list-header">
         <h3 class="tracker-list-title">{{ $t('tracker.trackerList.title') }}</h3>
@@ -56,6 +56,16 @@
         </div>
       </div>
 
+      <div v-if="compact" class="tracker-search">
+        <i class="fas fa-search tracker-search__icon"></i>
+        <input
+          v-model="searchText"
+          type="search"
+          class="tracker-search__input"
+          :placeholder="$t('tracker.trackerList.searchPlaceholder', 'Search name or EUI')"
+        />
+      </div>
+
       <div class="tracker-filter-tabs">
         <button 
           v-for="filter in filters" 
@@ -80,7 +90,38 @@
         </button>
       </div>
 
-      <div class="tracker-table-container">
+      <ul v-if="compact" class="tracker-compact-list">
+        <li
+          v-for="tracker in filteredTrackers"
+          :key="tracker.trackerId"
+          :ref="el => registerRowEl(tracker.trackerId, el)"
+          :class="['tracker-compact-item', {
+            'is-selected': tracker.trackerId === selectedId,
+            'is-hovered': tracker.trackerId === hoveredId,
+            'is-sos': tracker.sos === 1
+          }]"
+          @click="emit('select-tracker', tracker.trackerId)"
+          @mouseenter="emit('hover-tracker', tracker.trackerId)"
+          @mouseleave="emit('hover-tracker', null)"
+        >
+          <div class="tracker-compact-top">
+            <span class="tracker-compact-name">{{ tracker.name || tracker.trackerId }}</span>
+            <span :class="['sc-status-badge', getStatusBadgeClass(tracker.status)]">
+              {{ getStatusText(tracker.status) }}
+            </span>
+          </div>
+          <div class="tracker-compact-meta">
+            <span class="tracker-compact-map">{{ tracker.map || $t('common.unknown') }}</span>
+            <span v-if="tracker.sos === 1" class="sos-indicator">SOS</span>
+          </div>
+          <div class="tracker-compact-time">{{ formatLastKnownTime(tracker.timestamp) }}</div>
+        </li>
+        <li v-if="filteredTrackers.length === 0" class="tracker-compact-empty">
+          {{ $t('tracker.trackerList.noTrackers') }}
+        </li>
+      </ul>
+
+      <div v-else class="tracker-table-container">
         <table class="tracker-table">
           <thead>
             <tr>
@@ -101,7 +142,18 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="tracker in filteredTrackers" :key="tracker.trackerId" class="tracker-row">
+            <tr
+              v-for="tracker in filteredTrackers"
+              :key="tracker.trackerId"
+              :ref="el => registerRowEl(tracker.trackerId, el)"
+              :class="['tracker-row', {
+                'is-selected': tracker.trackerId === selectedId,
+                'is-hovered': tracker.trackerId === hoveredId
+              }]"
+              @click="emit('select-tracker', tracker.trackerId)"
+              @mouseenter="emit('hover-tracker', tracker.trackerId)"
+              @mouseleave="emit('hover-tracker', null)"
+            >
               <td class="checkbox-cell">
                 <input 
                   type="checkbox" 
@@ -531,16 +583,34 @@ const props = defineProps({
   trackers: {
     type: Object,
     default: () => ({})
+  },
+  // 紧凑模式: /map 左栏用竖排卡片代替宽表格，表格在 240-320px 里必然溢出。
+  compact: {
+    type: Boolean,
+    default: false
+  },
+  // 与地图联动的选中/悬停 tracker id（受控 prop，组件自身不持有它们）
+  selectedId: {
+    type: String,
+    default: ''
+  },
+  hoveredId: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['edit-tracker', 'add-tracker', 'toggle-star', 'show-alert', 'refresh-data'])
+const emit = defineEmits([
+  'edit-tracker', 'add-tracker', 'toggle-star', 'show-alert', 'refresh-data',
+  'select-tracker', 'hover-tracker'
+])
 
 // i18n - 只用于JavaScript函数中
 const { t } = useI18n()
 
 // 响应式数据
 const activeFilter = ref('all')
+const searchText = ref('')
 const selectedGroup = ref('')
 const currentPage = ref(1)
 const itemsPerPage = ref(20)
@@ -623,6 +693,15 @@ const filteredTrackersBeforePaging = computed(() => {
     filtered = filtered.filter(t => t.group === selectedGroup.value)
   }
 
+  // 按名称 / EUI 搜索（大小写不敏感）
+  const needle = searchText.value.trim().toLowerCase()
+  if (needle) {
+    filtered = filtered.filter(t =>
+      String(t.name || '').toLowerCase().includes(needle)
+      || String(t.trackerId || '').toLowerCase().includes(needle)
+    )
+  }
+
   return filtered
 })
 
@@ -671,6 +750,28 @@ const isGroupNameValid = computed(() => {
   }
   
   return { valid: true, error: '' }
+})
+
+// 选中行滚动到可视区: 地图上点一个点, 列表得跟着走。
+const rowEls = new Map()
+const registerRowEl = (id, el) => {
+  if (el) rowEls.set(id, el)
+  else rowEls.delete(id)
+}
+
+watch(() => props.selectedId, (id) => {
+  if (!id) return
+  nextTick(() => {
+    const el = rowEls.get(id)
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest' })
+    }
+  })
+})
+
+// 搜索/筛选变化后回到第一页, 否则会停在一个空白页
+watch([searchText, activeFilter, selectedGroup], () => {
+  currentPage.value = 1
 })
 
 // 辅助方法 - 处理复数形式的国际化文本
@@ -1484,6 +1585,139 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* --- 紧凑模式（/map 左栏） --- */
+.tracker-list-card.is-compact,
+.tracker-list-card.is-compact > .card-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.tracker-search {
+  position: relative;
+  margin: 0 0 8px;
+  min-width: 0;
+}
+
+.tracker-search__icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sc-color-text-tertiary);
+  font-size: 12px;
+}
+
+.tracker-search__input {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 7px 10px 7px 28px;
+  border: 1px solid var(--sc-color-border);
+  border-radius: var(--sc-radius-md);
+  font-size: 13px;
+}
+
+.tracker-compact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tracker-compact-item {
+  position: relative;
+  padding: 8px 10px 8px 13px;
+  border-bottom: 1px solid var(--sc-color-border);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.tracker-compact-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+}
+
+.tracker-compact-item.is-hovered {
+  background: var(--sc-color-bg-layout);
+}
+
+.tracker-compact-item.is-selected {
+  background: var(--sc-status-normal-bg);
+}
+
+.tracker-compact-item.is-selected::before {
+  background: var(--sc-color-primary);
+}
+
+.tracker-compact-item.is-sos::before {
+  background: var(--sc-color-error);
+}
+
+.tracker-compact-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tracker-compact-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--sc-color-text);
+}
+
+.tracker-compact-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.tracker-compact-map {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--sc-color-text-secondary);
+}
+
+.tracker-compact-time {
+  font-size: 11px;
+  color: var(--sc-color-text-tertiary);
+}
+
+.tracker-compact-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--sc-color-text-tertiary);
+  font-size: 13px;
+}
+
+.tracker-row.is-selected {
+  background: var(--sc-status-normal-bg);
+}
+
+.tracker-row.is-hovered {
+  background: var(--sc-color-bg-layout);
+}
+
 .tracker-list-card {
   margin-bottom: 1.5rem;
 }

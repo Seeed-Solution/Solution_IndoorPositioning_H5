@@ -1,8 +1,23 @@
 <!-- web/src/views/MapWorkspaceView.vue
-     /map: 定位业务的唯一入口。阶段 1 只承载「URL 状态 + 图层切换」,
-     三栏骨架与联动在后续阶段接入。 -->
+     /map: 定位业务的唯一入口。左栏常驻 tracker 列表, 中栏 indoor/outdoor
+     图层画布, 右栏 tracker 详情。界面状态全部编码在 URL query 里。 -->
 <template>
   <div class="map-workspace">
+    <!-- 左栏: 常驻 tracker 列表 -->
+    <aside class="ws-pane ws-pane--list" :class="{ 'is-open': listOpen }">
+      <TrackerList
+        :trackers="trackers"
+        compact
+        :selected-id="state.tracker"
+        :hovered-id="hoveredId"
+        @select-tracker="onSelectTracker"
+        @hover-tracker="onHoverTracker"
+        @refresh-data="preloadTrackers"
+      />
+    </aside>
+
+    <!-- 中栏: 地图 -->
+    <section class="ws-pane ws-pane--map">
     <div class="map-toolbar">
       <div class="layer-switch" role="group" aria-label="layer">
         <button
@@ -32,6 +47,8 @@
         </select>
       </label>
 
+      <span class="map-badge" v-if="selectedTracker">{{ layerBadge }}</span>
+
       <span class="ws-badge" :class="wsStatus">{{ wsStatusText }}</span>
     </div>
 
@@ -53,6 +70,16 @@
         <p>{{ t('mapOverview.selectMapToView') }}</p>
       </div>
     </div>
+    </section>
+
+    <!-- 右栏: 详情抽屉 -->
+    <aside class="ws-pane ws-pane--detail" :class="{ 'is-open': detailOpen }">
+      <TrackerDetailPanel
+        :tracker="selectedTracker"
+        @close="closeDetail"
+        @focus="onFocusTracker"
+      />
+    </aside>
   </div>
 </template>
 
@@ -62,6 +89,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import MapPreview from '@/components/MapPreview.vue';
 import OutdoorMapView from '@/components/OutdoorMapView.vue';
+import TrackerList from '@/components/TrackerList.vue';
+import TrackerDetailPanel from '@/components/TrackerDetailPanel.vue';
 import { isOutdoorTracker } from '@/utils/trail.js';
 import { loadDashboardConfiguration, loadTrackers } from '@/services/configApiService.js';
 import { buildWsUrl } from '@/config/api.js';
@@ -78,7 +107,37 @@ const trackers = ref({});
 const wsStatus = ref('disconnected');
 const ws = ref(null);
 
+const hoveredId = ref('');
+
 const wsStatusText = computed(() => t(`mapOverview.connectionStatus.${wsStatus.value}`, wsStatus.value));
+
+const selectedTracker = computed(() => trackers.value?.[state.value.tracker] || null);
+
+const listOpen = computed(() => state.value.panel === 'list');
+const detailOpen = computed(() => state.value.panel === 'detail' && !!state.value.tracker);
+
+const layerBadge = computed(() => {
+  const tr = selectedTracker.value;
+  if (!tr) return '';
+  if (isOutdoorTracker(tr)) return 'Outdoor · GNSS';
+  return tr.type === 'approximate' ? 'Indoor · BLE' : 'Indoor · Calculated';
+});
+
+const onSelectTracker = (id) => {
+  if (!id || !trackers.value?.[id]) return;
+  pushState({ tracker: id, panel: 'detail' });
+};
+
+const onHoverTracker = (id) => {
+  hoveredId.value = id || '';
+};
+
+const onFocusTracker = (id) => {
+  // 图层实现的 focus 在阶段 3 接入; 这里先保证选择状态一致。
+  onSelectTracker(id);
+};
+
+const closeDetail = () => replaceState({ panel: 'list' });
 
 const selectedMapName = computed({
   get() {
@@ -260,11 +319,55 @@ defineExpose({ state, replaceState, pushState });
 
 <style scoped>
 .map-workspace {
-  display: flex;
-  flex-direction: column;
+  /* >=1024: 240-320 列表 / minmax(0,1fr) 地图 / 280-360 详情。
+     详情关掉时第三列宽度归零, 地图吃掉它。 */
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) 0;
   min-width: 0;
+  width: 100%;
   height: calc(100vh - var(--sc-layout-header-height));
   box-sizing: border-box;
+  overflow: hidden;
+}
+
+.map-workspace:has(.ws-pane--detail.is-open) {
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(280px, 320px);
+}
+
+.ws-pane {
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.ws-pane--list {
+  border-right: 1px solid var(--sc-color-border);
+  background: var(--sc-color-bg-container);
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-pane--map {
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-pane--detail {
+  display: none;
+}
+
+.ws-pane--detail.is-open {
+  display: block;
+}
+
+.map-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--sc-status-normal-bg);
+  color: var(--sc-color-primary-active);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .map-toolbar {
