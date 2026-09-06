@@ -4,7 +4,8 @@
     "localMode": "Local Mode",
     "mapTracker": "Tracker",
     "mapDashboard": "Map Dashboard",
-    "outdoorMap": "Outdoor Map"
+    "outdoorMap": "Outdoor Map",
+    "map": "Map"
   },
   "mapDashboard": {
     "title": "Map Overview",
@@ -47,7 +48,10 @@
   },
   "map": {
     "mapDimensions": "Map Dimensions",
-    "loadConfiguration": "Load configuration to display map."
+    "loadConfiguration": "Load configuration to display map.",
+    "layerIndoor": "Indoor",
+    "layerOutdoor": "Outdoor",
+    "floor": "Floor plan"
   },
   "config": {
     "saveToServer": "Save to Server",

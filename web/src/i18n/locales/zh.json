@@ -4,7 +4,8 @@
     "localMode": "本地模式",
     "mapTracker": "追踪器",
     "mapDashboard": "地图仪表盘",
-    "outdoorMap": "室外地图"
+    "outdoorMap": "室外地图",
+    "map": "地图"
   },
   "mapDashboard": {
     "title": "地图总览",
@@ -47,7 +48,10 @@
   },
   "map": {
     "mapDimensions": "地图尺寸",
-    "loadConfiguration": "加载配置以显示地图。"
+    "loadConfiguration": "加载配置以显示地图。",
+    "layerIndoor": "室内",
+    "layerOutdoor": "室外",
+    "floor": "平面图"
   },
   "config": {
     "saveToServer": "保存配置到服务器",

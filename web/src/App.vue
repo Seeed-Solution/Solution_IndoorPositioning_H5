@@ -35,21 +35,20 @@ const { t } = useI18n()
 const isLoginPage = computed(() => route.path === '/login')
 
 // 侧栏菜单（结构对齐 kit AppShell 的 menuItems）
+// 业务入口收敛成 Map + Config 两项; 室内/室外在 /map 内部用图层控件切换。
 const menuItems = computed(() => [
-  { key: 'tracker', to: '/config-tracker', icon: 'fa-satellite-dish', label: t('nav.mapTracker') },
-  { key: 'indoor', to: '/map-overview', icon: 'fa-map', label: t('nav.mapDashboard') },
-  { key: 'outdoor', to: '/outdoor-map', icon: 'fa-globe-asia', label: t('nav.outdoorMap', 'Outdoor Map') },
+  { key: 'map', to: '/map', icon: 'fa-map-location-dot', label: t('nav.map', 'Map') },
   { key: 'config', to: '/config', icon: 'fa-sliders-h', label: t('nav.mapBeaconConfig') },
 ])
 
-const currentMenuItem = computed(() => menuItems.value.find((item) => item.to === route.path))
+const currentMenuItem = computed(() => menuItems.value.find((item) => route.path.startsWith(item.to)))
 const pageTitle = computed(() => currentMenuItem.value?.label ?? '')
 const breadcrumb = computed(() =>
   currentMenuItem.value ? [{ title: t('app.title', 'Indoor Positioning') }, { title: currentMenuItem.value.label }] : []
 )
 
 // 地图页内容区自带布局与全屏控件，外壳不加 padding
-const MAP_ROUTES = ['/map-overview', '/outdoor-map']
+const MAP_ROUTES = ['/map', '/legacy/map-overview', '/legacy/outdoor-map']
 const isMapPage = computed(() => MAP_ROUTES.includes(route.path))
 
 // 当前用户名（从全局状态获取）

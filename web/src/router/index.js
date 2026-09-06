@@ -4,8 +4,10 @@ import MapOverview from '@/views/MapOverview.vue'; // Import the new map overvie
 import LoginView from '@/views/LoginView.vue'; // Import the login view
 import ConfigurationSuiteView from '@/views/ConfigurationSuiteView.vue'; // Import the main config view
 import OutdoorMapOverview from '@/views/OutdoorMapOverview.vue'; // Outdoor (WGS84) map view
+import MapWorkspaceView from '@/views/MapWorkspaceView.vue'; // 统一地图工作台 /map
 
 import { authService } from '@/services/authService.js';
+import { LEGACY_ROUTE_MAP, MAP_PATH, migrateLastVisitedPage } from '@/utils/mapUrlState.js';
 
 const routes = [
   {
@@ -15,23 +17,36 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
-    path: '/config-tracker', // Define path for tracker mode
-    name: 'TrackerModeConfig', // This is the specific path for Tracker Mode if not default
+    // 旧页面组件保留一个发布周期作为回退入口, 路径加 /legacy 前缀, 不出现在导航里。
+    path: '/legacy/config-tracker',
+    name: 'TrackerModeConfig',
     component: TrackerModeConfigView, // Use the new component
     meta: { requiresAuth: true }
   },
   {
-    path: '/map-overview', // Define path for map overview
-    name: 'MapOverview', // Name for the map overview route
+    path: '/legacy/map-overview',
+    name: 'MapOverview',
     component: MapOverview, // Use the new component
     meta: { requiresAuth: true }
   },
   {
-    path: '/outdoor-map', // WGS84 / GNSS trackers on a Leaflet base map
+    path: '/legacy/outdoor-map',
     name: 'OutdoorMapOverview',
     component: OutdoorMapOverview,
     meta: { requiresAuth: true }
   },
+  {
+    path: MAP_PATH,
+    name: 'MapWorkspace',
+    component: MapWorkspaceView,
+    meta: { requiresAuth: true }
+  },
+  // 旧路由兼容: 开发环境（Vite）与 SPA 内部导航靠这里的 client redirect；
+  // 生产环境由 nginx 的 return 301 先接住（nginx.conf），两条路都要留。
+  ...Object.entries(LEGACY_ROUTE_MAP).map(([from, preset]) => ({
+    path: from,
+    redirect: () => ({ path: MAP_PATH, query: { ...preset } }),
+  })),
   {
     path: '/config',
     name: 'Configuration',
@@ -59,9 +74,14 @@ const getDefaultRoute = async () => {
     // }
     
     // 示例逻辑2：根据本地存储的用户偏好
-    const lastVisitedPage = localStorage.getItem('lastVisitedPage')
-    if (lastVisitedPage && lastVisitedPage !== '/login') {
-      return lastVisitedPage
+    // 旧版本存的是 /map-overview 之类的裸 path, 原样恢复会把用户送回下线页面。
+    const stored = localStorage.getItem('lastVisitedPage')
+    const migrated = migrateLastVisitedPage(stored)
+    if (migrated && migrated !== stored) {
+      localStorage.setItem('lastVisitedPage', migrated)
+    }
+    if (migrated) {
+      return migrated
     }
     
     // 示例逻辑3：根据时间段
@@ -78,11 +98,10 @@ const getDefaultRoute = async () => {
     //   return '/config'
     // }
     
-    // 默认返回 tracker 页面
-    return '/config-tracker'
+    return MAP_PATH
   } catch (error) {
     console.error('Error determining default route:', error)
-    return '/config-tracker' // 出错时的默认页面
+    return MAP_PATH
   }
 }
 
@@ -107,8 +126,9 @@ router.beforeEach(async (to, from, next) => {
         }
         
         // 记录用户访问的页面（用于下次登录时的智能跳转）
+        // 存 fullPath: /map 的界面状态全在 query 里, 只存 path 会把它丢干净。
         if (to.path !== '/login') {
-          localStorage.setItem('lastVisitedPage', to.path)
+          localStorage.setItem('lastVisitedPage', to.fullPath)
         }
         
         next() // 已登录，允许访问
