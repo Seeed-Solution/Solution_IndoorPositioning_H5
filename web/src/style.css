@@ -6,6 +6,11 @@
   --primary-color: var(--sc-color-primary);
   --primary-color-dark: var(--sc-color-primary-active);
   --primary-color-hover: var(--sc-color-primary-hover);
+  /* 白字承载色：primary(#8CC020) 对白仅 2.17:1，primary-active(#689a18) 也只有
+     3.37:1，均低于 WCAG AA 4.5:1；.button-primary 等白字按钮改用这个（对白 4.78:1）。
+     与 sensecraft-ui-kit Button 组件 token 用同一色值，见 sc-tokens.css。 */
+  --primary-button-bg: var(--sc-color-primary-dark);
+  --primary-button-bg-hover: var(--sc-color-primary-dark-hover);
   --secondary-color: var(--sc-color-text-secondary);
   --success-color: var(--sc-color-success);
   --danger-color: var(--sc-color-error);
@@ -179,7 +184,7 @@ button,
   gap: 0.4rem; 
   text-decoration: none; 
   color: white; /* Default text color for colored buttons */
-  background-color: var(--primary-color); /* Default to primary (green) */
+  background-color: var(--primary-button-bg); /* 白字承载，用 primary-dark 而非 primary（2.17:1 不达标） */
 }
 
 button:hover,
@@ -200,11 +205,13 @@ button:disabled, .button:disabled {
   /* color: #777; */
 }
 
-.button-primary { background-color: var(--primary-color); border-color: var(--primary-color); color: white; }
+/* 白字承载全部用 --primary-button-bg（primary-dark，对白 4.78:1），primary 本身
+   （对白 2.17:1）不再直接压白字，见 :root 里的注释与 sc-tokens.css。 */
+.button-primary { background-color: var(--primary-button-bg); border-color: var(--primary-button-bg); color: white; }
 .button-secondary { background-color: var(--secondary-color); border-color: var(--secondary-color); color: white; }
 .button-success { background-color: var(--success-color); border-color: var(--success-color); color: white; }
 .button-danger { background-color: var(--danger-color); border-color: var(--danger-color); color: white; }
-.button-default { background-color: var(--primary-color); border-color: var(--primary-color); color: white; } /* Explicitly style .button-default */
+.button-default { background-color: var(--primary-button-bg); border-color: var(--primary-button-bg); color: white; } /* Explicitly style .button-default */
 
 /* New button style for light blue accent */
 .button-light-blue {
@@ -222,14 +229,15 @@ button:disabled, .button:disabled {
 .button-link {
   background: none;
   border: none;
-  color: var(--primary-color);
+  /* 文字色不能用 primary（对白/透明底 2.17:1），改用 --primary-button-bg（primary-dark，4.78:1） */
+  color: var(--primary-button-bg);
   cursor: pointer;
   text-decoration: underline;
   padding: 5px;
   font-size: 0.9em;
 }
 .button-link:hover {
-  color: var(--primary-color-dark);
+  color: var(--primary-button-bg-hover);
   background-color: transparent; /* Ensure no background on hover */
   box-shadow: none;
 }
