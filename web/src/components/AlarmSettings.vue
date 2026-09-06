@@ -1746,28 +1746,28 @@ onBeforeUnmount(() => {
 }
 
 .alarm-type-sos {
-  background: #fee2e2;
-  color: var(--sc-color-error);
+  background: var(--sc-status-danger-bg);
+  color: var(--sc-status-danger-fg);
 }
 
 .alarm-type-offline {
-  background: var(--sc-color-border);
-  color: var(--sc-color-text-secondary);
+  background: var(--sc-status-warning-bg);
+  color: var(--sc-status-warning-fg);
 }
 
 .alarm-type-checkin {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-info);
 }
 
 .alarm-type-position {
-  background: #d1fae5;
-  color: #059669;
+  background: var(--sc-status-normal-bg);
+  color: var(--sc-status-normal-fg);
 }
 
 .alarm-type-default {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--sc-status-disabled-bg);
+  color: var(--sc-status-disabled-fg);
 }
 
 .alarm-status {
@@ -1835,11 +1835,11 @@ onBeforeUnmount(() => {
 }
 
 .status-text.enabled {
-  color: var(--sc-color-success);
+  color: var(--sc-status-normal-fg);
 }
 
 .status-text.disabled {
-  color: var(--sc-color-text-secondary);
+  color: var(--sc-status-disabled-fg);
 }
 
 .alarm-actions {

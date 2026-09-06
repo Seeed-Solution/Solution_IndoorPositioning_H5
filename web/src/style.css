@@ -254,6 +254,51 @@ button:disabled, .button:disabled {
 .status-display.warning { background-color: var(--sc-status-warning-bg); border-left: 4px solid var(--sc-status-warning-fg); color: var(--sc-status-warning-fg); }
 
 
+/* ---------------------------------------------------------------
+ * 状态四态（normal / warning / danger / disabled）
+ * 取自风格指南 §1.2，色值来自 sc-tokens.css 的 --sc-status-* 变量。
+ * 徽标本体 .sc-status-badge 已由 sc-tokens.css 提供，这里只补本工程
+ * 既有语义的别名，避免各组件各写一套配色。
+ *   在线/正常      -> normal
+ *   围栏告警/未连接 -> warning
+ *   离线/故障      -> danger
+ *   禁用/未知      -> disabled
+ * --------------------------------------------------------------- */
+.sc-status-badge.sc-status-online  { background: var(--sc-status-normal-bg);   color: var(--sc-status-normal-fg); }
+.sc-status-badge.sc-status-alarm   { background: var(--sc-status-warning-bg);  color: var(--sc-status-warning-fg); }
+.sc-status-badge.sc-status-offline { background: var(--sc-status-danger-bg);   color: var(--sc-status-danger-fg); }
+.sc-status-badge.sc-status-unknown { background: var(--sc-status-disabled-bg); color: var(--sc-status-disabled-fg); }
+
+/* ---------------------------------------------------------------
+ * 状态四态（normal / warning / danger / disabled）
+ * 取自风格指南 §1.2，色值来自 sc-tokens.css 的 --sc-status-* 变量。
+ * 徽标本体 .sc-status-badge 已由 sc-tokens.css 提供，这里只补本工程
+ * 既有语义的别名，避免各组件各写一套配色。
+ *   在线/正常      -> normal
+ *   围栏告警/未连接 -> warning
+ *   离线/故障      -> danger
+ *   禁用/未知      -> disabled
+ * --------------------------------------------------------------- */
+.sc-status-badge.sc-status-online  { background: var(--sc-status-normal-bg);   color: var(--sc-status-normal-fg); }
+.sc-status-badge.sc-status-alarm   { background: var(--sc-status-warning-bg);  color: var(--sc-status-warning-fg); }
+.sc-status-badge.sc-status-offline { background: var(--sc-status-danger-bg);   color: var(--sc-status-danger-fg); }
+.sc-status-badge.sc-status-unknown { background: var(--sc-status-disabled-bg); color: var(--sc-status-disabled-fg); }
+
+/* ---------------------------------------------------------------
+ * 状态四态（normal / warning / danger / disabled）
+ * 取自风格指南 §1.2，色值来自 sc-tokens.css 的 --sc-status-* 变量。
+ * 徽标本体 .sc-status-badge 已由 sc-tokens.css 提供，这里只补本工程
+ * 既有语义的别名，避免各组件各写一套配色。
+ *   在线/正常      -> normal
+ *   围栏告警/未连接 -> warning
+ *   离线/故障      -> danger
+ *   禁用/未知      -> disabled
+ * --------------------------------------------------------------- */
+.sc-status-badge.sc-status-online  { background: var(--sc-status-normal-bg);   color: var(--sc-status-normal-fg); }
+.sc-status-badge.sc-status-alarm   { background: var(--sc-status-warning-bg);  color: var(--sc-status-warning-fg); }
+.sc-status-badge.sc-status-offline { background: var(--sc-status-danger-bg);   color: var(--sc-status-danger-fg); }
+.sc-status-badge.sc-status-unknown { background: var(--sc-status-disabled-bg); color: var(--sc-status-disabled-fg); }
+
 /* MQTT Status Indicator specific styles (from LiveMapView) */
 .mqtt-status-indicator {
   padding: 0.3rem 0.7rem;
@@ -264,14 +309,14 @@ button:disabled, .button:disabled {
   align-items: center;
   gap: 0.3rem;
 }
-.mqtt-status-indicator.success { background-color: var(--success-color); }
-.mqtt-status-indicator.warn { background-color: var(--warning-color); color: var(--sc-color-text); } 
-.mqtt-status-indicator.error { background-color: var(--danger-color); }
-.mqtt-status-indicator.info { background-color: var(--info-color); }
+.mqtt-status-indicator.success { background-color: var(--sc-status-normal-fg); }
+.mqtt-status-indicator.warn { background-color: var(--sc-status-warning-fg); color: var(--sc-color-text); } 
+.mqtt-status-indicator.error { background-color: var(--sc-status-danger-fg); }
+.mqtt-status-indicator.info { background-color: var(--sc-status-disabled-fg); }
 
 /* Connection status text (used in LiveMapView WS status) */
-.status-connected { color: var(--success-color); font-weight: bold; }
-.status-disconnected { color: var(--danger-color); font-weight: bold; }
+.status-connected { color: var(--sc-status-normal-fg); font-weight: bold; }
+.status-disconnected { color: var(--sc-status-danger-fg); font-weight: bold; }
 
 /* General form styling */
 input[type="text"],

@@ -126,7 +126,7 @@
               <td class="status-cell">
                 <div class="status-indicator">
                   <i :class="['status-icon', getStatusIcon(tracker.status)]"></i>
-                  <span :class="['status-text', tracker.status?.toLowerCase()]">
+                  <span :class="['sc-status-badge', getStatusBadgeClass(tracker.status)]">
                     {{ getStatusText(tracker.status) }}
                   </span>
                 </div>
@@ -688,20 +688,34 @@ const getTrackerStatus = (tracker) => {
   // 完全依赖后端的online字段：'online'=在线，'offline'/'unknown'=离线
   if (tracker.online === 'online') {
     return 'online'
-  } else if (tracker.online === 'offline' || tracker.online === 'unknown') {
+  } else if (tracker.online === 'offline') {
     return 'offline'
+  } else if (tracker.online === 'unknown') {
+    return 'unknown'
   }
   
   // 如果没有online字段，默认为离线
   return 'offline'
 }
 
+// 四态映射（风格指南 §1.2）：在线=normal，未知=disabled，离线=danger
+const STATUS_BADGE_CLASS = {
+  online: 'sc-status-online',
+  unknown: 'sc-status-unknown',
+  offline: 'sc-status-offline',
+}
+
+const getStatusBadgeClass = (status) => STATUS_BADGE_CLASS[status] ?? 'sc-status-offline'
+
 const getStatusIcon = (status) => {
-  return status === 'online' ? 'fas fa-circle status-online' : 'fas fa-circle status-offline'
+  const key = status === 'online' ? 'online' : status === 'unknown' ? 'unknown' : 'offline'
+  return `fas fa-circle status-${key}`
 }
 
 const getStatusText = (status) => {
-  return status === 'online' ? t('tracker.trackerList.online') : t('tracker.trackerList.offline')
+  if (status === 'online') return t('tracker.trackerList.online')
+  if (status === 'unknown') return t('common.unknown')
+  return t('tracker.trackerList.offline')
 }
 
 const getGroupColor = (group) => {
@@ -1741,11 +1755,11 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.group-badge.blue { background: var(--sc-color-bg-layout); color: #1976d2; }
-.group-badge.green { background: #e8f5e8; color: #2e7d32; }
-.group-badge.orange { background: #fff3e0; color: #f57c00; }
-.group-badge.purple { background: #f3e5f5; color: #7b1fa2; }
-.group-badge.red { background: #ffebee; color: #c62828; }
+.group-badge.blue { background: var(--sc-color-bg-layout); color: var(--sc-color-info); }
+.group-badge.green { background: var(--sc-status-normal-bg); color: var(--sc-status-normal-fg); }
+.group-badge.orange { background: var(--sc-status-warning-bg); color: var(--sc-status-warning-fg); }
+.group-badge.purple { background: var(--sc-status-disabled-bg); color: var(--sc-status-disabled-fg); }
+.group-badge.red { background: var(--sc-status-danger-bg); color: var(--sc-status-danger-fg); }
 
 .status-indicator {
   display: flex;
@@ -1758,23 +1772,19 @@ onUnmounted(() => {
 }
 
 .status-icon.status-online {
-  color: var(--sc-color-success);
+  color: var(--sc-status-normal-fg);
 }
 
 .status-icon.status-offline {
-  color: var(--sc-color-error);
+  color: var(--sc-status-danger-fg);
+}
+
+.status-icon.status-unknown {
+  color: var(--sc-status-disabled-fg);
 }
 
 .status-text {
   font-weight: 500;
-}
-
-.status-text.online {
-  color: var(--sc-color-success);
-}
-
-.status-text.offline {
-  color: var(--sc-color-error);
 }
 
 .position-info {
