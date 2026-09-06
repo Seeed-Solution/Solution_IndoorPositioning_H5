@@ -100,9 +100,12 @@ onMounted(() => {
     typeof window !== 'undefined' ? window : null,
     (mode) => {
       const narrow = mode === LAYOUT_MOBILE
+      const wasNarrow = isMobile.value
       isMobile.value = narrow
-      // 窄屏侧栏是 off-canvas 覆盖层，宽度按展开算；关掉时整条滑出视口
-      collapsed.value = false
+      // 窄屏侧栏是 off-canvas 覆盖层，宽度按展开算；关掉时整条滑出视口。
+      // 只在进出窄屏这一刻复位，否则 tablet<->desktop 之间拖一下窗口就把用户
+      // 手动折叠的侧栏又展开了。
+      if (narrow !== wasNarrow) collapsed.value = false
       if (!narrow) mobileMenuOpen.value = false
     },
   )
