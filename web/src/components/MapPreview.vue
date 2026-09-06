@@ -676,14 +676,21 @@ const updateTooltip = (id, event) => {
 
 const onPointerDown = (event) => {
   if (!props.interactive) return;
+  // 只认第一根手指 / 主指针与鼠标左键: 双指时第二个 pointerdown 会把 panOrigin
+  // 挪到新触点上, 画面直接跳一段; 右键同理不该开始平移。
+  if (panOrigin || event.isPrimary === false) return;
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
   pointerMoved = false;
-  panOrigin = { x: event.clientX, y: event.clientY, view: { ...view.value } };
+  panOrigin = {
+    id: event.pointerId, x: event.clientX, y: event.clientY, view: { ...view.value },
+  };
   mapCanvas.value?.setPointerCapture?.(event.pointerId);
 };
 
 const onPointerMove = (event) => {
   if (!props.interactive) return;
   if (panOrigin) {
+    if (panOrigin.id !== event.pointerId) return;
     const dx = event.clientX - panOrigin.x;
     const dy = event.clientY - panOrigin.y;
     if (!pointerMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD_CSS) pointerMoved = true;
@@ -707,6 +714,8 @@ const onPointerMove = (event) => {
 
 const onPointerUp = (event) => {
   if (!props.interactive) return;
+  // 没被 pointerdown 认领的指针（第二根手指、右键）不参与选中与平移收尾
+  if (!panOrigin || panOrigin.id !== event.pointerId) return;
   mapCanvas.value?.releasePointerCapture?.(event.pointerId);
   const wasDrag = pointerMoved;
   panOrigin = null;
