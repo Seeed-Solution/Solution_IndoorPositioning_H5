@@ -89,6 +89,54 @@ export function fitAllView({
 }
 
 /**
+ * 取景目标的退化顺序（spec §9.3）：在线 tracker 为空退化到全部 beacon 的
+ * 外接框，beacon 也为空再退化到平面图外框——这样 0 tracker 时展示页不会
+ * 停在默认视图（beacon 全挤在角落），至少能看到有意义的取景范围。
+ */
+export const FIT_SOURCE_TRACKERS = 'trackers';
+export const FIT_SOURCE_BEACONS = 'beacons';
+export const FIT_SOURCE_PLAN = 'plan';
+
+/**
+ * 按退化顺序挑一组能算出外接框的候选点集。
+ *
+ * 三组入参都是同一坐标约定下的点数组（跟 fitAllView 的 points 一样：
+ * 「贴合变换之后、视图叠加之前」的 base 点）。调用方各自把 tracker /
+ * beacon / 平面图角点换算成这个坐标系, 这里只管挑, 不碰坐标变换。
+ *
+ * @returns {{source: 'trackers'|'beacons'|'plan'|null, points: Array|null, bounds: object|null}}
+ */
+export function resolveFitTargets({ trackers = [], beacons = [], plan = [] } = {}) {
+  const candidates = [
+    [FIT_SOURCE_TRACKERS, trackers],
+    [FIT_SOURCE_BEACONS, beacons],
+    [FIT_SOURCE_PLAN, plan],
+  ];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const [source, points] = candidates[i];
+    const bounds = boundsOf(points);
+    if (bounds) return { source, points, bounds };
+  }
+  return { source: null, points: null, bounds: null };
+}
+
+/**
+ * fit-all 的完整入口：先按 resolveFitTargets 退化, 再喂给 fitAllView。
+ * 三组都为空（没有 tracker、没有 beacon、平面图也没有外框点）时返回
+ * source: null, view: null——调用方保持当前视图不动。
+ */
+export function fitAllViewWithFallback({
+  trackers = [],
+  beacons = [],
+  plan = [],
+  ...fitOptions
+} = {}) {
+  const resolved = resolveFitTargets({ trackers, beacons, plan });
+  if (!resolved.points) return { view: null, source: null };
+  return { view: fitAllView({ ...fitOptions, points: resolved.points }), source: resolved.source };
+}
+
+/**
  * 抖动阈值：新旧相机差得够多才真的动。
  *
  * tracker 位置每秒都在小幅跳，不设阈值的话画面会一直微微平移。

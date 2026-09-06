@@ -3,6 +3,8 @@ import {
   boundsOf,
   createFitScheduler,
   fitAllView,
+  fitAllViewWithFallback,
+  resolveFitTargets,
   toBasePoint,
   viewChangedEnough,
 } from '../src/utils/displayCamera.js';
@@ -80,6 +82,52 @@ describe('fitAllView', () => {
     expect(again.zoom).toBeCloseTo(first.zoom, 9);
     expect(again.panX).toBeCloseTo(first.panX, 6);
     expect(again.panY).toBeCloseTo(first.panY, 6);
+  });
+});
+
+describe('resolveFitTargets / fitAllViewWithFallback：取景目标退化（spec §9.3）', () => {
+  const canvas = { viewWidth: 800, viewHeight: 600 };
+  const trackers = [{ x: 100, y: 100 }, { x: 300, y: 400 }];
+  const beacons = [{ x: 10, y: 10 }, { x: 90, y: 80 }];
+  const plan = [{ x: 0, y: 0 }, { x: 200, y: 150 }];
+
+  it('有在线 tracker 时用 tracker 外接框, 不看 beacon/平面图', () => {
+    const resolved = resolveFitTargets({ trackers, beacons, plan });
+    expect(resolved.source).toBe('trackers');
+    expect(resolved.points).toBe(trackers);
+
+    const { view, source } = fitAllViewWithFallback({ ...canvas, trackers, beacons, plan });
+    expect(source).toBe('trackers');
+    expect(view.zoom * 200 + view.panX).toBeCloseTo(400, 6); // tracker 外接框中心 (200,250)
+  });
+
+  it('没有 tracker 时退化到全部 beacon 的外接框', () => {
+    const resolved = resolveFitTargets({ trackers: [], beacons, plan });
+    expect(resolved.source).toBe('beacons');
+    expect(resolved.points).toBe(beacons);
+
+    const { view, source } = fitAllViewWithFallback({ ...canvas, trackers: [], beacons, plan });
+    expect(source).toBe('beacons');
+    expect(view.zoom * 50 + view.panX).toBeCloseTo(400, 6); // beacon 外接框中心 (50,45)
+  });
+
+  it('tracker 和 beacon 都为空时退化到平面图外框', () => {
+    const resolved = resolveFitTargets({ trackers: [], beacons: [], plan });
+    expect(resolved.source).toBe('plan');
+    expect(resolved.points).toBe(plan);
+
+    const { view, source } = fitAllViewWithFallback({ ...canvas, trackers: [], beacons: [], plan });
+    expect(source).toBe('plan');
+    expect(view.zoom * 100 + view.panX).toBeCloseTo(400, 6); // 平面图外框中心 (100,75)
+  });
+
+  it('三组都为空时不动: source 与 view 都是 null', () => {
+    const resolved = resolveFitTargets({ trackers: [], beacons: [], plan: [] });
+    expect(resolved).toEqual({ source: null, points: null, bounds: null });
+
+    const { view, source } = fitAllViewWithFallback({ ...canvas, trackers: [], beacons: [], plan: [] });
+    expect(view).toBeNull();
+    expect(source).toBeNull();
   });
 });
 

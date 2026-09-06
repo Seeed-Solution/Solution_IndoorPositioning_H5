@@ -135,7 +135,7 @@ import {
   worldToCanvas,
   zoomAt,
 } from '@/utils/canvasTransform.js';
-import { fitAllView, toBasePoint, viewChangedEnough } from '@/utils/displayCamera.js';
+import { fitAllViewWithFallback, toBasePoint, viewChangedEnough } from '@/utils/displayCamera.js';
 import { ref, onMounted, onUnmounted, watch, defineEmits, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { loadTrackers } from '@/services/configApiService.js';
@@ -255,6 +255,10 @@ const isPanning = ref(false);
 const tooltip = ref(null);
 // 每次绘制记录 tracker 在 canvas backing 空间的中心与命中半径
 let hitTargets = [];
+// 同一帧的贴合变换（不含当前 view）与地图数据外框, fit-all 取景退化到
+// beacon / 平面图外框时要用同一套变换把世界坐标换算成 base 点。
+let lastBaseTransform = null;
+let lastMapExtent = null;
 let panOrigin = null;
 let pointerMoved = false;
 
@@ -449,6 +453,9 @@ const drawMap = (ctx) => {
   const t = applyView(base, view.value);
   const z = clampZoom(view.value.zoom);
   const toPx = (x, y) => worldToCanvas(t, x, y);
+
+  lastBaseTransform = base;
+  lastMapExtent = { minX, minY, maxX, maxY };
 
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
 
@@ -791,13 +798,35 @@ const focusTracker = (id) => {
  *
  * hitTargets 是上一帧「带着当前 view」的 canvas 坐标，先反解回 base 空间再算，
  * 这样连续调用不会自我放大。差异小于抖动阈值时不动，返回 false。
+ *
+ * 取景目标退化（spec §9.3）：没有在线 tracker 时框全部 beacon，beacon
+ * 也没有时框平面图外框——用上一帧存的贴合变换把它们的世界坐标换成
+ * base 点，跟 hitTargets 反解出来的点是同一套坐标系。
  */
 const fitAllTrackers = ({ paddingRatio, jitterRatio } = {}) => {
   const el = mapCanvas.value;
-  if (!el || hitTargets.length === 0) return false;
-  const points = hitTargets.map((h) => toBasePoint(h, view.value));
-  const next = fitAllView({
-    points,
+  if (!el) return false;
+
+  const trackerPoints = hitTargets.map((h) => toBasePoint(h, view.value));
+
+  const baseT = lastBaseTransform;
+  const beaconPoints = baseT
+    ? (props.config?.beacons || [])
+      .filter((b) => isValidNumber(b?.x) && isValidNumber(b?.y))
+      .map((b) => worldToCanvas(baseT, b.x, b.y))
+    : [];
+
+  const planPoints = (baseT && lastMapExtent)
+    ? [
+      worldToCanvas(baseT, lastMapExtent.minX, lastMapExtent.minY),
+      worldToCanvas(baseT, lastMapExtent.maxX, lastMapExtent.maxY),
+    ]
+    : [];
+
+  const { view: next } = fitAllViewWithFallback({
+    trackers: trackerPoints,
+    beacons: beaconPoints,
+    plan: planPoints,
     viewWidth: el.width,
     viewHeight: el.height,
     paddingRatio,
