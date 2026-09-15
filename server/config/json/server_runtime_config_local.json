@@ -16,7 +16,7 @@
   "allow_all_tracker": true,
   "allow_area_location": true,
   "username": "admin",
-  "password": "83EtWJUbGrPnQjdCqyKq",
+  "password": "12345678",
   "webhook": {
     "enable": false
   }
