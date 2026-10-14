@@ -90,9 +90,15 @@ lat0 = 0 / 22.5231 / 45 / 60，方位角每 15°、半径 500/1000/2000 m，
 interface: /api/configuration/dashboard/maps/Georef Demo/registration`），
 换 admin 登录后成功。
 
-**未验证**：实时 x/y 投影、metric 与 wgs84 混合轨迹在同一张图上的画法、
+**未验证（本轮）**：实时 x/y 投影、metric 与 wgs84 混合轨迹在同一张图上的画法、
 取消/重置按钮、Scale 模式的把手、PMTiles 离线底图。
 没有设备上行，也没有生成 PMTiles 归档。
+
+**后续已补测**：见 `../2026-09-05-georef-live/results.md`——走真实 MQTT 回放
++ WebSocket 广播 + 前端 DOM 断言。结论：实时点投影、取消/重置、Scale 把手
+三项通过；"metric 与 wgs84 混合轨迹同图"**不通过**（`OutdoorMapView.vue`
+按设备当前定位类型互斥渲染两类历史段，不是共存+断线，详见该文件第 2 节的
+根因定位）。PMTiles 离线底图仍未测。
 
 ## 3. API 与落盘
 
