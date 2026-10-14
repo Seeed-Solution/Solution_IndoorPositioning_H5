@@ -1,0 +1,161 @@
+# -*- coding: utf-8 -*-
+import requests
+import logging
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+import json
+import base64
+
+log = logging.getLogger(__name__)
+
+@dataclass
+class Device:
+    device_eui: str
+    device_name: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        return {
+            "device_eui": self.device_eui,
+            "device_name": self.device_name
+        }
+
+class PaaSClient:
+    """PaaS API客户端"""
+    
+    def __init__(self, host: str, username: str, password: str):
+        self.host = host.rstrip('/')
+        self.username = username
+        self.password = password
+        self.session = requests.Session()
+        
+        # 设置基本认证
+        credentials = f"{username}:{password}"
+        encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+        self.session.headers.update({
+            "Authorization": f"Basic {encoded_credentials}",
+            "Content-Type": "application/json"
+        })
+    
+    def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None, 
+                     data: Optional[Dict] = None) -> Optional[Dict]:
+        """发起HTTP请求"""
+        url = f"{self.host}{endpoint}"
+        
+        try:
+            if method.upper() == "GET":
+                response = self.session.get(url, params=params)
+            elif method.upper() == "POST":
+                response = self.session.post(url, params=params, json=data)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.exceptions.RequestException as e:
+            log.error(f"PaaS API request failed: {method} {url}, error: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    log.error(f"PaaS API error details: {error_detail}")
+                except:
+                    log.error(f"PaaS API error response: {e.response.text}")
+            return None
+        except Exception as e:
+            log.error(f"Unexpected error in PaaS API request: {e}")
+            return None
+    
+    def list_devices(self, device_type: int = 1, group_uuid: str = "") -> Optional[List[Device]]:
+        """
+        获取设备列表
+        
+        Args:
+            device_type: 设备类型，默认为1
+            group_uuid: 组UUID，默认为0C32119F38C89C31
+            
+        Returns:
+            设备列表或None（失败时）
+        """
+        params = {
+            "device_type": device_type
+        }
+        
+        response_data = self._make_request("GET", "/list_devices", params=params)
+        
+        if not response_data:
+            return None
+        
+        # 检查响应代码
+        if response_data.get("code") != "0":
+            log.error(f"PaaS API returned error code: {response_data.get('code')}")
+            return None
+        
+        devices = []
+        device_list = response_data.get("data", [])
+        
+        for device_data in device_list:
+            try:
+                device = Device(
+                    device_eui=device_data.get("device_eui", ""),
+                    device_name=device_data.get("device_name", "")
+                )
+                devices.append(device)
+            except Exception as e:
+                log.warning(f"Failed to parse device data: {device_data}, error: {e}")
+                continue
+        
+        log.info(f"Successfully retrieved {len(devices)} devices from PaaS")
+        return devices
+    
+    def test_connection(self) -> bool:
+        """
+        测试连接是否正常
+        
+        Returns:
+            连接状态
+        """
+        try:
+            # 尝试获取设备列表来测试连接
+            response_data = self._make_request("GET", "/list_devices", params={
+                "device_type": 1,
+                "group_uuid": "0C32119F38C89C31"
+            })
+            
+            if response_data and response_data.get("code") == "0":
+                log.info("PaaS connection test successful")
+                return True
+            else:
+                log.error("PaaS connection test failed: invalid response")
+                return False
+                
+        except Exception as e:
+            log.error(f"PaaS connection test failed: {e}")
+            return False
+
+
+# 全局客户端实例
+paas_client: Optional[PaaSClient] = None
+
+
+def initialize_paas_client(host: str, username: str, password: str) -> bool:
+    """初始化PaaS客户端"""
+    global paas_client
+    try:
+        paas_client = PaaSClient(host=host, username=username, password=password)
+        if paas_client.test_connection():
+            log.info("PaaS client initialized successfully")
+            return True
+        else:
+            log.error("PaaS client initialization failed: connection test failed")
+            paas_client = None
+            return False
+    except Exception as e:
+        log.error(f"Failed to initialize PaaS client: {e}")
+        paas_client = None
+        return False
+
+
+def get_paas_client() -> Optional[PaaSClient]:
+    """获取PaaS客户端实例"""
+    return paas_client

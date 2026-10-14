@@ -1,0 +1,45 @@
+# 按 seeed-solutions-hub/templates/evaluation/boundary.schema.yaml 填写。
+# 本批只跑了冒烟，三档边界都没测到，全部为 null。
+demo_id: "solution-indoor-positioning"
+
+metric:
+  name: "端到端时延（上行时间戳 → WebSocket 广播）"
+  unit: "毫秒"
+  direction: "lower_is_better"
+
+conditions:
+  device:
+    model: "MacBook (Apple Silicon), 无边缘设备"
+    sku: "N/A"
+    os: "macOS, Darwin 25.5.0"
+    firmware: "N/A"
+  software:
+    repo: "solution-indoor-positioning"
+    commit: "9b1644e"
+    image_tag: "N/A"
+  network_env: "全部组件在同一台主机的 loopback 上，无网络损伤"
+  data_scale: "1 个虚拟标签 × 10 条上行（7 GNSS / 3 BLE）"
+  duration: "单次约 12 秒（--speed 8 压缩后的 90 秒轨迹）"
+
+tiers:
+  stable:
+    value: null
+    observation: null
+  degrading:
+    value: null
+    observation: null
+  failure:
+    value: null
+    observation: null
+
+raw_refs:
+  - "raw/ws.jsonl"
+  - "raw/ws_capture_summary.txt"
+
+reproduced_by: null
+
+caveats: >
+  这是链路冒烟，不是性能测试。上行时间戳由回放脚本写成发送时刻，
+  broker/server/抓包客户端同机 loopback，测得的 p95=1ms 只能证明链路无堆积，
+  不代表真实部署的端到端时延。未跑满 30 min，未做并发，
+  容量上限、更新频率、离线时延三个指标本批未测。

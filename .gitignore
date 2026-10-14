@@ -11,3 +11,9 @@ wheels/
 beacon_position
 server/server_runtime_config copy.json
 local-beacon-service/node_modules
+
+# Uploaded files
+server/uploads/
+
+# Local sqlite database
+db/

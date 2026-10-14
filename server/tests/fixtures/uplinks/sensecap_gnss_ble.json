@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "Desensitised SenseCAP (SenseCAP Cloud / device_sensor_data) uplink sequence for a T1000.",
+    "Device EUI, application id and beacon MACs are replaced with synthetic values;",
+    "the field layout follows the SenseCAP uplink protocol used by",
+    "server/handler/message_format_hanlder.py:parse_sensecap_payload():",
+    "  topic = /device_sensor_data/{applicationID}/{devEUI}/{channel}/{type}/{measurementId}",
+    "  payload = {\"value\": <measurement value>, \"timestamp\": <unix ms>}",
+    "measurementId mapping: 4197=longitude, 4198=latitude, 4200=SOS, 5002=BLE scan, 3000=battery.",
+    "3000 is the packet terminator: the parser only emits a TrackerReport on 3000."
+  ],
+  "device_eui": "2CF7F1C0530004AD",
+  "application_id": "1000",
+  "messages": [
+    {
+      "topic": "/device_sensor_data/1000/2CF7F1C0530004AD/1/vs/4197",
+      "payload": {"value": 113.942100, "timestamp": 1757000000000}
+    },
+    {
+      "topic": "/device_sensor_data/1000/2CF7F1C0530004AD/1/vs/4198",
+      "payload": {"value": 22.535200, "timestamp": 1757000000000}
+    },
+    {
+      "topic": "/device_sensor_data/1000/2CF7F1C0530004AD/1/vs/5002",
+      "payload": {"value": [{"mac": "c3:00:00:3e:7d:da", "rssi": "-53"}, {"mac": "C3:00:00:3E:7D:EF", "rssi": "-71"}], "timestamp": 1757000000000}
+    },
+    {
+      "topic": "/device_sensor_data/1000/2CF7F1C0530004AD/1/vs/4200",
+      "payload": {"value": 0, "timestamp": 1757000000000}
+    },
+    {
+      "topic": "/device_sensor_data/1000/2CF7F1C0530004AD/1/vs/3000",
+      "payload": {"value": 87, "timestamp": 1757000000000}
+    }
+  ]
+}

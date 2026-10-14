@@ -6,4 +6,9 @@ pydantic
 python-multipart # For file uploads
 scipy # For least-squares positioning
 numpy # Dependency for scipy and direct use in Kalman filter
-paho-mqtt 
+paho-mqtt
+sqlalchemy
+cachetools
+requests
+httpx
+shapely # For outdoor geofence polygon operations

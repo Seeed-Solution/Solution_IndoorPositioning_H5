@@ -1,0 +1,2 @@
+[ws_capture] connected to ws://127.0.0.1:8022/ws, capturing for 30.0s
+[ws_capture] {"message_counts": {"tracker_update": 10, "tracker_sos": 2}, "tracker_updates_with_gnss_fix": 7, "latency_ms_count": 10, "latency_ms_p95": 1, "raw": "evaluation/runs/2026-09-05-smoke/raw/ws.jsonl"}

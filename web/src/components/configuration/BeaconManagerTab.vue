@@ -1,19 +1,16 @@
 <template>
   <div class="beacon-manager-tab">
     <h3>Beacon List & Management</h3>
-    <p>Manage fixed reference beacons. You can add, edit, delete beacons, or discover new ones via the local scanning service.</p>
+    <p>Manage fixed reference beacons. You can add, edit, and delete beacons for positioning configuration.</p>
     <p v-if="!hasMap" class="scan-status error">
       A map is required to configure and place beacons. Please go to the "Map Editor" tab to upload or define a map first.
     </p>
     
     <div class="actions-bar">
-      <button @click="showAddBeaconModal" :disabled="isScanning || !isWebSocketConnected || !hasMap">Add New Beacon</button>
-      <button @click="attemptStartScan" :disabled="isScanning || !isWebSocketConnected || !hasMap" style="margin-left: 10px;">
-        {{ isScanning ? 'Scanning... (Click stop button below to abort)' : (isWebSocketConnected ? 'Scan via Local Service' : 'Local Service Offline') }}
+      <button @click="showAddBeaconModal" :disabled="!hasMap" class="action-btn primary-btn">
+        <i class="fas fa-plus"></i> Add New Beacon
       </button>
-      <button v-if="isScanning" @click="attemptStopScan" style="margin-left: 10px; background-color: #dc3545;">Stop Scan</button>
     </div>
-    <p v-if="scanStatusMessage" class="scan-status" :class="scanStatusType">{{ scanStatusMessage }}</p>
 
     <table v-if="configuredBeacons.length > 0">
       <thead>
@@ -38,92 +35,88 @@
           <td>{{ beacon.x }}</td>
           <td>{{ beacon.y }}</td>
           <td>{{ beacon.txPower }}</td>
-          <td>{{ beacon.macAddress || beacon.deviceId }}</td>
+          <td>{{ formatMacAddress(beacon.macAddress || beacon.deviceId) }}</td>
           <td class="actions-cell">
             <div class="beacon-actions-container">
-              <button @click="showEditBeaconModal(index)" :disabled="isScanning || !isWebSocketConnected">Edit</button>
-              <button @click="deleteBeacon(index)" :disabled="isScanning || !isWebSocketConnected">Delete</button>
-              <!-- <button @click="selectBeaconForPlacement(beacon)" :disabled="isScanning || !isWebSocketConnected || !hasMap">Place on Map</button> -->
+              <button @click="showEditBeaconModal(index)" class="action-btn edit-btn">
+                <i class="fas fa-edit"></i> Edit
+              </button>
+              <button @click="deleteBeacon(index)" class="action-btn delete-btn">
+                <i class="fas fa-trash"></i> Delete
+              </button>
             </div>
           </td>
         </tr>
       </tbody>
     </table>
-    <p v-else-if="!isScanning">No configured beacons yet. You can add them manually or scan for nearby ones (if local service is connected).</p>
-
-    <div v-if="isScanning && scanResults.length === 0 && !scanStatusMessage.includes('Error') && !scanStatusMessage.includes('Failed')" class="scan-results-placeholder">
-      <p><i class="fas fa-spinner fa-spin"></i> Actively scanning via local service... Ensure the service is running and Bluetooth is enabled on the host.</p>
-      <p>Scan will run for about 15 seconds or until you stop it manually. Detected iBeacons will appear below.</p>
+    <div v-else class="empty-state">
+      <div class="empty-state-content">
+        <i class="fas fa-broadcast-tower empty-state-icon"></i>
+        <h4>No beacons configured</h4>
+        <p>Click "Add New Beacon" to manually add beacons for positioning configuration.</p>
+      </div>
     </div>
 
-    <div v-if="scanResults.length > 0" class="scan-results">
-      <h4>Discovered Beacons ({{ scanResults.length }} unique):</h4>
-      <ul>
-        <li v-for="beacon in sortedScanResults" :key="beacon.id" class="scan-result-item">
-          <div>
-            <strong>{{ beacon.displayName || beacon.name || 'Unknown Device' }}</strong> (RSSI: {{ beacon.rssi }})<br>
-            ID: {{ beacon.id }} <br>
-            UUID: {{ beacon.uuid }}<br>
-            Major: {{ beacon.major }}, Minor: {{ beacon.minor }}, TxPower: {{ beacon.txPower }}
-          </div>
-          <button @click="addScannedBeaconToForm(beacon)" :disabled="isBeaconAlreadyConfigured(beacon) || isScanning || !hasMap">
-            {{ isBeaconAlreadyConfigured(beacon) ? 'Already Configured' : 'Add This Beacon' }}
-          </button>
-        </li>
-      </ul>
-    </div>
-    <p v-if="!isScanning && userInitiatedScan && scanResults.length === 0 && !scanStatusMessage.value.includes('Error') && !scanStatusMessage.value.includes('Starting') && !scanStatusMessage.value.includes('Failed')" class="scan-status info">
-      Scan complete. No new iBeacon devices found by local service.
-    </p>
 
     <!-- Add/Edit Beacon Modal -->
-    <div v-if="showBeaconModal" class="modal-overlay">
-      <div class="modal-content">
+    <div v-if="showBeaconModal" class="modal-overlay" @wheel="preventBackgroundScroll" @touchmove="preventBackgroundScroll" @scroll.stop>
+      <div class="modal-content" @wheel="preventBackgroundScroll" @touchmove="preventBackgroundScroll">
         <h4>{{ beaconModalMode === 'add' ? 'Add New Beacon' : 'Edit Beacon' }}</h4>
         <form @submit.prevent="saveBeacon">
-          <div>
-            <label>Display Name:</label>
-            <input type="text" v-model="editingBeacon.displayName" required />
-          </div>
-          <div>
-            <label>UUID:</label>
-            <input type="text" v-model="editingBeacon.uuid" required pattern="^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$" title="Please enter a standard UUID format, e.g., XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
-          </div>
-          <div>
-            <label>Major:</label>
-            <input type="number" v-model.number="editingBeacon.major" required min="0" max="65535"/>
-          </div>
-          <div>
-            <label>Minor:</label>
-            <input type="number" v-model.number="editingBeacon.minor" required min="0" max="65535"/>
-          </div>
-           <div>
-            <label>MAC Address / Device ID:</label>
-            <input type="text" v-model="editingBeacon.deviceId" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
-            <small>This is typically the Bluetooth device ID from the scan. For some beacons, it might be a MAC address if known.</small>
-          </div>
-
-          <div v-if="beaconModalMode === 'edit' || (beaconModalMode === 'add' && editingBeacon.uuid)" class="form-actions coordinate-actions">
-             <label>Beacon Position (X, Y):</label>
-             <button type="button" @click="requestPlacementFromMapForEditingBeacon" :disabled="!hasMap">
-              {{ editingBeacon.x === null || editingBeacon.x === undefined ? 'Select Coordinates from Map' : 'Update Coordinates from Map' }}
-            </button>
-          </div>
-
-          <div class="form-row coordinate-pair">
-            <div class="form-group-inline">
-              <label>X Coordinate (m):</label>
-              <input type="number" v-model.number="editingBeacon.x" step="0.01" />
+          <div class="form-scrollable" @wheel="preventBackgroundScroll" @touchmove="preventBackgroundScroll">
+            <div>
+              <label>Display Name:</label>
+              <input type="text" v-model="editingBeacon.displayName" required />
             </div>
-            <div class="form-group-inline">
-              <label>Y Coordinate (m):</label>
-              <input type="number" v-model.number="editingBeacon.y" step="0.01" />
+            <div>
+              <label>UUID:</label>
+              <input type="text" v-model="editingBeacon.uuid" required pattern="^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$" title="Please enter a standard UUID format, e.g., XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
             </div>
-          </div>
+            <div>
+              <label>Major:</label>
+              <input type="number" v-model.number="editingBeacon.major" required min="0" max="65535"/>
+            </div>
+            <div>
+              <label>Minor:</label>
+              <input type="number" v-model.number="editingBeacon.minor" required min="0" max="65535"/>
+            </div>
+             <div>
+              <label>MAC Address / Device ID:</label>
+              <input type="text" v-model="editingBeacon.macAddress" placeholder="e.g., C3:00:00:3E:7D:DA or Bluetooth device ID"/>
+              <small>This is the physical MAC address (Device ID) from the scan. This is the ONLY identifier used to detect duplicate devices. UUID/Major/Minor can be the same for devices from the same manufacturer.</small>
+            </div>
 
-          <div>
-            <label>TxPower (Reference RSSI@1m):</label>
-            <input type="number" v-model.number="editingBeacon.txPower" required />
+            <div v-if="beaconModalMode === 'edit' || (beaconModalMode === 'add' && editingBeacon.uuid)" class="form-actions coordinate-actions">
+               <label>Beacon Position (X, Y):</label>
+               <button 
+                 type="button" 
+                 @click="requestPlacementFromMapForEditingBeacon" 
+                 :disabled="!hasMapWithBackground"
+                 :title="!hasMapWithBackground ? '需要先上传地图背景图才能使用地图选点功能' : ''"
+               >
+                {{ editingBeacon.x === null || editingBeacon.x === undefined ? 'Select Coordinates from Map' : 'Update Coordinates from Map' }}
+              </button>
+              <p v-if="!hasMapWithBackground" class="map-required-hint">
+                <i class="fas fa-info-circle"></i>
+                需要先上传地图背景图才能使用地图选点功能，否则请手动输入坐标值
+              </p>
+            </div>
+
+            <div class="form-row coordinate-pair">
+              <div class="form-group-inline">
+                <label>X Coordinate (m):</label>
+                <input type="number" v-model.number="editingBeacon.x" step="0.01" />
+              </div>
+              <div class="form-group-inline">
+                <label>Y Coordinate (m):</label>
+                <input type="number" v-model.number="editingBeacon.y" step="0.01" />
+              </div>
+            </div>
+
+            <div>
+              <label>TxPower (Reference RSSI@1m):</label>
+              <input type="number" v-model.number="editingBeacon.txPower" required />
+            </div>
           </div>
           <div class="modal-actions">
             <button type="submit">Save</button>
@@ -137,6 +130,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount, defineExpose } from 'vue';
+import { notificationService } from '@/services/notificationService.js';
 // import localBeaconService from '@/services/webBluetoothService'; // DELETED FILE
 
 const props = defineProps({
@@ -152,138 +146,51 @@ const props = defineProps({
 
 const emit = defineEmits(['beacons-updated', 'beacon-selected-for-placement']);
 
-// WebSocket connection state and management
-const socket = ref(null);
-const serviceUrl = 'ws://localhost:8081';
-const isWebSocketConnected = ref(false); // Renamed from isServiceConnected for clarity
-const retryCount = ref(0);
-const maxRetries = 5;
-const retryTimeout = 5000; // 5 seconds
-let connectTimeoutId = null;
-let scanActiveOnServer = ref(false); // Tracks if the server confirmed scan start
-
 const configuredBeacons = ref([]);
-const scanResults = ref([]);
-const isScanning = ref(false); // Reflects UI state / user's intent to scan, server confirms with scanActiveOnServer
-const scanStatusMessage = ref('Attempting to connect to local beacon service...');
-const scanStatusType = ref('info'); // 'info', 'success', 'error', 'warn'
-const userInitiatedScan = ref(false);
-let scanDurationTimeoutId = null; // For the 15-second scan duration
 
 const showBeaconModal = ref(false);
 const beaconModalMode = ref('add'); // 'add' or 'edit'
 const editingBeaconIndex = ref(-1);
 
 const initialEditingBeacon = () => ({
-  uuid: '',
-  major: null,
-  minor: null,
+  uuid: 'FDA50693-A4E2-4FB1-AFCF-C6EB07647825',
+  major: 10001,
+  minor: 19641,
   x: 0,
   y: 0,
   txPower: -59,
-  displayName: '',
-  macAddress: '', 
-  deviceId: '' 
+  displayName: 'BC01',
+  macAddress: 'c3000056dda1',
+  deviceId: 'c3000056dda1'
 });
 const editingBeacon = ref(initialEditingBeacon());
 
 const hasMap = computed(() => !!props.currentMapLayout);
 
-// --- WebSocket Logic ---
-const connectWebSocket = () => {
-  if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-    console.log('[BeaconManagerTab] WebSocket already open.');
-    return;
+const hasMapWithBackground = computed(() => 
+  props.currentMapLayout && 
+  props.currentMapLayout.background && 
+  typeof props.currentMapLayout.background === 'string' &&
+  props.currentMapLayout.background.trim() !== ''
+);
+
+// 格式化MAC地址为标准格式
+const formatMacAddress = (macAddress) => {
+  if (!macAddress || typeof macAddress !== 'string') {
+    return macAddress || '';
   }
   
-  handleServiceStatusUpdate({ type: 'connecting', message: `Attempting to connect to local beacon service at ${serviceUrl}... (Attempt ${retryCount.value + 1})` });
-
-  socket.value = new WebSocket(serviceUrl);
-
-  socket.value.onopen = () => {
-    console.log('[BeaconManagerTab] WebSocket connected to:', serviceUrl);
-    isWebSocketConnected.value = true;
-    retryCount.value = 0; // Reset retries on successful connection
-    if (connectTimeoutId) clearTimeout(connectTimeoutId);
-    handleServiceStatusUpdate({ type: 'connected', message: 'Successfully connected to local beacon service.' });
-  };
-
-  socket.value.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data);
-      // console.log('[BeaconManagerTab] WebSocket message received:', message);
-      if (message.type === 'beacon' && message.data) {
-        handleBeaconFound(message.data);
-      } else if (message.type === 'info') {
-        handleServiceStatusUpdate({ type: 'info', message: message.message });
-        if (message.message === 'Scanning started.') {
-          scanActiveOnServer.value = true;
-        } else if (message.message === 'Scanning stopped.') {
-          scanActiveOnServer.value = false;
-        }
-      } else if (message.type === 'error') {
-        handleServiceStatusUpdate({ type: 'error', message: `Server Error: ${message.message}` });
-      }
-    } catch (error) {
-      console.error('[BeaconManagerTab] Error processing WebSocket message:', error);
-      handleServiceStatusUpdate({ type: 'error', message: 'Received malformed message from server.' });
-    }
-  };
-
-  socket.value.onerror = (error) => {
-    console.error('[BeaconManagerTab] WebSocket Error:', error);
-    // isWebSocketConnected.value = false; // onclose will handle this
-    // The onclose event will typically fire immediately after onerror.
-    // To avoid double retry logic, let onclose handle reconnection attempts.
-    // However, we can update the status message here.
-    // handleServiceStatusUpdate({ type: 'error', message: 'WebSocket connection error. See console for details.' });
-  };
-
-  socket.value.onclose = (event) => {
-    console.log('[BeaconManagerTab] WebSocket disconnected.', event.reason ? `Reason: ${event.reason}` : '', `Code: ${event.code}`);
-    isWebSocketConnected.value = false;
-    scanActiveOnServer.value = false; // If socket closes, scan is no longer active on server
-    if (isScanning.value) { // If UI thought it was scanning
-        isScanning.value = false; // Update UI scanning state
-    }
-    if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
-
-    if (retryCount.value < maxRetries) {
-      retryCount.value++;
-      handleServiceStatusUpdate({ type: 'disconnected', message: `Disconnected. Retrying connection (${retryCount.value}/${maxRetries}) in ${retryTimeout / 1000}s...` });
-      if (connectTimeoutId) clearTimeout(connectTimeoutId);
-      connectTimeoutId = setTimeout(connectWebSocket, retryTimeout);
-    } else {
-      handleServiceStatusUpdate({ type: 'error', message: `Failed to connect after ${maxRetries} retries. Please check the local service and refresh.` });
-    }
-  };
-};
-
-const disconnectWebSocket = () => {
-  if (connectTimeoutId) clearTimeout(connectTimeoutId); // Clear any pending reconnection attempts
-  retryCount.value = maxRetries; // Prevent further retries by exhausting them
-
-  if (socket.value) {
-    socket.value.close(1000, 'Client initiated disconnect'); // 1000: Normal Closure
-    socket.value = null; 
+  // 移除所有非十六进制字符
+  const cleanMac = macAddress.replace(/[^0-9A-Fa-f]/g, '');
+  
+  // 如果长度不是12位，直接返回原值
+  if (cleanMac.length !== 12) {
+    return macAddress;
   }
-  isWebSocketConnected.value = false;
-  scanActiveOnServer.value = false;
-  if (isScanning.value) isScanning.value = false;
-  console.log('[BeaconManagerTab] WebSocket explicitly disconnected by client.');
-  handleServiceStatusUpdate({ type: 'disconnected', message: 'Disconnected from local beacon service by client.' });
+  
+  // 转换为大写并按每两位分组，用冒号连接
+  return cleanMac.toUpperCase().match(/.{2}/g).join(':');
 };
-
-const sendWebSocketMessage = (messageObject) => {
-  if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-    socket.value.send(JSON.stringify(messageObject));
-    console.log('[BeaconManagerTab] Sent WebSocket message:', messageObject);
-  } else {
-    console.warn('[BeaconManagerTab] WebSocket not connected or not open. Message not sent:', messageObject);
-    handleServiceStatusUpdate({ type: 'error', message: 'Cannot send command: Local service not connected.' });
-  }
-};
-// --- End WebSocket Logic ---
 
 const loadConfiguredBeacons = (beaconsFromProp) => {
   if (beaconsFromProp && Array.isArray(beaconsFromProp)) {
@@ -305,232 +212,29 @@ watch(() => props.currentMapLayout, (newMap, oldMap) => {
               'Computed hasMap value:', hasMap.value);
 }, { deep: true, immediate: true });
 
-const handleServiceStatusUpdate = (status) => {
-  console.log('[BeaconManagerTab] Service Status Update:', status);
-  scanStatusMessage.value = status.message;
-  switch (status.type) {
-    case 'connecting':
-      scanStatusType.value = 'info';
-      // isWebSocketConnected handled by WebSocket events
-      break;
-    case 'connected':
-      scanStatusType.value = 'success';
-      // isWebSocketConnected handled by WebSocket events
-      break;
-    case 'disconnected':
-      scanStatusType.value = 'warn';
-      // isWebSocketConnected handled by WebSocket events
-      if (isScanning.value) { 
-        isScanning.value = false; 
-        if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
-         scanStatusMessage.value = status.message + " Scan aborted.";
-      }
-      break;
-    case 'error':
-      scanStatusType.value = 'error';
-      if (status.message.includes('Bluetooth adapter') || status.message.includes('Failed to start')){
-          isScanning.value = false; // Server failed to start scan
-          scanActiveOnServer.value = false;
-          if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
-      }
-      break;
-    case 'info': 
-      scanStatusType.value = 'info';
-      if (status.message === 'Scanning started.') {
-        isScanning.value = true; // User intent is now confirmed by server
-        scanActiveOnServer.value = true;
-        scanStatusMessage.value = 'Actively scanning via local service... (Approx 15s)';
-        if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
-        scanDurationTimeoutId = setTimeout(() => {
-          if (scanActiveOnServer.value) { 
-            attemptStopScan('timeout');
-          }
-        }, 15000); 
-      } else if (status.message === 'Scanning stopped.') {
-        isScanning.value = false;
-        scanActiveOnServer.value = false;
-        if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
-        if (userInitiatedScan.value && scanResults.value.length === 0) {
-          scanStatusMessage.value = 'Scan finished. No Bluetooth devices found by local service.';
-        } else if (scanResults.value.length > 0) {
-          scanStatusMessage.value = `Scan finished. Found ${scanResults.value.length} unique device(s).`;
-        }
-      }
-      break;
-    default:
-      scanStatusType.value = 'info';
-  }
-};
-
-onMounted(() => {
-  console.log('[BeaconManagerTab] Mounted. props.currentMapLayout PRESENT?:', !!props.currentMapLayout, 
-              'Initial map name:', props.currentMapLayout ? props.currentMapLayout.name : 'N/A', 
-              'Computed hasMap on mount:', hasMap.value);
-  connectWebSocket();
-});
-
-onBeforeUnmount(() => {
-  if (scanActiveOnServer.value) { // If scan was confirmed by server
-    sendWebSocketMessage({ command: 'stopScan' });
-  }
-  disconnectWebSocket();
-  if (scanDurationTimeoutId) {
-    clearTimeout(scanDurationTimeoutId);
-  }
-  console.log("BeaconManagerTab: Unmounted. WebSocket disconnected, scan stopped if active.");
-});
-
-const handleBeaconFound = (dataFromServer) => {
-  const beaconKey = dataFromServer.id;
-
-  let parsedUuid = 'N/A';
-  let parsedMajor = null;
-  let parsedMinor = null;
-  let parsedTxPower = -59; // Default TxPower if not available or not an iBeacon
-
-  if (dataFromServer.iBeacon) {
-    const iBeacon = dataFromServer.iBeacon;
-    parsedUuid = iBeacon.uuid || 'N/A'; // UUID from iBeacon data
-    if (iBeacon.major !== null && !isNaN(parseInt(iBeacon.major, 10))) {
-      parsedMajor = parseInt(iBeacon.major, 10);
-    }
-    if (iBeacon.minor !== null && !isNaN(parseInt(iBeacon.minor, 10))) {
-      parsedMinor = parseInt(iBeacon.minor, 10);
-    }
-    // Use txPowerCalibrated from iBeacon details for the beacon's TxPower
-    if (iBeacon.txPowerCalibrated !== null && !isNaN(parseInt(iBeacon.txPowerCalibrated, 10))) {
-      parsedTxPower = parseInt(iBeacon.txPowerCalibrated, 10);
-    }
-  }
-
-  // Filter out beacons with incomplete essential iBeacon data
-  if (parsedUuid === 'N/A' || parsedMajor === null || parsedMinor === null) {
-    console.log(`[BeaconManagerTab] Filtering out beacon ${beaconKey} (${dataFromServer.localName || 'Unknown'}) due to incomplete iBeacon data (UUID/Major/Minor).`);
-    // If it was already in scanResults and is now incomplete, we should remove it or mark it.
-    // For simplicity, if it's incomplete now, we just don't add/update it if the user wants to remove incomplete ones.
-    // If an existing one becomes incomplete, this logic means it won't be updated with incomplete data.
-    // To actively remove from list if it becomes incomplete:
-    // const existingIndex = scanResults.value.findIndex(b => b.id === beaconKey);
-    // if (existingIndex > -1) {
-    //   scanResults.value.splice(existingIndex, 1);
-    // }
-    return; 
-  }
-
-  const displayName = dataFromServer.localName || (parsedUuid !== 'N/A' ? `iBeacon ${parsedMajor}-${parsedMinor}` : `Device ${beaconKey.substring(0,8)}`);
-  const existingResult = scanResults.value.find(b => b.id === beaconKey);
-
-  if (existingResult) {
-    existingResult.rssi = parseInt(dataFromServer.rssi, 10);
-    existingResult.name = dataFromServer.localName || 'Scanned Device'; // Use localName from service
-    existingResult.uuid = parsedUuid;
-    existingResult.major = parsedMajor;
-    existingResult.minor = parsedMinor;
-    existingResult.txPower = parsedTxPower;
-    existingResult.displayName = displayName;
+// 监听模态框显示状态，锁定/解锁 body 滚动
+watch(showBeaconModal, (isOpen) => {
+  if (isOpen) {
+    // 锁定 body 滚动
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingRight = '0px'; // 防止滚动条消失导致的布局偏移
   } else {
-    scanResults.value.push({
-      id: beaconKey,
-      uuid: parsedUuid,
-      major: parsedMajor,
-      minor: parsedMinor,
-      txPower: parsedTxPower,
-      rssi: parseInt(dataFromServer.rssi, 10),
-      name: dataFromServer.localName || 'Scanned Device', // Use localName from service
-      displayName: displayName,
-    });
+    // 解锁 body 滚动
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
   }
-
-  if (scanActiveOnServer.value) { 
-    scanStatusMessage.value = `Scan in progress... ${scanResults.value.length} unique device(s) detected so far.`;
-    scanStatusType.value = 'info';
-  }
-};
-
-const attemptStartScan = async () => {
-  userInitiatedScan.value = true; // Mark that this scan was started by user action
-
-  if (!isWebSocketConnected.value) {
-    scanStatusMessage.value = 'Local service is not connected. Please ensure it is running and refresh.';
-    scanStatusType.value = 'error';
-    console.warn('[BeaconManagerTab] Attempted to start scan, but service is not connected.');
-    return;
-  }
-  if (!hasMap.value) {
-    scanStatusMessage.value = "A map is required. Please configure one in 'Map Editor' first.";
-    scanStatusType.value = 'warn';
-    alert("Please ensure a map is configured in the 'Map Editor' tab before scanning for beacons.");
-    return;
-  }
-  if (isScanning.value || scanActiveOnServer.value) {
-    scanStatusMessage.value = 'A scan is already in progress or active on the server.';
-    scanStatusType.value = 'info';
-    console.log('[BeaconManagerTab] Scan attempt while already scanning or server is active.');
-    return;
-  }
-
-  // Get MAC addresses of already configured beacons
-  const currentConfiguredBeacons = props.initialBeacons || [];
-  const ignoredMacAddresses = currentConfiguredBeacons
-    .map(b => b.macAddress) // Use macAddress field
-    .filter(mac => mac && typeof mac === 'string' && mac.trim() !== ''); // Filter out invalid/empty MACs
-
-  console.log("[BeaconManagerTab] Attempting to start scan, ignoring MACs:", ignoredMacAddresses);
-
-  scanResults.value = []; 
-  scanStatusMessage.value = 'Sending start scan command to local service...';
-  scanStatusType.value = 'info';
-  isScanning.value = true; // Optimistically set UI state
-
-  sendWebSocketMessage({ command: 'startScan', ignoredMacAddresses: ignoredMacAddresses });
-
-  // Set a timeout for the scan duration (e.g., 15 seconds)
-  if (scanDurationTimeoutId) clearTimeout(scanDurationTimeoutId);
-  scanDurationTimeoutId = setTimeout(() => {
-    if (isScanning.value || scanActiveOnServer.value) { // Check both UI and server state
-      console.log('[BeaconManagerTab] Scan duration timeout (15s) reached. Requesting stopScan.');
-      attemptStopScan(); // Automatically stop the scan
-      scanStatusMessage.value = 'Scan finished (15s duration).';
-      scanStatusType.value = 'info';
-    }
-  }, 15000); // 15 seconds
-};
-
-const attemptStopScan = (reason = 'manual') => {
-  sendWebSocketMessage({ command: 'stopScan' });
-  
-  if (scanDurationTimeoutId) {
-    clearTimeout(scanDurationTimeoutId);
-    scanDurationTimeoutId = null;
-  }
-  // isScanning (UI) and scanActiveOnServer will be set to false by the 'Scanning stopped.' message from the server
-  
-  if (reason === 'timeout' && scanResults.value.length === 0) {
-      scanStatusMessage.value = 'Scan timed out. No Bluetooth devices found by local service.';
-  } else if (reason === 'timeout') {
-      scanStatusMessage.value = `Scan timed out. Found ${scanResults.value.length} device(s).`;
-  } else if (userInitiatedScan.value && scanResults.value.length === 0 && !scanStatusMessage.value.includes('Error')) {
-    scanStatusMessage.value = 'Stop command sent. Waiting for confirmation... No devices found yet.';
-  } else if (scanResults.value.length > 0 && !scanStatusMessage.value.includes('Error')) {
-    scanStatusMessage.value = `Stop command sent. Waiting for confirmation... ${scanResults.value.length} device(s) were found.`;
-  } else if (!scanStatusMessage.value.includes('Error')) {
-    scanStatusMessage.value = 'Stop command sent. Waiting for confirmation...';
-  }
-  scanStatusType.value = 'info';
-  isScanning.value = false; // Optimistically set UI state; server message will confirm scanActiveOnServer = false
-};
-
-const sortedScanResults = computed(() => {
-  return [...scanResults.value].sort((a, b) => {
-    if (a.rssi < b.rssi) return 1;
-    if (a.rssi > b.rssi) return -1;
-    return (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '');
-  });
 });
+
+// 组件卸载时确保恢复 body 滚动
+onBeforeUnmount(() => {
+  document.body.style.overflow = '';
+  document.body.style.paddingRight = '';
+});
+
 
 const showAddBeaconModal = () => {
   if (!props.currentMapLayout) {
-    alert("A map is required to add beacons. Please go to the 'Map Editor' tab to define a map first.");
+    notificationService.warning("A map is required to add beacons. Please go to the 'Map Editor' tab to define a map first.");
     return;
   }
   beaconModalMode.value = 'add';
@@ -549,11 +253,46 @@ const hideBeaconModal = () => {
   showBeaconModal.value = false;
 };
 
+// 阻止模态框外部的滚动事件
+const preventBackgroundScroll = (e) => {
+  // 如果滚动发生在 .form-scrollable 内部，允许滚动但阻止冒泡
+  const target = e.target;
+  const scrollableElement = target.closest('.form-scrollable');
+  if (scrollableElement) {
+    // 允许内部滚动，但阻止事件冒泡到外部
+    e.stopPropagation();
+    return;
+  }
+  // 如果不在可滚动区域内，阻止所有滚动
+  e.preventDefault();
+  e.stopPropagation();
+};
+
 const saveBeacon = () => {
   console.log('[BeaconManagerTab - saveBeacon] Attempting to save beacon.');
   console.log('  Editing beacon data before save:', JSON.parse(JSON.stringify(editingBeacon.value)));
 
   const beaconDataToSave = JSON.parse(JSON.stringify(editingBeacon.value));
+
+  // 处理MAC地址：清理格式并自动补0
+  if (beaconDataToSave.macAddress) {
+    // 移除所有非十六进制字符
+    let cleanMac = beaconDataToSave.macAddress.replace(/[^0-9A-Fa-f]/g, '');
+    
+    // 如果长度不足12位，在末尾补0
+    if (cleanMac.length < 12) {
+      cleanMac = cleanMac.padEnd(12, '0');
+    }
+    
+    // 如果超过12位，截取前12位
+    if (cleanMac.length > 12) {
+      cleanMac = cleanMac.substring(0, 12);
+    }
+    
+    // 更新MAC地址
+    beaconDataToSave.macAddress = cleanMac.toLowerCase();
+    beaconDataToSave.deviceId = beaconDataToSave.macAddress;
+  }
 
   // Ensure UUID is consistently uppercase
   if (beaconDataToSave.uuid) {
@@ -561,23 +300,22 @@ const saveBeacon = () => {
   }
 
   if (!beaconDataToSave.displayName || !beaconDataToSave.uuid) {
-      alert("Display Name and UUID are required.");
+      notificationService.error("Display Name and UUID are required.");
       return;
   }
 
   if (beaconModalMode.value === 'add') {
     const alreadyExists = configuredBeacons.value.some(
-        b => b.uuid.toUpperCase() === beaconDataToSave.uuid.toUpperCase() &&
-             b.major === beaconDataToSave.major &&
-             b.minor === beaconDataToSave.minor &&
-             ((b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId) ||
-              (!b.deviceId && !beaconDataToSave.deviceId))
+        b => {
+          // 只基于物理MAC地址（deviceId）检测重复
+          // UUID、Major、Minor相同没关系，可能是同一厂商的多个设备
+          const deviceIdMatch = (b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId);
+          return deviceIdMatch;
+        }
     );
 
     if (alreadyExists) {
-        scanStatusMessage.value = "Error: A beacon with the same UUID, Major, Minor, and Device ID already exists.";
-        scanStatusType.value = 'error';
-        setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+        notificationService.error("Error: A beacon with the same Device ID (MAC address) already exists.");
         return; 
     }
 
@@ -590,38 +328,29 @@ const saveBeacon = () => {
     console.log('  Emitting beacons-updated with this list (length '+ configuredBeacons.value.length + ').');
     emit('beacons-updated', JSON.parse(JSON.stringify(configuredBeacons.value)));
         
-    scanStatusMessage.value = `Beacon '${beaconDataToSave.displayName}' added successfully. Use 'Place on Map' to position it.`;
-    scanStatusType.value = 'success';
-    hideBeaconModal(); 
-    setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+    hideBeaconModal();
 
   } else { 
     if (editingBeaconIndex.value > -1 && editingBeaconIndex.value < configuredBeacons.value.length) {
       const otherBeacons = configuredBeacons.value.filter((_, i) => i !== editingBeaconIndex.value);
       const alreadyExistsOnEdit = otherBeacons.some(
-        b => b.uuid.toUpperCase() === beaconDataToSave.uuid.toUpperCase() &&
-             b.major === beaconDataToSave.major &&
-             b.minor === beaconDataToSave.minor &&
-             ((b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId) ||
-              (!b.deviceId && !beaconDataToSave.deviceId))
+        b => {
+          // 只基于物理MAC地址（deviceId）检测重复
+          // UUID、Major、Minor相同没关系，可能是同一厂商的多个设备
+          const deviceIdMatch = (b.deviceId && beaconDataToSave.deviceId && b.deviceId === beaconDataToSave.deviceId);
+          return deviceIdMatch;
+        }
       );
       if (alreadyExistsOnEdit) {
-        scanStatusMessage.value = "Error: Editing this beacon would create a duplicate (same UUID, Major, Minor, Device ID) of another existing beacon.";
-        scanStatusType.value = 'error';
-        setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+        notificationService.error("Error: Editing this beacon would create a duplicate (same Device ID/MAC address) of another existing beacon.");
         return;
       }
       configuredBeacons.value.splice(editingBeaconIndex.value, 1, beaconDataToSave);
       console.log('  Configured beacons AFTER update:', JSON.parse(JSON.stringify(configuredBeacons.value)));
       console.log('  Emitting beacons-updated with this list (length '+ configuredBeacons.value.length + ').');
       emit('beacons-updated', JSON.parse(JSON.stringify(configuredBeacons.value)));
-      scanStatusMessage.value = `Beacon '${beaconDataToSave.displayName}' updated.`;
-      scanStatusType.value = 'success';
-      setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 3000);
     } else {
-      scanStatusMessage.value = "Error: Could not update beacon. Index out of bounds.";
-      scanStatusType.value = 'error';
-      setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
+      notificationService.error("Error: Could not update beacon. Index out of bounds.");
     }
     hideBeaconModal();
   }
@@ -634,79 +363,20 @@ const deleteBeacon = (index) => {
   }
 };
 
-const selectBeaconForPlacement = (beacon) => {
-  emit('beacon-selected-for-placement', JSON.parse(JSON.stringify(beacon)));
-  scanStatusMessage.value = `Beacon '${beacon.displayName || beacon.uuid}' selected. Click on the map in the 'Map Editor' tab to place it.`;
-  scanStatusType.value = 'info';
-};
-
-const isBeaconAlreadyConfigured = (scannedBeacon) => {
-  // console.log('[BeaconManagerTab] Checking if beacon is already configured. Scanned beacon ID:', scannedBeacon.id, 'UUID:', scannedBeacon.uuid);
-  const result = configuredBeacons.value.some(
-    b => {
-      const uuidMatch = b.uuid && scannedBeacon.uuid && b.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase();
-      const majorMatch = b.major === scannedBeacon.major;
-      const minorMatch = b.minor === scannedBeacon.minor;
-      const deviceIdMatch = (b.deviceId && scannedBeacon.id && b.deviceId === scannedBeacon.id);
-      
-      if (scannedBeacon.uuid && scannedBeacon.uuid !== 'N/A' && scannedBeacon.major !== 'N/A' && scannedBeacon.minor !== 'N/A') {
-        const configuredIsSimilarIBeacon = b.uuid && b.uuid.toUpperCase() === scannedBeacon.uuid.toUpperCase() &&
-                                       b.major === scannedBeacon.major &&
-                                       b.minor === scannedBeacon.minor;
-        if (configuredIsSimilarIBeacon) {
-            return true; 
-        }
-      }
-      return deviceIdMatch;
-    }
-  );
-  // console.log('[BeaconManagerTab] isBeaconAlreadyConfigured result for ID', scannedBeacon.id, ':', result);
-  return result;
-};
-
-const addScannedBeaconToForm = (scannedBeaconData) => {
-  // console.log('[BeaconManagerTab] addScannedBeaconToForm CALLED with:', JSON.parse(JSON.stringify(scannedBeaconData)));
-  // console.log('[BeaconManagerTab] Current isScanning state:', isScanning.value);
-
-  if (isBeaconAlreadyConfigured(scannedBeaconData)) {
-    // console.warn('[BeaconManagerTab] Add aborted: Beacon is considered already configured.', JSON.parse(JSON.stringify(scannedBeaconData)));
-    scanStatusMessage.value = `Beacon '${scannedBeaconData.displayName || scannedBeaconData.id}' is already configured or has identical key parameters.`;
-    scanStatusType.value = 'warn';
-    setTimeout(() => { scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
-    return;
-  }
-
-  // console.log('[BeaconManagerTab] Beacon not configured. Proceeding to populate form and show modal.');
-  editingBeacon.value = {
-    uuid: scannedBeaconData.uuid && scannedBeaconData.uuid !== 'N/A' ? scannedBeaconData.uuid.toUpperCase() : '',
-    major: scannedBeaconData.major, // Already a number or null from handleBeaconFound
-    minor: scannedBeaconData.minor, // Already a number or null from handleBeaconFound
-    x: 0, 
-    y: 0, 
-    txPower: scannedBeaconData.txPower, // Already a number (default or parsed) from handleBeaconFound
-    displayName: scannedBeaconData.displayName, // Already prepared by handleBeaconFound
-    macAddress: '', // MAC address is not consistently available from noble scan result's main properties for iBeacons
-    deviceId: scannedBeaconData.id 
-  };
-  editingBeaconIndex.value = -1;
-  beaconModalMode.value = 'add';
-  showBeaconModal.value = true;
-  scanStatusMessage.value = `Adding beacon '${editingBeacon.value.displayName}'. Please verify details and save.`;
-  scanStatusType.value = 'info';
-  setTimeout(() => { if(scanStatusMessage.value.startsWith('Adding beacon')) scanStatusMessage.value = ''; scanStatusType.value = 'info'; }, 5000);
-};
 
 const requestPlacementFromMapForEditingBeacon = () => {
   if (!props.currentMapLayout) {
-    alert("A map is required to place beacons. Please go to the 'Map Editor' tab to define a map first.");
+    notificationService.warning("A map is required to place beacons. Please go to the 'Map Editor' tab to define a map first.");
     return;
   }
+  // 隐藏模态框，让用户能看到地图
+  showBeaconModal.value = false;
   emit('beacon-selected-for-placement', { ...editingBeacon.value });
-  // Modal can remain open, parent handles tab switch.
 };
 
 const updateCoordinatesForBeaconInModal = (uuid, major, minor, newX, newY) => {
-  if (showBeaconModal.value && editingBeacon.value) {
+  // 检查是否有正在编辑的信标（即使模态框当前隐藏）
+  if (editingBeacon.value) {
     // Ensure major/minor are numbers for comparison, as they might come as strings from parent
     const numMajor = Number(major);
     const numMinor = Number(minor);
@@ -721,6 +391,9 @@ const updateCoordinatesForBeaconInModal = (uuid, major, minor, newX, newY) => {
       editingBeacon.value.x = parseFloat(numNewX.toFixed(2)); // Apply new X, rounded to 2 decimal places
       editingBeacon.value.y = parseFloat(numNewY.toFixed(2)); // Apply new Y, rounded to 2 decimal places
       console.log(`[BeaconManagerTab] Updated coordinates in modal for ${uuid}/${major}/${minor} to X:${editingBeacon.value.x}, Y:${editingBeacon.value.y}`);
+      
+      // 重新显示模态框，让用户看到更新后的坐标
+      showBeaconModal.value = true;
     } else {
       console.warn(
         '[BeaconManagerTab] Received coordinate update, but it does not match the currently editing beacon.',
@@ -729,9 +402,10 @@ const updateCoordinatesForBeaconInModal = (uuid, major, minor, newX, newY) => {
       );
     }
   } else {
-    console.warn('[BeaconManagerTab] Received coordinate update, but beacon modal is not open or no beacon is being edited.');
+    console.warn('[BeaconManagerTab] Received coordinate update, but no beacon is being edited.');
   }
 };
+
 
 defineExpose({
   updateCoordinatesForBeaconInModal
@@ -746,16 +420,15 @@ defineExpose({
 .actions-bar {
   margin-bottom: 1rem;
 }
-.scan-status {
+.scan-status.error { 
   margin: 0.5rem 0;
-  padding: 0.5rem;
-  border-radius: 4px;
+  padding: 0.75rem;
+  border-radius: 6px;
   font-size: 0.9em;
+  background-color: var(--sc-status-danger-bg); 
+  border: 1px solid var(--sc-status-danger-bg); 
+  color: var(--sc-status-danger-fg); 
 }
-.scan-status.info { background-color: #e7f3fe; border: 1px solid #d0eaff; color: #0c5460; }
-.scan-status.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-.scan-status.error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
-.scan-status.warn { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
 
 table {
   width: 100%;
@@ -763,49 +436,43 @@ table {
   margin-bottom: 1rem;
 }
 th, td {
-  border: 1px solid #ddd;
+  border: 1px solid var(--sc-color-border);
   padding: 8px;
   text-align: left;
 }
 th {
   background-color: #f2f2f2;
 }
-.scan-results-placeholder {
-  padding: 1rem;
-  text-align: center;
-  color: #666;
-  border: 1px dashed #ccc;
-  margin-top: 1rem;
-  background-color: #f9f9f9;
-}
-.scan-results {
-  margin-top: 1rem;
-  border: 1px solid #eee;
-  padding: 1rem;
-}
-.scan-results h4 {
-  margin-top: 0;
-}
-.scan-results ul {
-  list-style-type: none;
-  padding: 0;
-}
-.scan-result-item {
+.empty-state {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 0.75rem;
-  border-bottom: 1px solid #f0f0f0;
+  min-height: 200px;
+  border: 2px dashed var(--sc-color-border);
+  border-radius: 8px;
+  margin: 1rem 0;
 }
-.scan-result-item:last-child {
-  border-bottom: none;
+
+.empty-state-content {
+  text-align: center;
+  color: var(--sc-color-text-secondary);
 }
-.scan-result-item div {
-  font-size: 0.9em;
-  line-height: 1.4;
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
 }
-.scan-result-item strong {
-  font-size: 1em;
+
+.empty-state h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  color: var(--sc-color-text);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 /* Modal styles */
@@ -819,7 +486,9 @@ th {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 10000;
+  overflow: hidden;
+  touch-action: none;
 }
 .modal-content {
   background-color: white;
@@ -828,34 +497,74 @@ th {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   width: 90%;
   max-width: 500px;
+  height: 85vh;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .modal-content h4 {
   margin-top: 0;
   margin-bottom: 20px;
   font-size: 1.3em;
-  color: #333;
+  color: var(--sc-color-text);
+  flex-shrink: 0;
 }
-.modal-content form div {
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+.modal-content form > div:not(.modal-actions) {
   margin-bottom: 15px;
+  flex-shrink: 0;
+}
+.modal-content .form-scrollable {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  margin-right: -8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sc-color-text-tertiary) #f1f1f1;
+  touch-action: pan-y;
+}
+.modal-content .form-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-content .form-scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+.modal-content .form-scrollable::-webkit-scrollbar-thumb {
+  background: var(--sc-color-text-tertiary);
+  border-radius: 4px;
+}
+.modal-content .form-scrollable::-webkit-scrollbar-thumb:hover {
+  background: var(--sc-color-text-secondary);
 }
 .modal-content form label {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
-  color: #555;
+  color: var(--sc-color-text-secondary);
 }
 .modal-content form input[type="text"],
 .modal-content form input[type="number"] {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--sc-color-border);
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 0.95em;
 }
 .modal-content form input[type="text"]:focus,
 .modal-content form input[type="number"]:focus {
-  border-color: #007bff;
+  border-color: var(--sc-color-info);
   outline: none;
 }
 .modal-content form .coordinate-actions {
@@ -880,38 +589,82 @@ th {
 .modal-actions {
   margin-top: 25px;
   text-align: right;
+  flex-shrink: 0;
 }
 .modal-actions button {
   margin-left: 10px;
   padding: 10px 18px;
 }
 .modal-actions button[type="submit"] {
-  background-color: #007bff;
+  background-color: var(--sc-color-info);
   color: white;
   border: none;
 }
 .modal-actions button[type="submit"]:hover {
-  background-color: #0056b3;
+  background-color: var(--sc-color-info);
 }
 .modal-actions button[type="button"] {
   background-color: #f0f0f0;
-  color: #333;
-  border: 1px solid #ccc;
+  color: var(--sc-color-text);
+  border: 1px solid var(--sc-color-border);
 }
 .modal-actions button[type="button"]:hover {
-  background-color: #e0e0e0;
+  background-color: var(--sc-color-border);
 }
 
 .beacon-actions-container {
   display: flex;
-  gap: 5px;
-  align-items: center; /* Vertically align items if they have different heights */
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
 }
 
-.beacon-actions-container button {
-  padding: 6px 10px; /* Adjust padding for a more compact look if needed */
-  white-space: nowrap; /* Prevent text wrapping within buttons */
-  flex-shrink: 0; /* Prevent buttons from shrinking too much if space is tight */
+/* 统一的按钮样式 */
+.action-btn {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Primary按钮和Edit按钮样式 */
+.primary-btn, .edit-btn {
+  background: var(--sc-color-primary);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.primary-btn:hover:not(:disabled), .edit-btn:hover:not(:disabled) {
+  background: var(--sc-color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+/* Delete按钮样式 */
+.delete-btn {
+  background: var(--sc-color-text-secondary);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(74, 85, 104, 0.3);
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: var(--sc-color-text-secondary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(74, 85, 104, 0.4);
 }
 
 .form-row.coordinate-pair {
@@ -932,4 +685,24 @@ th {
 .form-group-inline input[type="number"] {
   width: 100%; /* Make inputs take full width of their flex container */
 }
+
+.map-required-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  color: #856404;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.map-required-hint i {
+  color: var(--sc-color-warning);
+  font-size: 1rem;
+}
+
 </style> 

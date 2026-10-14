@@ -1,0 +1,1 @@
+{"success":true,"message":"围栏创建成功","data":{"id":1,"name":"评测围栏-方形厂区","geometry":{"type":"Polygon","coordinates":[[[113.942,22.535],[113.944,22.535],[113.944,22.537],[113.942,22.537],[113.942,22.535]]]},"radius_m":null,"crs":"wgs84","enabled":true,"created_at":"2026-09-05T12:29:22.692371"}}

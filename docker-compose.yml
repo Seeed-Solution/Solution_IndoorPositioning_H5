@@ -1,0 +1,15 @@
+# 单机部署。离线底图归档挂载为只读, 生成方式见 docs/PMTILES.md。
+services:
+  indoor-positioning:
+    image: seeedcloud/sensecraft-indoor-positioning:latest
+    container_name: indoor-positioning
+    restart: unless-stopped
+    ports:
+      - "5173:5173"   # nginx (前端 + /api /ws /uploads 反代)
+      - "8022:8022"   # FastAPI
+    volumes:
+      - ./server/config/json:/app/server/config/json
+      - ./db:/app/db
+      - ./uploads:/app/uploads
+      # 离线 PMTiles 底图: 只读, 通过 /uploads/pmtiles/<name>.pmtiles 访问。
+      - ./data/pmtiles:/app/uploads/pmtiles:ro

@@ -1,0 +1,102 @@
+[
+  {
+    "case": "corners_rot0",
+    "origin_lat": 22.5231,
+    "rotation_deg": 0.0,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 3.957657601376773e-10,
+    "vs_geodesic_max_m": 5.018806177758961e-05
+  },
+  {
+    "case": "corners_rot90",
+    "origin_lat": 22.5231,
+    "rotation_deg": 90.0,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 6.181766983706945e-10,
+    "vs_geodesic_max_m": 3.949898646737893e-05
+  },
+  {
+    "case": "corners_rot_minus90",
+    "origin_lat": 22.5231,
+    "rotation_deg": -90.0,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 6.181766983706945e-10,
+    "vs_geodesic_max_m": 3.9503761314563235e-05
+  },
+  {
+    "case": "corners_rot180",
+    "origin_lat": 22.5231,
+    "rotation_deg": 180.0,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 3.957585423946342e-10,
+    "vs_geodesic_max_m": 5.018097633069374e-05
+  },
+  {
+    "case": "corners_rot17_5_scaled",
+    "origin_lat": 22.5231,
+    "rotation_deg": 17.5,
+    "scale": 1.0234,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 6.912174753462015e-10,
+    "vs_geodesic_max_m": 4.369333677800569e-05
+  },
+  {
+    "case": "nonzero_bounds",
+    "origin_lat": 22.5231,
+    "rotation_deg": 33.0,
+    "scale": 0.87,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 7.511026639652237e-10,
+    "vs_geodesic_max_m": 8.85386168292257e-06
+  },
+  {
+    "case": "southern_western",
+    "origin_lat": -33.8688,
+    "rotation_deg": -12.25,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 6.251159688901382e-10,
+    "vs_geodesic_max_m": 6.509501990592526e-05
+  },
+  {
+    "case": "equator",
+    "origin_lat": 0.0,
+    "rotation_deg": 45.0,
+    "scale": 2.0,
+    "points": 5,
+    "cross_impl_max_deg": 2.710505431213761e-20,
+    "roundtrip_max_m": 3.552713678800501e-15,
+    "vs_geodesic_max_m": 1.6089956034193165e-08
+  },
+  {
+    "case": "high_lat_60",
+    "origin_lat": 60.0,
+    "rotation_deg": 7.0,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 3.777260749781665e-10,
+    "vs_geodesic_max_m": 0.00021076132250641422
+  },
+  {
+    "case": "radius_2km",
+    "origin_lat": 22.5231,
+    "rotation_deg": 0.0,
+    "scale": 1.0,
+    "points": 5,
+    "cross_impl_max_deg": 0.0,
+    "roundtrip_max_m": 7.306498368922773e-10,
+    "vs_geodesic_max_m": 0.04516749689150856
+  }
+]

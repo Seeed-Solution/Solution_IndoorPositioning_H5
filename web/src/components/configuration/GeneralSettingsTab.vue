@@ -1,16 +1,31 @@
 <template>
   <div class="general-settings-tab">
-    <h3>General Settings</h3>
-    <form @submit.prevent="saveSettings">
-      <div>
-        <label for="signalFactor">Signal Propagation Factor (n):</label>
+    <h3><i class="fas fa-cog"></i> {{ t('config.generalSettings.title') }}</h3>
+    
+    <!-- 只读模式 - 只显示设置值 -->
+    <div v-if="readOnly" class="settings-display">
+      <div class="setting-item">
+        <label>{{ t('config.generalSettings.signalPropagationFactor') }}</label>
+        <span class="setting-value">{{ editableSettings.signalPropagationFactor }}</span>
+        <p class="info">{{ t('config.generalSettings.signalPropagationFactorInfo') }}</p>
+      </div>
+    </div>
+    
+    <!-- 编辑模式 - 显示表单和按钮 -->
+    <form v-else @submit.prevent="saveSettings">
+      <div class="setting-item">
+        <label for="signalFactor">{{ t('config.generalSettings.signalPropagationFactor') }}</label>
         <input type="number" id="signalFactor" v-model.number="editableSettings.signalPropagationFactor" step="0.01" min="1" max="6" required />
-        <p class="info">This value affects RSSI to distance conversion. Common range: Free space approx. 2.0, indoor environments may range from 1.8 to 4.0.</p>
+        <p class="info">{{ t('config.generalSettings.signalPropagationFactorInfo') }}</p>
       </div>
       <!-- More general settings can be added here -->
       <div class="form-actions">
-        <button type="submit" class="button-primary">Apply & Update Settings</button>
-        <button type="button" @click="resetToOriginals" class="button-light-blue">Reset to Initially Loaded Values</button>
+<!--        <button type="submit" class="action-btn primary-btn">-->
+<!--          <i class="fas fa-check"></i> {{ t('config.generalSettings.applySettings') }}-->
+<!--        </button>-->
+        <button type="button" @click="resetToOriginals" class="action-btn secondary-btn">
+          <i class="fas fa-undo"></i> {{ t('config.generalSettings.resetSettings') }}
+        </button>
       </div>
     </form>
   </div>
@@ -18,11 +33,19 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { notificationService } from '@/services/notificationService.js';
+
+const { t } = useI18n();
 
 const props = defineProps({
   initialSettings: {
     type: Object,
     default: () => ({ signalPropagationFactor: 2.5 }) // Default structure
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -56,51 +79,139 @@ const saveSettings = () => {
   if (editableSettings.value.signalPropagationFactor === null || 
       editableSettings.value.signalPropagationFactor < 1 || 
       editableSettings.value.signalPropagationFactor > 6) {
-    alert("Signal Propagation Factor must be between 1.0 and 6.0.");
+    notificationService.error(t('config.generalSettings.validationError'));
     return;
   }
   // Emit the updated settings object (a deep copy)
   emit('settings-updated', JSON.parse(JSON.stringify(editableSettings.value)));
-  alert('Settings have been updated and the main configuration has been notified. Actual saving to the server is handled in the main configuration.');
+  notificationService.success(t('config.generalSettings.settingsUpdated'));
 };
 
 const resetToOriginals = () => {
-    // Reload from the prop, effectively resetting any local changes
-    loadSettings(props.initialSettings);
-    alert("Settings have been reset to their initially loaded values.");
+    // Reset to default value 2.5 instead of props value
+    editableSettings.value = { signalPropagationFactor: 2.5 };
+    notificationService.success(t('config.generalSettings.settingsReset'));
 }
 
+// Get current settings (for parent component to read latest values)
+const getCurrentSettings = () => {
+  return JSON.parse(JSON.stringify(editableSettings.value));
+};
+
 // Expose method to parent component
-defineExpose({ loadSettings });
+defineExpose({ loadSettings, getCurrentSettings });
 
 </script>
 
 <style scoped>
-.general-settings-tab div:not(.form-actions) {
-  margin-bottom: 1rem;
+.general-settings-tab {
+  padding: 1rem;
 }
+
+.general-settings-tab h3 {
+  margin-bottom: 1.5rem;
+  color: var(--primary-color-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-display {
+  background: var(--sc-color-bg-layout);
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid var(--sc-color-border);
+}
+
+.setting-item {
+  margin-bottom: 1.5rem;
+}
+
+.setting-item:last-child {
+  margin-bottom: 0;
+}
+
 .general-settings-tab label {
-  font-weight: bold;
+  font-weight: 600;
   display: block;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.5rem;
+  color: var(--secondary-color);
 }
+
+.setting-value {
+  display: inline-block;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--primary-color-dark);
+  background: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--sc-color-border);
+  min-width: 60px;
+}
+
 .general-settings-tab input[type="number"] {
-  padding: 8px;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   width: 120px;
   box-sizing: border-box;
+  font-size: 1rem;
+}
+
+.general-settings-tab input[type="number"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .form-actions {
   display: flex;
   gap: 0.75rem;
-  margin-top: 1.25rem;
+  margin-top: 2rem;
+}
+
+/* 按钮样式 */
+.action-btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.primary-btn {
+  background: var(--sc-color-primary);
+  color: white;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.primary-btn:hover {
+  background: var(--sc-color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.secondary-btn {
+  background: var(--sc-color-bg-layout);
+  color: var(--sc-color-text);
+  border: 1px solid var(--sc-color-border);
+}
+
+.secondary-btn:hover {
+  background: var(--sc-color-border);
+  border-color: var(--sc-color-text-tertiary);
 }
 
 .info {
   font-size: 0.85em;
-  color: #555;
+  color: var(--sc-color-text-secondary);
   margin-top: 0.5rem;
+  line-height: 1.4;
 }
 </style> 

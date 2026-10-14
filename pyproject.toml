@@ -3,13 +3,33 @@ name = "beacon-posistion-r1000"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
+    "cachetools>=6.1.0",
     "fastapi>=0.115.12",
     "paho-mqtt>=2.1.0",
     "pydantic>=2.11.3",
     "python-multipart>=0.0.20",
     "scipy>=1.15.2",
+    "sqlalchemy>=2.0.42",
     "uvicorn[standard]>=0.34.2",
     "websockets>=15.0.1",
+    "numpy>=2.2.5",
+    "requests>=2.34.2",
+    "httpx>=0.28.1",
+    "shapely>=2.1.2",
 ]
+
+[tool.setuptools.packages.find]
+include = ["server"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["server/tests"]
+asyncio_mode = "auto"

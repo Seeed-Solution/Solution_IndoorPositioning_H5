@@ -1,179 +1,183 @@
-# Beacon Positioning System
+# Seeed Indoor & Outdoor Positioning System (BLE & LoRaWAN)
 
-This system tracks devices using BLE beacon signals, visualizing their positions on a web-based map. It supports iBeacon-compatible devices and SenseCAP T1000 trackers. It offers two main modes:
-1.  **Tracker Mode:** Server-side positioning of multiple dedicated tracker devices via MQTT.
-2.  **Personal Mode:** Local device positioning on a user's machine using a dedicated local Bluetooth scanning service.
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![Vue 3](https://img.shields.io/badge/frontend-Vue%203%20%2B%20Vite-4FC08D.svg)](https://vuejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## Core Components
+An enterprise-ready indoor and outdoor asset tracking and visualization platform. The system ingests BLE beacon signals and GNSS telemetry from Seeed SenseCAP T1000 trackers and BLE gateways over MQTT/LoRaWAN, performs multilateration with Kalman filter smoothing, supports affine georeferencing between 2D floor plans and WGS84 geographic maps, and renders live positions on an interactive, responsive web dashboard.
 
-1.  **Backend Server (`server/`):** Python (FastAPI). Handles MQTT, calculates tracker positions, manages state, and serves the API/WebSockets for Tracker Mode.
-2.  **Web Frontend (`web/`):** Vue 3 (Vite). Provides the UI for configuration, map display, and visualization for both modes.
-3.  **Local Beacon Service (`local-beacon-service/`):** Node.js. Runs on the user's machine, scans local BLE beacons, and sends data to the Web Frontend via WebSocket for Personal Mode.
+---
 
-## Key Features
-
-*   Real-time tracking (Tracker Mode) & local device positioning (Personal Mode).
-*   Web UI for map/beacon configuration and live visualization.
-*   Trilateration with Kalman filter smoothing.
-*   MQTT integration for Tracker Mode.
-*   WebSocket communication for live data.
-
-## Architecture
+## 📐 System Architecture
 
 ```
-Web UI (Vue 3) <--- WebSocket (Tracker Mode) --- Backend Server (FastAPI) --- MQTT --- Tracker Devices
-   ^                                                  |
-   |                                                  | (Serves Web UI files)
-   +--- WebSocket (Personal Mode, to localhost:8081) -- Local Beacon Service (Node.js on User Machine)
+                                    +-----------------------------------+
+                                    | SenseCAP T1000 Tracker / Gateways |
+                                    +-----------------------------------+
+                                                      |
+                                             (LoRaWAN / MQTT)
+                                                      v
+                                        +----------------------------+
+                                        | MQTT Broker (EMQX/Mosquitto)|
+                                        +----------------------------+
+                                                      |
+                                                      v
++-------------------+      Reverse Proxy        +----------------------------+
+|                   | <-----------------------> | Nginx Reverse Proxy        |
+|  Web Frontend     |      HTTP / WebSocket     | - Port 5173 (Web/Proxy)    |
+|  - Vue 3 + Vite   |                           +----------------------------+
+|  - SenseCraft UI  |                                     |
+|  - Leaflet Map    |                                     | /api, /ws, /uploads
+|  - Canvas 2D Floor|                                     v
+|  - Display Mode   |                           +----------------------------+
+|                   | <-----------------------> | Backend Server (FastAPI)   |
++-------------------+      WebSocket / REST     | - Multilateration Engine   |
+                                                | - Kalman 2D Filter         |
+                                                | - Affine Geo-Registration  |
+                                                | - Geofence Alert Engine    |
+                                                | - SQLite / SQLAlchemy      |
+                                                +----------------------------+
 ```
 
-## User Guide & Simplified Startup
+---
 
-This guide helps you get the system running, especially using the provided start script for a streamlined experience. For "Personal Mode" (tracking your own device), you will also need to run the Local Beacon Service.
+## 🚀 Key Features
 
-**Prerequisites:**
+1. **Hybrid Indoor & Outdoor Positioning**:
+   - **Indoor**: RSSI-based multilateration with 2D Kalman filter smoothing for iBeacon and SenseCAP BLE tags.
+   - **Outdoor**: WGS84 GNSS coordinates ingestion from SenseCAP T1000 trackers over LoRaWAN.
+   - **Affine Map Registration**: Bilateral coordinate transform (`server/geo/affine.py` & `web/src/utils/affine.js`) aligning indoor metric floor plans with geographic coordinates on Leaflet.
+2. **Interactive Web Dashboard & Display Mode**:
+   - Modern, high-contrast interface built on **SenseCraft UI Kit** design tokens.
+   - **Presentation Mode** (`/map?mode=display`): Fullscreen responsive view with automatic `fit-all` camera framing, screen wake lock (`navigator.wakeLock`), and automatic idle return.
+   - Leaflet outdoor view with online map tiles or offline **PMTiles** support (`docs/PMTILES.md`).
+3. **Geofencing & Alerts**:
+   - Multi-polygon geofences with hysteresis entry/exit detection.
+   - Configurable alert rules with WebSocket notifications.
+4. **Device & Group Management**:
+   - EUI whitelist, grouping, beacon deployment calibration (TxPower, path loss exponent), and data export/import.
 
-*   **Node.js:** LTS version (e.g., 18.x, 20.x). Download from [nodejs.org](https://nodejs.org/). (Needed for the web frontend and Local Beacon Service)
-*   **Python:** 3.10+. Download from [python.org](https://www.python.org/).
-*   **uv:** A fast Python package installer. Installation: `curl -LsSf https://astral.sh/uv/install.sh | sh` or see [uv documentation](https://github.com/astral-sh/uv#installation).
-*   **Bluetooth Adapter:** On your computer (for Personal Mode).
+---
 
-**1. One-Click Start (`start.sh` - Recommended for most users):**
+## 🛠️ Quick Start
 
-   The `start.sh` script (located in the project root) is designed to automate the setup and startup of the Backend Server and Web Frontend.
+### Option 1: Docker Compose (Recommended)
 
-   ```bash
-   # Navigate to the project root directory
-   cd /path/to/beacon_posistion_r1000
-
-   # Make the script executable (if needed)
-   chmod +x start.sh
-
-   # Run the script
-   ./start.sh
-   ```
-   This script typically:
-   *   Sets up a Python virtual environment and installs dependencies using `uv` or `pip`.
-   *   Starts the backend server (e.g., `uvicorn server.main:app`).
-   *   Installs frontend dependencies (`npm install`) and starts the frontend development server (`npm run dev`).
-   *   May attempt to open a browser to the web application.
-   *   Press `Ctrl+C` in the terminal where `start.sh` is running to stop all services managed by it.
-
-**2. Run the Local Beacon Service (Required for Personal Mode):**
-
-   This service uses your computer's Bluetooth. It needs to be run separately if you intend to use Personal Mode.
-
-   ```bash
-   # Navigate to the local-beacon-service directory
-   cd /path/to/beacon_posistion_r1000/local-beacon-service
-
-   # Run the start script (installs dependencies if needed)
-   # On Linux/macOS:
-   chmod +x start_service.sh
-   ./start_service.sh
-   # On Windows (using Git Bash):
-   # ./start_service.sh
-   # For native Windows CMD/PowerShell (follow script instructions or):
-   # npm install # Run once
-   # node service.js
-   ```
-   The service will be available at `ws://localhost:8081`.
-
-**3. Using the Web Application:**
-
-   *   Access the main web application (this might be hosted, or run locally by a developer).
-   *   **Map & Beacon Configuration:**
-         *   Create/Import a map and beacon setup (JSON). Define map, place beacons, ensure MAC addresses & TxPower are correct. Export this "master configuration" JSON.
-   *   **Personal Mode Configuration:**
-         *   Import the master configuration JSON.
-         *   Ensure the Local Beacon Service (Step 2) is running.
-         *   Click "Start Local Positioning". Your device's position should appear on the map.
-   *   **Tracker Mode Configuration (for locating tracker devices):**
-         *   Import a master configuration JSON (updates the central server).
-         *   Configure server/MQTT settings if necessary. Trackers will appear on the map if publishing data.
-
-## Developer Guide
-
-This guide is for setting up the development environment.
-
-**Prerequisites:**
-
-*   **Node.js:** LTS version (e.g., 18.x, 20.x).
-*   **npm:** (Included with Node.js).
-*   **Python:** 3.10+
-*   **uv (Recommended) or pip:** For Python packages.
-
-**1. Backend Server Setup (`server/`):**
-
-   ```bash
-   cd /path/to/beacon_posistion_r1000
-   python -m venv .venv
-   source .venv/bin/activate # On Linux/macOS. For Windows: .venv\Scripts\activate
-   uv pip install -r server/requirements.txt # Or: pip install -r server/requirements.txt
-   ```
-
-**2. Web Frontend Setup (`web/`):**
+Run the entire system in isolated containers:
 
 ```bash
-cd /path/to/beacon_posistion_r1000/web
+# Clone the repository
+git clone git@iteam-gitlab.seeed.cn:saas/solution-indoor-positioning.git
+cd solution-indoor-positioning
+
+# Start via docker-compose
+docker compose up -d
+```
+
+- **Web Dashboard**: `http://localhost:5173`
+- **Backend API**: `http://localhost:8022/docs`
+- **Default Admin Account**:
+  - Username: `admin`
+  - Password: `12345678`
+
+To run with local source mounting:
+```bash
+./run_in_docker.sh
+```
+
+---
+
+### Option 2: Local Development Setup
+
+#### Prerequisites
+- **Python**: 3.10+ (Python 3.12 recommended, managed via `uv`)
+- **Node.js**: 18.x or 20.x LTS
+- **uv**: Fast Python package manager (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+
+#### 1. Backend Server Setup
+
+```bash
+cd solution-indoor-positioning
+
+# Install Python dependencies with uv
+uv sync
+
+# Run backend development server
+uv run uvicorn server.main:app --host 0.0.0.0 --port 8022
+```
+
+The backend API documentation will be accessible at `http://127.0.0.1:8022/docs`.
+
+#### 2. Frontend Web Setup
+
+```bash
+cd web
+
+# Install dependencies
 npm install
+
+# Start Vite development server
+npm run dev
 ```
 
-**3. Local Beacon Service Setup (`local-beacon-service/`):**
+The frontend development server will launch at `http://localhost:5173` with proxy pre-configured to `http://127.0.0.1:8022`.
+
+#### 3. (Optional) Local Beacon Service for Personal Mode
+
+If testing client-side BLE scanning directly from the host machine:
 
 ```bash
-cd /path/to/beacon_posistion_r1000/local-beacon-service
+cd local-beacon-service
 npm install
+./start_service.sh
 ```
+The local scanning service will listen on `ws://localhost:8081`.
 
-**4. Configuration Files (Backend - Tracker Mode):**
+---
 
-Located in `server/`:
-*   `web_config.json`: Map/beacon layout for server-side positioning. Updated via UI import in "Tracker Mode".
-*   `server_runtime_config.json`: MQTT, server port, Kalman parameters. Managed via UI or manual edit.
+## 🧪 Testing & Verification
 
-**5. Running the System (Development):**
+The project includes automated regression test suites for both backend and frontend components.
 
-Run each component in a separate terminal.
-
-**a. Backend Server (Recommended: `uv run`):**
+### Backend Tests (pytest)
+Runs 128 unit and integration tests covering affine transforms, geofence hysteresis, MQTT payload decoding, and map registration:
 
 ```bash
-# In project root. Assumes 'uv' is installed and Python environment is set up
-# (e.g., by running start.sh once, or by manual venv activation).
-# Replace <port> with port from server_runtime_config.json (e.g., 8022, 8000).
-# 'uv run' will manage the execution within the project's environment.
-uv run uvicorn server.main:app --host 0.0.0.0 --port <port>
-# Note: Avoid Uvicorn's --reload for stable MQTT/WebSocket. Restart manually if needed.
+uv run pytest server/tests/
 ```
 
-**b. Frontend Development Server:**
-   ```bash
-   cd web
-   npm run dev 
-   # Access at http://localhost:5173 (or as shown by Vite)
-   ```
+### Frontend Tests (vitest)
+Runs 174 component and logic tests covering coordinate mapping, camera framing, display mode, URL state synchronization, and UI tokens:
 
-**c. Local Beacon Service (for testing Personal Mode):**
-   ```bash
-   cd local-beacon-service
-   node service.js # Or ./start_service.sh
-   ```
+```bash
+cd web
+npm test
+```
 
-**d. Initial Setup via Web UI (Development):**
-   *   Open the Web Frontend (e.g., `http://localhost:5173`).
-   *   **Tracker Mode Configuration**: Configure server runtime settings, import map/beacon JSON.
-   *   **Map & Beacon Configuration**: Create/edit/export master JSON configurations.
-   *   **Personal Mode Configuration**: Import master JSON, start local positioning (ensure local service is running).
+### Frontend Production Build
+```bash
+cd web
+npm run build
+```
 
-## Key Files & Logic (for Developers)
+---
 
-*   **MQTT Parsing:** `server/main.py` (`parse_sensecap_payload`)
-*   **Positioning:** `server/positioning.py`
-*   **Kalman Filter:** `server/positioning.py` (`KalmanFilter2D`)
-*   **Config Management:** `server/config_manager.py`
-*   **WebSockets (Tracker Mode):** `server/main.py`
-*   **Local Beacon Scanning (Personal Mode):** `local-beacon-service/service.js`
-*   **UI Views:** `web/src/views/` (MasterConfigView, PersonalModeConfigView, TrackerModeConfigView)
-*   **Map Component:** `web/src/components/MapView.vue`
+## ⚙️ Configuration & Ports
 
+| Service | Port | Description |
+|---|---|---|
+| Web UI / Nginx | `5173` (or `8080` in production) | Frontend app + `/api` and `/ws` reverse proxy |
+| FastAPI Backend | `8022` | REST API, WebSocket server, MQTT handler |
+| Local Beacon Service | `8081` | Node.js local BLE scanner (personal mode) |
+
+Key configuration files:
+- `server/config/server_runtime_config.json`: Server port, MQTT broker credentials, Kalman parameters.
+- `server/config/dashboard_config.json`: Floor maps, beacon anchors, and geofence definitions.
+- `db/positioning.db`: SQLite database for users, groups, devices, and event history.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

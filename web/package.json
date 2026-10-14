@@ -5,16 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "dev:local": "vite --host",
+    "dev:remote": "VITE_USE_REMOTE=true vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:local": "VITE_LOCAL_CONTAINER=true vite build",
+    "build:remote": "VITE_LOCAL_CONTAINER=false vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "axios": "^1.8.4",
+    "leaflet": "1.9.4",
+    "leaflet-distortableimage": "0.21.9",
+    "protomaps-leaflet": "5.1.0",
     "vue": "^3.5.13",
+    "vue-i18n": "^9.14.5",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@vitejs/plugin-vue": "^5.2.2",
-    "vite": "^6.3.1"
+    "vite": "^6.3.1",
+    "vitest": "^2.1.9"
   }
 }
